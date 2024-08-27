@@ -77,5 +77,4 @@ dkms.conf
 # End of https://www.toptal.com/developers/gitignore/api/c,visualstudiocode
 
 *.nes
-raylib-5.0_win64_mingw-w64/
 *.log
