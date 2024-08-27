@@ -4,3 +4,8 @@
 - https://www.nesdev.org/wiki/Programming_guide
 - https://www.nesdev.org/obelisk-6502-guide/
 - https://skilldrick.github.io/easy6502/
+
+## Dependencies
+- [RayLib]
+
+[RayLib]: <https://github.com/raysan5/raylib>

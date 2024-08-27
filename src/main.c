@@ -203,9 +203,9 @@ void loadRomFromMem(nes_t *nes, const char *fileName){
     {
         if(strcmp(fileName, resources[i].file_path) == 0){
             nes->romSize = resources[i].size;
-            #ifdef KXD_DEBUG
-            VARLOG(nes->romSize, "%zu bytes");
-            #endif
+#ifdef KXD_DEBUG
+            LOG("File: '%s' (%zu bytes)", fileName, nes->romSize);
+#endif
             nes->rom = callocWrapper(nes->romSize, 1);
             memcpy(nes->rom, &bundle[resources[i].offset], nes->romSize);
             assert(nes->rom[0] == 'N' && nes->rom[1] == 'E' && nes->rom[2] == 'S');
