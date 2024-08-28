@@ -34,6 +34,14 @@ typedef enum {
     INS_LDY_ZX = 0xB4,   // LDY Zero Page, X
     INS_LDY_A  = 0xAC,   // LDY Absolute
     INS_LDY_AX = 0xBC,   // LDY Absolute, X
+
+    // JSR - Jump to Subroutine
+    INS_JSR = 0x20,
+
+    // JMP Instructions
+    INS_JMP_A = 0x4C,   // JMP Absolute
+    INS_JMP_I = 0x6C,   // JMP Indirect
+
 } KxD_Instructions;
 
 #define LDA_FLAGS                                                                                 \

@@ -3,31 +3,37 @@
 
 #include "InsFlags.h"
 #include <assert.h>
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 #include <raylib.h>
 
 #include "../bundle.h"
 
-#define KXD_DEBUG
+// #define KXD_DEBUG
 
 // resolution 256 x 224
 #define PX_SZ 2
 #define NESW 256
 #define NESH 224
 
-#define KXDBG                                                                                     \
+#define KXDBG                                                                                                                              \
     CLITERAL(Color) { 0x38, 0x38, 0x38, 0xFF }
 
-#define LOG(...) TraceLog(LOG_INFO, __VA_ARGS__)
+#define LOG_INFO(...) TraceLog(LOG_INFO, __VA_ARGS__)
+#define LOG_ERR(...) TraceLog(LOG_ERROR, __VA_ARGS__)
 #define VARLOG(v, fmt) TraceLog(LOG_INFO, "%s: " fmt, #v, v)
 
+// index = y * N + x
+#define XY2Index(x, y, w) ((y * w) + x)
+
 #define MEMSIZE 2048
+
+#define CHECK_ROM_HEADER(rom) assert(rom[0] == 'N' && rom[1] == 'E' && rom[2] == 'S')
 
 typedef struct {
     uint16_t PC;
@@ -69,7 +75,7 @@ typedef struct {
 
 void *callocWrapper(size_t n, size_t sz);
 void processInstruction(cpu_t *cpu);
-void memDmp(uint8_t *mem, size_t memSize);
+void memDmp(cpu_t *cpu, size_t memSize);
 void addToMem(uint8_t *mem, size_t loc, uint64_t value);
 void addMultipleToMem(uint8_t *mem, size_t loc, uint8_t *values, size_t valuesSize);
 void loadRom(nes_t *nes, const char *fileName);
