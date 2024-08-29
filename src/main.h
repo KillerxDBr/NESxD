@@ -31,7 +31,7 @@
 // index = y * N + x
 #define XY2Index(x, y, w) ((y * w) + x)
 
-#define MEMSIZE 2048
+#define MEMSIZE 2048ULL
 
 #define CHECK_ROM_HEADER(rom) assert(rom[0] == 'N' && rom[1] == 'E' && rom[2] == 'S')
 

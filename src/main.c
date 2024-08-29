@@ -26,14 +26,17 @@ int main(void) {
 #endif
     memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
-    uint8_t instructions[] = { INS_LDA_INX, 0x34, INS_BRK };
-    addToMem(app->nes.cpu.mem, 0x34, 0x0115);
+    uint8_t instructions[] = { INS_LDA_INX, 0x34, INS_LDA_INY, 0x56, INS_BRK };
+    addToMem(app->nes.cpu.mem, 0x36, 0x0115);
+    addToMem(app->nes.cpu.mem, 0x56, 0x0619);
     // uint8_t instructions[] = { INS_LDX_IM, 0xEA, 0x8E, 0xD0, 0x07, 0xA0, 0x03, 0xB1, 0x06 };
     // uint8_t instructions[] = { 0x20, 0xCD, 0x07 };
     addMultipleToMem(app->nes.cpu.mem, 0, instructions, sizeof(instructions));
 
+    app->nes.cpu.X = 0x2;
     app->nes.cpu.Y = 0x1;
-    addToMem(app->nes.cpu.mem, 0x0116, 0xAE);
+    addToMem(app->nes.cpu.mem, 0x0115, 0xEF);
+    addToMem(app->nes.cpu.mem, 0x061A, 0xFE);
 
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
@@ -88,76 +91,78 @@ void processInstruction(cpu_t *cpu) {
         cpu->PC++;
         LOG_INFO("BRK");
         break;
-        
+
     case INS_NOP:
 #ifdef KXD_DEBUG
         LOG_INFO("NOP");
 #endif
         cpu->PC++;
         break;
-        
+
     case INS_CLC:
         cpu->C = false;
         cpu->PC++;
         break;
-        
+
     case INS_SEC:
         cpu->C = true;
         cpu->PC++;
         break;
-        
+
     case INS_LDA_IM: // Immediate mode, Load the next byte to A
         cpu->A = cpu->mem[++cpu->PC];
         LDA_FLAGS;
         cpu->PC++;
         break;
-        
+
     case INS_LDA_Z: // Zero Page Mode, Use next byte as Index to load byte in A
         cpu->A = cpu->mem[cpu->mem[++cpu->PC]];
         LDA_FLAGS;
         cpu->PC++;
         break;
-        
+
     case INS_LDA_ZX:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + cpu->X];
         LDA_FLAGS;
         cpu->PC++;
         break;
-        
+
     case INS_LDA_A:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
         LDA_FLAGS;
         cpu->PC++;
         break;
-        
+
     case INS_LDA_AX:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X];
         LDA_FLAGS;
         cpu->PC++;
         break;
-        
+
     case INS_LDA_AY:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->Y];
         LDA_FLAGS;
         cpu->PC++;
         break;
-        
+
     case INS_LDA_INX:
-        value16 = cpu->mem[++cpu->PC];
-        VARLOG(value16, "0x%X");
-        // exit(0);
-        // assert(0 && "Not Implemented");
+        value8 = cpu->mem[++cpu->PC] + cpu->X;
+        // VARLOG(value8, "0x%02X");
+        value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8);
+        // VARLOG(value16, "0x%04X");
+        cpu->A = cpu->mem[value16];
+        // VARLOG(cpu->A, "0x%02X");
         LDA_FLAGS;
         cpu->PC++;
         break;
-        
+
     case INS_LDA_INY:
         cpu->A = cpu->mem[cpu->mem[cpu->mem[++cpu->PC]] + (cpu->mem[cpu->mem[cpu->PC] + 1] << 8) + cpu->Y];
-        VARLOG(cpu->A, "0x%02X");
+        // VARLOG(cpu->A, "0x%02X");
         LDA_FLAGS;
         cpu->PC++;
         break;
-        
+
     case INS_LDX_IM:
         cpu->X = cpu->mem[++cpu->PC];
         LDX_FLAGS;
