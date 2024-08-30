@@ -14,7 +14,9 @@
 
 #include "../bundle.h"
 
-// #define KXD_DEBUG
+#define KXD_DEBUG
+#define NOPPU
+#define NOVID
 
 // resolution 256 x 224
 #define PX_SZ 2
@@ -28,12 +30,18 @@
 #define LOG_ERR(...) TraceLog(LOG_ERROR, __VA_ARGS__)
 #define VARLOG(v, fmt) TraceLog(LOG_INFO, "%s: " fmt, #v, v)
 
+#define HEX8 "0x%02X"
+#define HEX16 "0x%04X"
+
+// #define BIN8 "0b%08B"
+// #define BIN16 "0b%016B"
+
 // index = y * N + x
 #define XY2Index(x, y, w) ((y * w) + x)
 
 #define MEMSIZE 2048ULL
 
-#define CHECK_ROM_HEADER(rom) assert(rom[0] == 'N' && rom[1] == 'E' && rom[2] == 'S')
+#define CHECK_ROM_HEADER(rom) assert(rom[0] == 'N' && rom[1] == 'E' && rom[2] == 'S' && rom[3] == 0x1A)
 
 typedef struct {
     uint16_t PC;
@@ -56,15 +64,23 @@ typedef struct {
     uint8_t mem[MEMSIZE];
 } cpu_t;
 
+#ifndef NOPPU
 typedef struct {
     uint8_t mem[MEMSIZE];
 } ppu_t;
-
+#endif
 typedef struct {
     cpu_t cpu;
+#ifndef NOPPU
     ppu_t ppu;
+#endif
     uint8_t *rom;
     size_t romSize;
+    bool nes2format;
+    uint8_t *PRG;
+    size_t PRGSize;
+    uint8_t *CHR;
+    size_t CHRSize;
 } nes_t;
 
 typedef struct {
@@ -73,13 +89,26 @@ typedef struct {
     bool quit;
 } app_t;
 
-void *callocWrapper(size_t n, size_t sz);
+// void *callocWrapper(size_t n, size_t sz);
 void processInstruction(cpu_t *cpu);
 void memDmp(cpu_t *cpu, size_t memSize);
 void addToMem(uint8_t *mem, size_t loc, uint64_t value);
 void addMultipleToMem(uint8_t *mem, size_t loc, uint8_t *values, size_t valuesSize);
 void loadRom(nes_t *nes, const char *fileName);
 void loadRomFromMem(nes_t *nes, const char *fileName);
+void unloadRom(nes_t *nes);
+void processRomHeader(nes_t *nes);
+
+
+static inline void *callocWrapper(size_t n, size_t sz) {
+    void *ptr = calloc(n, sz);
+    if (ptr == NULL) {
+        fprintf(stderr, "\nCould not allocate memory (%zu bytes) in \'%s:%d\', exiting...\n\n", n * sz, __FILE__, __LINE__);
+        exit(1);
+    }
+    return ptr;
+}
+
 #ifdef KXD_DEBUG
 void debugCPU(cpu_t *cpu);
 #endif /* KXD_DEBUG */

@@ -1,6 +1,6 @@
 CC=ccache gcc
-CFLAGS=-Wall -Wextra -std=c17 -Og -g3 -ggdb -march=native
-CFLAGSREL=-Wall -Wextra -std=c17 -O3
+CFLAGS=-Wall -Wextra -std=gnu11 -Og -g3 -ggdb -march=native
+CFLAGSREL=-Wall -Wextra -std=gnu11 -O3
 LIBS=./raylib-5.0_win64_mingw-w64/lib/libraylib.a -lgdi32 -lwinmm
 INC=-I. -I./raylib-5.0_win64_mingw-w64/include
 SRCDIR=src/
@@ -24,4 +24,4 @@ bundler: nob.c
 	$(CC) -o nob.exe nob.c 
 
 clean:
-	del *.exe .\src\*.gch
+	del *.exe .\src\*.gch .\src\*.exe

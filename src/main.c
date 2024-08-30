@@ -6,7 +6,7 @@ int main(void) {
     InitWindow(NESW * PX_SZ, NESH * PX_SZ, "NES_xD");
     SetTargetFPS(60);
 
-#ifdef NOVID
+#ifndef NOVID
     SetRandomSeed(40028922U);
     RenderTexture2D screen = LoadRenderTexture(NESW * PX_SZ, NESH * PX_SZ);
 
@@ -26,17 +26,9 @@ int main(void) {
 #endif
     memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
-    uint8_t instructions[] = { INS_LDA_INX, 0x34, INS_LDA_INY, 0x56, INS_BRK };
-    addToMem(app->nes.cpu.mem, 0x36, 0x0115);
-    addToMem(app->nes.cpu.mem, 0x56, 0x0619);
-    // uint8_t instructions[] = { INS_LDX_IM, 0xEA, 0x8E, 0xD0, 0x07, 0xA0, 0x03, 0xB1, 0x06 };
-    // uint8_t instructions[] = { 0x20, 0xCD, 0x07 };
-    addMultipleToMem(app->nes.cpu.mem, 0, instructions, sizeof(instructions));
+    const uint8_t instructions[] = { INS_LDA_IM, 0xDC, INS_STA_A, 0x01, 0x01, INS_BRK };
 
-    app->nes.cpu.X = 0x2;
-    app->nes.cpu.Y = 0x1;
-    addToMem(app->nes.cpu.mem, 0x0115, 0xEF);
-    addToMem(app->nes.cpu.mem, 0x061A, 0xFE);
+    addMultipleToMem(app->nes.cpu.mem, 0, instructions, sizeof(instructions));
 
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
@@ -46,7 +38,7 @@ int main(void) {
 
         BeginDrawing();
 
-#ifdef NOVID
+#ifndef NOVID
         DrawTexture(screen.texture, 0, 0, WHITE);
 #else
         ClearBackground(KXDBG);
@@ -61,21 +53,12 @@ int main(void) {
         // break;
     }
     memDmp(&app->nes.cpu, MEMSIZE);
-#ifdef NOVID
+#ifndef NOVID
     UnloadRenderTexture(screen);
 #endif
-    free(app->nes.rom);
+    unloadRom(&app->nes);
     free(app);
     return 0;
-}
-
-void *callocWrapper(size_t n, size_t sz) {
-    void *ptr = calloc(n, sz);
-    if (ptr == NULL) {
-        fprintf(stderr, "\nCould not allocate memory (%zu bytes), exiting...\n\n", n * sz);
-        exit(1);
-    }
-    return ptr;
 }
 
 void processInstruction(cpu_t *cpu) {
@@ -111,61 +94,123 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_LDA_IM: // Immediate mode, Load the next byte to A
         cpu->A = cpu->mem[++cpu->PC];
-        LDA_FLAGS;
+        LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_Z: // Zero Page Mode, Use next byte as Index to load byte in A
         cpu->A = cpu->mem[cpu->mem[++cpu->PC]];
-        LDA_FLAGS;
+        VARLOG(cpu->A, HEX8);
+        LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_ZX:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + cpu->X];
-        LDA_FLAGS;
+        LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_A:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
-        LDA_FLAGS;
+        LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_AX:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X];
-        LDA_FLAGS;
+        LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_AY:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->Y];
-        LDA_FLAGS;
+        LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_INX:
-        value8 = cpu->mem[++cpu->PC] + cpu->X;
-        // VARLOG(value8, "0x%02X");
-        value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8);
-        // VARLOG(value16, "0x%04X");
-        cpu->A = cpu->mem[value16];
+        cpu->A = cpu->mem[cpu->mem[cpu->mem[++cpu->PC] + cpu->X] + (cpu->mem[cpu->mem[cpu->PC] + cpu->X + 1] << 8)];
         // VARLOG(cpu->A, "0x%02X");
-        LDA_FLAGS;
+        LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_INY:
         cpu->A = cpu->mem[cpu->mem[cpu->mem[++cpu->PC]] + (cpu->mem[cpu->mem[cpu->PC] + 1] << 8) + cpu->Y];
         // VARLOG(cpu->A, "0x%02X");
-        LDA_FLAGS;
+        LD_FLAGS(cpu->A);
+        cpu->PC++;
+        break;
+
+    case INS_STA_A:
+        cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)] = cpu->A;
+        VARLOG(cpu->mem[cpu->mem[cpu->PC - 1] + (cpu->mem[cpu->PC] << 8)], HEX8);
+        cpu->PC++;
+        break;
+
+    case INS_STA_Z:
+        cpu->mem[cpu->mem[++cpu->PC]] = cpu->A;
         cpu->PC++;
         break;
 
     case INS_LDX_IM:
         cpu->X = cpu->mem[++cpu->PC];
-        LDX_FLAGS;
+        LD_FLAGS(cpu->X);
+        cpu->PC++;
+        break;
+
+    case INS_LDX_Z:
+        cpu->X = cpu->mem[cpu->mem[++cpu->PC]];
+        LD_FLAGS(cpu->X);
+        cpu->PC++;
+        break;
+
+    case INS_LDX_ZY:
+        cpu->X = cpu->mem[cpu->mem[++cpu->PC] + cpu->Y];
+        LD_FLAGS(cpu->X);
+        cpu->PC++;
+        break;
+
+    case INS_LDX_A:
+        cpu->X = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
+        LD_FLAGS(cpu->X);
+        cpu->PC++;
+        break;
+
+    case INS_LDX_AY:
+        cpu->X = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->Y];
+        LD_FLAGS(cpu->X);
+        cpu->PC++;
+        break;
+
+    case INS_LDY_IM:
+        cpu->Y = cpu->mem[++cpu->PC];
+        LD_FLAGS(cpu->Y);
+        cpu->PC++;
+        break;
+
+    case INS_LDY_Z:
+        cpu->Y = cpu->mem[cpu->mem[++cpu->PC]];
+        LD_FLAGS(cpu->Y);
+        cpu->PC++;
+        break;
+
+    case INS_LDY_ZX:
+        cpu->Y = cpu->mem[cpu->mem[++cpu->PC] + cpu->X];
+        LD_FLAGS(cpu->Y);
+        cpu->PC++;
+        break;
+
+    case INS_LDY_A:
+        cpu->Y = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
+        LD_FLAGS(cpu->Y);
+        cpu->PC++;
+        break;
+
+    case INS_LDY_AX:
+        cpu->Y = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X];
+        LD_FLAGS(cpu->Y);
         cpu->PC++;
         break;
 
@@ -174,7 +219,7 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     default:
-        LOG_INFO("Unhandled Instruction: mem[0x%04X] -> 0x%02X", cpu->PC, cpu->mem[cpu->PC]);
+        LOG_INFO("Unhandled Instruction: mem[0x%04X] -> 0x%02X, Skipping...", cpu->PC, cpu->mem[cpu->PC]);
         cpu->PC++;
         break;
     }
@@ -212,7 +257,7 @@ void memDmp(cpu_t *cpu, size_t memSize) {
     fprintf(f, "Registers\nPC: 0x%04X | SP: 0x%02X | A: 0x%02X | X: 0x%02X | Y: 0x%02X\n", cpu->PC, cpu->SP, cpu->A, cpu->X, cpu->Y);
     fprintf(f, "Status Registers:\n");
     fprintf(f, "    CZIDBVN\n");
-    fprintf(f, "    %d%d%d%d%d%d%d\n", cpu->C, cpu->Z, cpu->I, cpu->D, cpu->B, cpu->V, cpu->N);
+    fprintf(f, "    %d%d%d%d%d%d%d\n\n", cpu->C, cpu->Z, cpu->I, cpu->D, cpu->B, cpu->V, cpu->N);
     fprintf(f, "----  ");
     for (int i = 0; i < 16; ++i) {
         fprintf(f, "%04X ", i);
@@ -280,6 +325,7 @@ void loadRom(nes_t *nes, const char *fileName) {
     fclose(rom);
 
     CHECK_ROM_HEADER(nes->rom);
+    processRomHeader(nes);
 }
 
 void loadRomFromMem(nes_t *nes, const char *fileName) {
@@ -292,9 +338,81 @@ void loadRomFromMem(nes_t *nes, const char *fileName) {
             nes->rom = callocWrapper(nes->romSize, 1);
             memcpy(nes->rom, &bundle[resources[i].offset], nes->romSize);
             CHECK_ROM_HEADER(nes->rom);
+
+            processRomHeader(nes);
+
             return;
         }
     }
     LOG_INFO("File '%s' not found in bundled assets, exiting...", fileName);
     exit(1);
+}
+
+void unloadRom(nes_t *nes) {
+    if (nes->PRG) {
+        free(nes->PRG);
+        nes->PRGSize = 0;
+    }
+
+    if (nes->CHR) {
+        free(nes->CHR);
+        nes->CHRSize = 0;
+    }
+
+    if (nes->rom) {
+        free(nes->rom);
+        nes->romSize = 0;
+    }
+
+    nes->nes2format = false;
+}
+
+void processRomHeader(nes_t *nes) {
+    nes->nes2format = (nes->rom[7] & 0x0C) == 0x08;
+
+    uint8_t LSB, MSB;
+
+    // PRG ROM
+    LSB = nes->rom[4];
+    MSB = (nes->rom[9] & 0x0F);
+
+    if (MSB == 0x0F) {
+        uint8_t mul = LSB & 0b00000011;
+        uint8_t exp = LSB & 0b11111100;
+
+        nes->PRGSize = (2 ^ exp * (mul * 2 + 1)) * 16384; // Multipling result by 16 KiB in bytes
+    } else {
+        nes->PRGSize = (LSB + (MSB << 8)) * 16384; // Multipling result by 16 KiB in bytes
+    }
+
+    // CHR ROM/RAM?
+    LSB = nes->rom[5];
+    MSB = (nes->rom[9] & 0xF0) >> 4;
+
+    // VARLOG(MSB, BIN8);
+
+    if (MSB == 0x0F) {
+        uint8_t mul = LSB & 0b00000011;
+        uint8_t exp = LSB & 0b11111100;
+
+        nes->CHRSize = (2 ^ exp * (mul * 2 + 1)) * 8192; // Multipling result by 8 KiB in bytes
+    } else {
+        nes->CHRSize = (LSB + (MSB << 8)) * 8192; // Multipling result by 8 KiB in bytes
+    }
+
+    // Allocating
+
+#ifdef KXD_DEBUG
+    LOG_INFO("Allocating %d bytes for PRG-ROM...", nes->PRGSize);
+#endif
+    nes->PRG = callocWrapper(1, nes->PRGSize);
+#ifdef KXD_DEBUG
+    LOG_INFO("Allocating %d bytes for CHR-ROM...", nes->CHRSize);
+#endif
+    nes->CHR = callocWrapper(1, nes->CHRSize);
+
+#if 0
+    unloadRom(nes);
+    exit(0);
+#endif
 }

@@ -3,10 +3,10 @@
 #include "nob.h"
 #include <string.h>
 
-#define genf(out, ...)                                                         \
-    do {                                                                       \
-        fprintf((out), __VA_ARGS__);                                           \
-        fprintf((out), " // %s:%d\n", __FILE__, __LINE__);                     \
+#define genf(out, ...)                                                                                                                     \
+    do {                                                                                                                                   \
+        fprintf((out), __VA_ARGS__);                                                                                                       \
+        fprintf((out), " // %s:%d\n", __FILE__, __LINE__);                                                                                 \
     } while (0)
 
 typedef struct {
@@ -25,8 +25,8 @@ Resources resources;
 
 bool generate_resource_bundle(void) {
     bool result = true;
-    Nob_String_Builder bundle = {0};
-    Nob_String_Builder content = {0};
+    Nob_String_Builder bundle = { 0 };
+    Nob_String_Builder content = { 0 };
     FILE *out = NULL;
 
     // bundle  = [aaaaaaaaabbbbb]
@@ -44,11 +44,10 @@ bool generate_resource_bundle(void) {
         nob_da_append(&bundle, 0);
     }
 
-    const char *bundle_h_path = "./bundle.h";
+    const char *bundle_h_path = "./src/bundle.h";
     out = fopen(bundle_h_path, "wb");
     if (out == NULL) {
-        nob_log(NOB_ERROR, "Could not open file %s for writing: %s",
-                bundle_h_path, strerror(errno));
+        nob_log(NOB_ERROR, "Could not open file %s for writing: %s", bundle_h_path, strerror(errno));
         nob_return_defer(false);
     }
 
@@ -63,8 +62,7 @@ bool generate_resource_bundle(void) {
     genf(out, "size_t resources_count = %zu;", resources.count);
     genf(out, "Resource resources[] = {");
     for (size_t i = 0; i < resources.count; ++i) {
-        genf(out, "    {.file_path = \"%s\", .offset = %zu, .size = %zu},",
-             resources.items[i].file_path, resources.items[i].offset,
+        genf(out, "    {.file_path = \"%s\", .offset = %zu, .size = %zu},", resources.items[i].file_path, resources.items[i].offset,
              resources.items[i].size);
     }
     genf(out, "};");
@@ -97,8 +95,9 @@ typedef struct {
     size_t capacity;
 } EmbedFiles;
 
-void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
-    Nob_File_Paths children = {0};
+bool recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
+    bool result = true;
+    Nob_File_Paths children = { 0 };
     if (sb->items[sb->count] != 0)
         nob_sb_append_null(sb);
     nob_read_entire_dir(sb->items, &children);
@@ -142,32 +141,34 @@ int main(int argc, char **argv) {
     NOB_GO_REBUILD_URSELF(argc, argv);
     // const char *program = nob_shift_args(&argc, &argv);
 
-    Nob_Procs procs = {0};
+    Nob_Procs procs = { 0 };
     procs.count = 0;
 
     nob_log(NOB_INFO, "Starting Dir read!");
     // Nob_File_Paths children = {0};
     // Nob_String_View tmpPath = {0};
-    Nob_String_Builder sb = {0};
+    Nob_String_Builder sb = { 0 };
 
     const char *path = "./rom";
     nob_sb_append_cstr(&sb, path);
 
-    EmbedFiles eb = {0};
-    recurse_dir(&sb, &eb);
-    // printf("EB count: %zu\n",eb.count);
+    EmbedFiles eb = { 0 };
+    bool rst = recurse_dir(&sb, &eb);
+    // printf("EB count: %zu\n", eb.count);
 
-    nob_log(NOB_INFO, "Generating Resource Bundle");
+    if (eb.count) {
+        nob_log(NOB_INFO, "Generating Resource Bundle");
 
-    for (size_t i = 0; i < eb.count; i++) {
-        Resource r = {.file_path = eb.items[i]};
-        nob_da_append(&resources, r);
-        nob_log(NOB_INFO, "    Adding \"%s\" to be bundled",
-                resources.items[i].file_path);
+        for (size_t i = 0; i < eb.count; i++) {
+            Resource r = { .file_path = eb.items[i] };
+            nob_da_append(&resources, r);
+            nob_log(NOB_INFO, "    Adding \"%s\" to be bundled", resources.items[i].file_path);
+        }
+        if (!generate_resource_bundle())
+            return 1;
+    } else {
+        nob_log(NOB_ERROR, "No assets to bundle found...");
     }
-
-    if (!generate_resource_bundle())
-        return 1;
 
     if (!nob_procs_wait(procs))
         return 1;
