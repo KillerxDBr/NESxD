@@ -1,3 +1,4 @@
+SHELL=pwsh.exe
 CC=ccache gcc
 CFLAGS=-Wall -Wextra -std=gnu11 -Og -g3 -ggdb -march=native
 CFLAGSREL=-Wall -Wextra -std=gnu11 -O3
@@ -24,4 +25,4 @@ bundler: nob.c
 	$(CC) -o nob.exe nob.c 
 
 clean:
-	del *.exe .\src\*.gch .\src\*.exe
+	remove-item * -Include *.exe, *.gch -Recurse -Exclude *.c, *.h
