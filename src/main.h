@@ -14,7 +14,7 @@
 
 #include "../bundle.h"
 
-#define KXD_DEBUG
+// #define KXD_DEBUG
 #define NOPPU
 #define NOVID
 
@@ -98,7 +98,7 @@ void loadRom(nes_t *nes, const char *fileName);
 void loadRomFromMem(nes_t *nes, const char *fileName);
 void unloadRom(nes_t *nes);
 void processRomHeader(nes_t *nes);
-
+void debugCPU(cpu_t *cpu);
 
 static inline void *callocWrapper(size_t n, size_t sz) {
     void *ptr = calloc(n, sz);
@@ -108,9 +108,5 @@ static inline void *callocWrapper(size_t n, size_t sz) {
     }
     return ptr;
 }
-
-#ifdef KXD_DEBUG
-void debugCPU(cpu_t *cpu);
-#endif /* KXD_DEBUG */
 
 #endif /* KXD_MAIN_H */

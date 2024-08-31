@@ -30,8 +30,8 @@ typedef enum {
     INS_STA_AY  = 0x99,   // STA Absolute, Y
     INS_STA_Z   = 0x85,   // STA Zero Page
     INS_STA_ZX  = 0x95,   // STA Zero Page, X
-    INS_STA_ZIX = 0x81,   // STA Zero Page, Indirect, X
-    INS_STA_ZIY = 0x91,   // STA Zero Page, Indirect, Y
+    INS_STA_INX = 0x81,   // STA (Indirect, X)
+    INS_STA_INY = 0x91,   // STA (Indirect), Y
 
     // LDX Instructions
     INS_LDX_IM  = 0xA2,   // LDX Immediate

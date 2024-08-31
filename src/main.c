@@ -26,9 +26,13 @@ int main(void) {
 #endif
     memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
-    const uint8_t instructions[] = { INS_LDA_IM, 0xDC, INS_STA_A, 0x01, 0x01, INS_BRK };
+    // const
+    uint8_t instructions[] = {
+        INS_LDA_IM, 0xCF, INS_LDX_IM, 0x01, INS_STA_INX, 0xDC, INS_LDX_IM, 0x01, INS_LDA_IM, 0xBD, INS_STA_AX, 0xCD, 0x01, INS_BRK,
+    };
 
     addMultipleToMem(app->nes.cpu.mem, 0, instructions, sizeof(instructions));
+    addToMem(app->nes.cpu.mem, 0xDD, 0x0101);
 
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
@@ -72,7 +76,9 @@ void processInstruction(cpu_t *cpu) {
     case INS_BRK:
         cpu->B = true;
         cpu->PC++;
+#ifdef KXD_DEBUG
         LOG_INFO("BRK");
+#endif
         break;
 
     case INS_NOP:
@@ -94,122 +100,212 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_LDA_IM: // Immediate mode, Load the next byte to A
         cpu->A = cpu->mem[++cpu->PC];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->A, HEX8);
+#endif
         LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_Z: // Zero Page Mode, Use next byte as Index to load byte in A
         cpu->A = cpu->mem[cpu->mem[++cpu->PC]];
+#ifdef KXD_DEBUG
         VARLOG(cpu->A, HEX8);
+#endif
         LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_ZX:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + cpu->X];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->A, HEX8);
+#endif
         LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_A:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->A, HEX8);
+#endif
         LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_AX:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->A, HEX8);
+#endif
         LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_AY:
         cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->Y];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->A, HEX8);
+#endif
         LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_INX:
         cpu->A = cpu->mem[cpu->mem[cpu->mem[++cpu->PC] + cpu->X] + (cpu->mem[cpu->mem[cpu->PC] + cpu->X + 1] << 8)];
-        // VARLOG(cpu->A, "0x%02X");
+#ifdef KXD_DEBUG
+        VARLOG(cpu->A, HEX8);
+#endif
         LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_LDA_INY:
         cpu->A = cpu->mem[cpu->mem[cpu->mem[++cpu->PC]] + (cpu->mem[cpu->mem[cpu->PC] + 1] << 8) + cpu->Y];
-        // VARLOG(cpu->A, "0x%02X");
+#ifdef KXD_DEBUG
+        VARLOG(cpu->A, HEX8);
+#endif
         LD_FLAGS(cpu->A);
         cpu->PC++;
         break;
 
     case INS_STA_A:
         cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)] = cpu->A;
+#ifdef KXD_DEBUG
         VARLOG(cpu->mem[cpu->mem[cpu->PC - 1] + (cpu->mem[cpu->PC] << 8)], HEX8);
+#endif
+        cpu->PC++;
+        break;
+
+    case INS_STA_AX:
+        // value16 = cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X;
+        // VARLOG(value16, HEX16);
+        // VARLOG(value16, "%u");
+        cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X] = cpu->A;
+#ifdef KXD_DEBUG
+        VARLOG(cpu->mem[cpu->mem[cpu->PC - 1] + (cpu->mem[cpu->PC] << 8) + cpu->X], HEX8);
+#endif
         cpu->PC++;
         break;
 
     case INS_STA_Z:
         cpu->mem[cpu->mem[++cpu->PC]] = cpu->A;
+#ifdef KXD_DEBUG
+        VARLOG(cpu->mem[cpu->mem[cpu->PC]], HEX8);
+#endif
         cpu->PC++;
+        break;
+
+    case INS_STA_ZX:
+        cpu->mem[cpu->mem[++cpu->PC] + cpu->X] = cpu->A;
+#ifdef KXD_DEBUG
+        VARLOG(cpu->mem[cpu->mem[cpu->PC] + cpu->X], HEX8);
+#endif
+        cpu->PC++;
+        break;
+
+    case INS_STA_INX:
+        value8 = cpu->mem[++cpu->PC] + cpu->X;
+        value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8);
+#ifdef KXD_DEBUG
+        VARLOG(cpu->A, HEX8);
+        VARLOG(cpu->X, HEX8);
+        VARLOG(value8, HEX8);
+        VARLOG(value16, HEX16);
+#endif
+        cpu->mem[value16] = cpu->A;
+        // assert(0 && "TODO: INS_STA_INX");
+        cpu->PC++;
+        // exit(0);
         break;
 
     case INS_LDX_IM:
         cpu->X = cpu->mem[++cpu->PC];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->X, HEX8);
+#endif
         LD_FLAGS(cpu->X);
         cpu->PC++;
         break;
 
     case INS_LDX_Z:
         cpu->X = cpu->mem[cpu->mem[++cpu->PC]];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->X, HEX8);
+#endif
         LD_FLAGS(cpu->X);
         cpu->PC++;
         break;
 
     case INS_LDX_ZY:
         cpu->X = cpu->mem[cpu->mem[++cpu->PC] + cpu->Y];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->X, HEX8);
+#endif
         LD_FLAGS(cpu->X);
         cpu->PC++;
         break;
 
     case INS_LDX_A:
         cpu->X = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->X, HEX8);
+#endif
         LD_FLAGS(cpu->X);
         cpu->PC++;
         break;
 
     case INS_LDX_AY:
         cpu->X = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->Y];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->X, HEX8);
+#endif
         LD_FLAGS(cpu->X);
         cpu->PC++;
         break;
 
     case INS_LDY_IM:
         cpu->Y = cpu->mem[++cpu->PC];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->Y, HEX8);
+#endif
         LD_FLAGS(cpu->Y);
         cpu->PC++;
         break;
 
     case INS_LDY_Z:
         cpu->Y = cpu->mem[cpu->mem[++cpu->PC]];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->Y, HEX8);
+#endif
         LD_FLAGS(cpu->Y);
         cpu->PC++;
         break;
 
     case INS_LDY_ZX:
         cpu->Y = cpu->mem[cpu->mem[++cpu->PC] + cpu->X];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->Y, HEX8);
+#endif
         LD_FLAGS(cpu->Y);
         cpu->PC++;
         break;
 
     case INS_LDY_A:
         cpu->Y = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->Y, HEX8);
+#endif
         LD_FLAGS(cpu->Y);
         cpu->PC++;
         break;
 
     case INS_LDY_AX:
         cpu->Y = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X];
+#ifdef KXD_DEBUG
+        VARLOG(cpu->Y, HEX8);
+#endif
         LD_FLAGS(cpu->Y);
         cpu->PC++;
         break;
@@ -224,7 +320,7 @@ void processInstruction(cpu_t *cpu) {
         break;
     }
 #ifdef KXD_DEBUG
-    debugCPU(cpu);
+    // debugCPU(cpu);
     LOG_INFO("Cycles used in execution: %u", cpu->PC - oldPC);
 #endif
     (void)value16;
@@ -257,7 +353,13 @@ void memDmp(cpu_t *cpu, size_t memSize) {
     fprintf(f, "Registers\nPC: 0x%04X | SP: 0x%02X | A: 0x%02X | X: 0x%02X | Y: 0x%02X\n", cpu->PC, cpu->SP, cpu->A, cpu->X, cpu->Y);
     fprintf(f, "Status Registers:\n");
     fprintf(f, "    CZIDBVN\n");
-    fprintf(f, "    %d%d%d%d%d%d%d\n\n", cpu->C, cpu->Z, cpu->I, cpu->D, cpu->B, cpu->V, cpu->N);
+    fprintf(f, "    %d%d%d%d%d%d%d\n", cpu->C, cpu->Z, cpu->I, cpu->D, cpu->B, cpu->V, cpu->N);
+
+    for (size_t i = 0; i < 85; i++) {
+        fputc('_', f);
+    }
+    fprintf(f, "\n");
+
     fprintf(f, "----  ");
     for (int i = 0; i < 16; ++i) {
         fprintf(f, "%04X ", i);
@@ -333,7 +435,7 @@ void loadRomFromMem(nes_t *nes, const char *fileName) {
         if (strcmp(fileName, resources[i].file_path) == 0) {
             nes->romSize = resources[i].size;
 #ifdef KXD_DEBUG
-            LOG_INFO("File: '%s' (%zu bytes)", fileName, nes->romSize);
+            LOG_INFO("File: \"%s\" (%zu bytes)", fileName, nes->romSize);
 #endif
             nes->rom = callocWrapper(nes->romSize, 1);
             memcpy(nes->rom, &bundle[resources[i].offset], nes->romSize);
@@ -344,7 +446,7 @@ void loadRomFromMem(nes_t *nes, const char *fileName) {
             return;
         }
     }
-    LOG_INFO("File '%s' not found in bundled assets, exiting...", fileName);
+    LOG_INFO("File \"%s\" not found in bundled assets, exiting...", fileName);
     exit(1);
 }
 
@@ -374,7 +476,7 @@ void processRomHeader(nes_t *nes) {
 
     // PRG ROM
     LSB = nes->rom[4];
-    MSB = (nes->rom[9] & 0x0F);
+    MSB = (nes->rom[9] & 0x0F); // 00003210
 
     if (MSB == 0x0F) {
         uint8_t mul = LSB & 0b00000011;
@@ -384,12 +486,10 @@ void processRomHeader(nes_t *nes) {
     } else {
         nes->PRGSize = (LSB + (MSB << 8)) * 16384; // Multipling result by 16 KiB in bytes
     }
-
+    // TODO: Check for other types of hardware
     // CHR ROM/RAM?
     LSB = nes->rom[5];
-    MSB = (nes->rom[9] & 0xF0) >> 4;
-
-    // VARLOG(MSB, BIN8);
+    MSB = nes->rom[9] >> 4; // 76540000 -> 00007654
 
     if (MSB == 0x0F) {
         uint8_t mul = LSB & 0b00000011;
