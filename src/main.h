@@ -12,7 +12,7 @@
 
 #include <raylib.h>
 
-#include "../bundle.h"
+#include "bundle.h"
 
 // #define KXD_DEBUG
 #define NOPPU
