@@ -3,6 +3,7 @@
 
 ## Dependencies
 - [RayLib]
+- [RayGUI]
 
 ## References
 - https://skilldrick.github.io/easy6502/
@@ -12,3 +13,4 @@
 - https://www.pagetable.com/c64ref/6502/?tab=2
 
 [RayLib]: <https://github.com/raysan5/raylib>
+[RayGUI]: <https://github.com/raysan5/raygui>
