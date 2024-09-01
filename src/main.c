@@ -24,15 +24,36 @@ int main(void) {
 
     UnloadRandomSequence(seq);
 #endif
+
     memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
-    // const
-    uint8_t instructions[] = {
-        INS_LDA_IM, 0xCF, INS_LDX_IM, 0x01, INS_STA_INX, 0xDC, INS_LDX_IM, 0x01, INS_LDA_IM, 0xBD, INS_STA_AX, 0xCD, 0x01, INS_BRK,
-    };
+    const char *memBinPath = "./mem.bin";
+    size_t insSize = 0;
+    FILE *memBin = fopen(memBinPath, "rb");
 
-    addMultipleToMem(app->nes.cpu.mem, 0, instructions, sizeof(instructions));
+    if (memBin == NULL) {
+        LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
+        exit(1);
+    }
+
+    fseek(memBin, 0, SEEK_END);
+    insSize = ftell(memBin);
+    rewind(memBin);
+
+    if (insSize == 0) {
+        LOG_ERR("No bytes to read from \"%s\", exiting...", memBinPath);
+        exit(1);
+    }
+
+    uint8_t *instructions = callocWrapper(insSize, sizeof(uint8_t));
+
+    LOG_INF("Reading %zu instructions from \"%s\"", insSize, memBinPath);
+    fread(instructions, 1, insSize, memBin);
+    fclose(memBin);
+
+    addMultipleToMem(app->nes.cpu.mem, 0, instructions, insSize);
     addToMem(app->nes.cpu.mem, 0xDD, 0x0101);
+    free(instructions);
 
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
@@ -54,7 +75,6 @@ int main(void) {
         processInstruction(&app->nes.cpu);
         if (app->nes.cpu.B)
             break;
-        // break;
     }
     memDmp(&app->nes.cpu, MEMSIZE);
 #ifndef NOVID
@@ -64,289 +84,6 @@ int main(void) {
     free(app);
     return 0;
 }
-
-void processInstruction(cpu_t *cpu) {
-    uint16_t value16;
-    uint8_t value8;
-
-#ifdef KXD_DEBUG
-    uint16_t oldPC = cpu->PC;
-#endif
-    switch (cpu->mem[cpu->PC]) {
-    case INS_BRK:
-        cpu->B = true;
-        cpu->PC++;
-#ifdef KXD_DEBUG
-        LOG_INFO("BRK");
-#endif
-        break;
-
-    case INS_NOP:
-#ifdef KXD_DEBUG
-        LOG_INFO("NOP");
-#endif
-        cpu->PC++;
-        break;
-
-    case INS_CLC:
-        cpu->C = false;
-        cpu->PC++;
-        break;
-
-    case INS_SEC:
-        cpu->C = true;
-        cpu->PC++;
-        break;
-
-    case INS_LDA_IM: // Immediate mode, Load the next byte to A
-        cpu->A = cpu->mem[++cpu->PC];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->A, HEX8);
-#endif
-        LD_FLAGS(cpu->A);
-        cpu->PC++;
-        break;
-
-    case INS_LDA_Z: // Zero Page Mode, Use next byte as Index to load byte in A
-        cpu->A = cpu->mem[cpu->mem[++cpu->PC]];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->A, HEX8);
-#endif
-        LD_FLAGS(cpu->A);
-        cpu->PC++;
-        break;
-
-    case INS_LDA_ZX:
-        cpu->A = cpu->mem[cpu->mem[++cpu->PC] + cpu->X];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->A, HEX8);
-#endif
-        LD_FLAGS(cpu->A);
-        cpu->PC++;
-        break;
-
-    case INS_LDA_A:
-        cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->A, HEX8);
-#endif
-        LD_FLAGS(cpu->A);
-        cpu->PC++;
-        break;
-
-    case INS_LDA_AX:
-        cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->A, HEX8);
-#endif
-        LD_FLAGS(cpu->A);
-        cpu->PC++;
-        break;
-
-    case INS_LDA_AY:
-        cpu->A = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->Y];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->A, HEX8);
-#endif
-        LD_FLAGS(cpu->A);
-        cpu->PC++;
-        break;
-
-    case INS_LDA_INX:
-        cpu->A = cpu->mem[cpu->mem[cpu->mem[++cpu->PC] + cpu->X] + (cpu->mem[cpu->mem[cpu->PC] + cpu->X + 1] << 8)];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->A, HEX8);
-#endif
-        LD_FLAGS(cpu->A);
-        cpu->PC++;
-        break;
-
-    case INS_LDA_INY:
-        cpu->A = cpu->mem[cpu->mem[cpu->mem[++cpu->PC]] + (cpu->mem[cpu->mem[cpu->PC] + 1] << 8) + cpu->Y];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->A, HEX8);
-#endif
-        LD_FLAGS(cpu->A);
-        cpu->PC++;
-        break;
-
-    case INS_STA_A:
-        cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)] = cpu->A;
-#ifdef KXD_DEBUG
-        VARLOG(cpu->mem[cpu->mem[cpu->PC - 1] + (cpu->mem[cpu->PC] << 8)], HEX8);
-#endif
-        cpu->PC++;
-        break;
-
-    case INS_STA_AX:
-        // value16 = cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X;
-        // VARLOG(value16, HEX16);
-        // VARLOG(value16, "%u");
-        cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X] = cpu->A;
-#ifdef KXD_DEBUG
-        VARLOG(cpu->mem[cpu->mem[cpu->PC - 1] + (cpu->mem[cpu->PC] << 8) + cpu->X], HEX8);
-#endif
-        cpu->PC++;
-        break;
-
-    case INS_STA_Z:
-        cpu->mem[cpu->mem[++cpu->PC]] = cpu->A;
-#ifdef KXD_DEBUG
-        VARLOG(cpu->mem[cpu->mem[cpu->PC]], HEX8);
-#endif
-        cpu->PC++;
-        break;
-
-    case INS_STA_ZX:
-        cpu->mem[cpu->mem[++cpu->PC] + cpu->X] = cpu->A;
-#ifdef KXD_DEBUG
-        VARLOG(cpu->mem[cpu->mem[cpu->PC] + cpu->X], HEX8);
-#endif
-        cpu->PC++;
-        break;
-
-    case INS_STA_INX:
-        value8 = cpu->mem[++cpu->PC] + cpu->X;
-        value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8);
-#ifdef KXD_DEBUG
-        VARLOG(cpu->A, HEX8);
-        VARLOG(cpu->X, HEX8);
-        VARLOG(value8, HEX8);
-        VARLOG(value16, HEX16);
-#endif
-        cpu->mem[value16] = cpu->A;
-        // assert(0 && "TODO: INS_STA_INX");
-        cpu->PC++;
-        // exit(0);
-        break;
-
-    case INS_LDX_IM:
-        cpu->X = cpu->mem[++cpu->PC];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->X, HEX8);
-#endif
-        LD_FLAGS(cpu->X);
-        cpu->PC++;
-        break;
-
-    case INS_LDX_Z:
-        cpu->X = cpu->mem[cpu->mem[++cpu->PC]];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->X, HEX8);
-#endif
-        LD_FLAGS(cpu->X);
-        cpu->PC++;
-        break;
-
-    case INS_LDX_ZY:
-        cpu->X = cpu->mem[cpu->mem[++cpu->PC] + cpu->Y];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->X, HEX8);
-#endif
-        LD_FLAGS(cpu->X);
-        cpu->PC++;
-        break;
-
-    case INS_LDX_A:
-        cpu->X = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->X, HEX8);
-#endif
-        LD_FLAGS(cpu->X);
-        cpu->PC++;
-        break;
-
-    case INS_LDX_AY:
-        cpu->X = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->Y];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->X, HEX8);
-#endif
-        LD_FLAGS(cpu->X);
-        cpu->PC++;
-        break;
-
-    case INS_LDY_IM:
-        cpu->Y = cpu->mem[++cpu->PC];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->Y, HEX8);
-#endif
-        LD_FLAGS(cpu->Y);
-        cpu->PC++;
-        break;
-
-    case INS_LDY_Z:
-        cpu->Y = cpu->mem[cpu->mem[++cpu->PC]];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->Y, HEX8);
-#endif
-        LD_FLAGS(cpu->Y);
-        cpu->PC++;
-        break;
-
-    case INS_LDY_ZX:
-        cpu->Y = cpu->mem[cpu->mem[++cpu->PC] + cpu->X];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->Y, HEX8);
-#endif
-        LD_FLAGS(cpu->Y);
-        cpu->PC++;
-        break;
-
-    case INS_LDY_A:
-        cpu->Y = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8)];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->Y, HEX8);
-#endif
-        LD_FLAGS(cpu->Y);
-        cpu->PC++;
-        break;
-
-    case INS_LDY_AX:
-        cpu->Y = cpu->mem[cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8) + cpu->X];
-#ifdef KXD_DEBUG
-        VARLOG(cpu->Y, HEX8);
-#endif
-        LD_FLAGS(cpu->Y);
-        cpu->PC++;
-        break;
-
-    case INS_JSR:
-        cpu->PC = cpu->mem[++cpu->PC] + (cpu->mem[++cpu->PC] << 8);
-        break;
-
-    default:
-        LOG_INFO("Unhandled Instruction: mem[0x%04X] -> 0x%02X, Skipping...", cpu->PC, cpu->mem[cpu->PC]);
-        cpu->PC++;
-        break;
-    }
-#ifdef KXD_DEBUG
-    // debugCPU(cpu);
-    LOG_INFO("Cycles used in execution: %u", cpu->PC - oldPC);
-#endif
-    (void)value16;
-    (void)value8;
-}
-#ifdef KXD_DEBUG
-void debugCPU(cpu_t *cpu) {
-    LOG_INFO("========================");
-    VARLOG(cpu->PC, "0x%04X");
-    VARLOG(cpu->SP, "0x%02X");
-    VARLOG(cpu->A, " 0x%02X");
-    VARLOG(cpu->X, " 0x%02X");
-    VARLOG(cpu->Y, " 0x%02X");
-    LOG_INFO("Status Registers========");
-    VARLOG(cpu->C, " %d");
-    VARLOG(cpu->Z, " %d");
-    VARLOG(cpu->I, " %d");
-    VARLOG(cpu->D, " %d");
-    VARLOG(cpu->B, " %d");
-    VARLOG(cpu->V, " %d");
-    VARLOG(cpu->N, " %d");
-    LOG_INFO("Memory==================");
-    VARLOG(cpu->mem[cpu->PC], "0x%02X");
-    LOG_INFO("");
-}
-#endif
 
 void memDmp(cpu_t *cpu, size_t memSize) {
     FILE *f = fopen("memDmp.log", "wt");
@@ -415,9 +152,11 @@ void loadRom(nes_t *nes, const char *fileName) {
         LOG_ERR("Could not open \"%s\": %s", fileName, strerror(errno));
         exit(1);
     }
+
 #ifdef KXD_DEBUG
-    LOG_INFO("ROM Loaded with success");
+    LOG_INF("ROM Loaded with success");
 #endif
+
     fseek(rom, 0, SEEK_END);
     nes->romSize = ftell(rom);
     rewind(rom);
@@ -435,7 +174,7 @@ void loadRomFromMem(nes_t *nes, const char *fileName) {
         if (strcmp(fileName, resources[i].file_path) == 0) {
             nes->romSize = resources[i].size;
 #ifdef KXD_DEBUG
-            LOG_INFO("File: \"%s\" (%zu bytes)", fileName, nes->romSize);
+            LOG_INF("File: \"%s\" (%zu bytes)", fileName, nes->romSize);
 #endif
             nes->rom = callocWrapper(nes->romSize, 1);
             memcpy(nes->rom, &bundle[resources[i].offset], nes->romSize);
@@ -446,8 +185,10 @@ void loadRomFromMem(nes_t *nes, const char *fileName) {
             return;
         }
     }
-    LOG_INFO("File \"%s\" not found in bundled assets, exiting...", fileName);
-    exit(1);
+
+    LOG_INF("File \"%s\" not found in bundled assets, trying from disk...", fileName);
+    loadRom(nes, fileName);
+    return;
 }
 
 void unloadRom(nes_t *nes) {
@@ -503,11 +244,11 @@ void processRomHeader(nes_t *nes) {
     // Allocating
 
 #ifdef KXD_DEBUG
-    LOG_INFO("Allocating %d bytes for PRG-ROM...", nes->PRGSize);
+    LOG_INF("Allocating %d bytes for PRG-ROM...", nes->PRGSize);
 #endif
     nes->PRG = callocWrapper(1, nes->PRGSize);
 #ifdef KXD_DEBUG
-    LOG_INFO("Allocating %d bytes for CHR-ROM...", nes->CHRSize);
+    LOG_INF("Allocating %d bytes for CHR-ROM...", nes->CHRSize);
 #endif
     nes->CHR = callocWrapper(1, nes->CHRSize);
 

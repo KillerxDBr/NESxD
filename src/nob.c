@@ -1,7 +1,8 @@
 #include <stdio.h>
-#define NOB_IMPLEMENTATION
-#include "nob.h"
 #include <string.h>
+
+#define NOB_IMPLEMENTATION
+#include <nob.h>
 
 #define genf(out, ...)                                                                                                                     \
     do {                                                                                                                                   \
