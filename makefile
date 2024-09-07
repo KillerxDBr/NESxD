@@ -1,7 +1,7 @@
 SHELL=pwsh.exe
 CC=ccache gcc -fdiagnostics-color=always
-CFLAGS=-Wall -Wextra -std=gnu11 -Og -g3 -ggdb -march=native -DKXD_DEBUG
-CFLAGSREL=-Wall -Wextra -std=gnu11 -O3
+CFLAGS=-Wall -Wextra -std=gnu11 -Og -g3 -ggdb -march=native -DKXD_DEBUG -D_UNICODE -DUNICODE -DPLATFORM_DESKTOP -DGRAPHICS_API_OPENGL_33
+CFLAGSREL=-Wall -Wextra -std=gnu11 -O3 -D_UNICODE -DUNICODE -DPLATFORM_DESKTOP -DGRAPHICS_API_OPENGL_33
 LIBS=./lib/libraylib.a -lgdi32 -lwinmm
 INC=-I. -I./include
 SRCDIR=src/

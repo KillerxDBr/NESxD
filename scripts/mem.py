@@ -1,5 +1,4 @@
-import os
-from sys import argv
+from sys import argv, stderr, executable
 
 INS_BRK     = 0x00   # Break
 INS_NOP     = 0xEA   # No Operation
@@ -54,30 +53,40 @@ INS_JMP_A   = 0x4C   # JMP Absolute
 INS_JMP_I   = 0x6C   # JMP Indirect
 
 
+def LOG_ERR(*args, **kwargs):
+    print('[ERROR]:', *args, file=stderr, **kwargs)
+
+
+def LOG_INFO(*args, **kwargs):
+    print('[INFO]:', *args, **kwargs)
+
+
 def main():
-    instructions = []
-    if(len(argv) != 2):
-        print(f"usage: {'py' if os.name == 'nt' else 'python3'} {argv[0]} \"<Instructions>\"")
+    instructions: list[int] | bytes = []
+    if len(argv) != 2:
+        print(f'[Usage]: {executable} {argv[0]} "<Instruction1, Instruction2...>"')
+        print( '            Instructions Format: INS_LDA_A, 0xAD, AD')
         exit(1)
-    argsInstructions = argv[1].replace(',', '').split(' ')   
-    print(argsInstructions)
-    # exit(0)
+    argsInstructions = argv[1].replace(',', '').split(' ')
+    LOG_INFO(argsInstructions)
+
     for ins in argsInstructions:
-        print(f'Processing instruction: \'{ins}\'', end='')
+        LOG_INFO(f'Processing instruction: "{ins}"', end='')
         if ins[:4] == 'INS_' or ins[:2] == '0x':
             n = eval(ins)
             if ins[:2] != '0x':
                 print(f' -> 0x{n:02X}', end='')
             print('')
         else:
-            n = int(f'0x{ins}',16)
+            n = int(f'0x{ins}', 16)
         instructions.append(n)
 
-    print(f'Writing {len(instructions)} instructions to mem.bin')
+    LOG_INFO(f'Writing {len(instructions)} instructions to mem.bin')
     instructions = bytes(instructions)
 
     with open('./mem.bin', 'wb') as f:
         f.write(instructions)
-    
-if __name__ == "__main__":
+
+
+if __name__ == '__main__':
     main()
