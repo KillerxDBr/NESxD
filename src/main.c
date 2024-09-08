@@ -1,25 +1,64 @@
 #include "main.h"
 
-int main(void) {
+int main(int argc, char **argv) {
+    bool NOP = false;
+    if (argc > 1) {
+        for (int i = 0; i < argc; i++) {
+            NOP = (strcmp(argv[i], NOP_CMD) == 0);
+        }
+    }
+
     app_t *app = callocWrapper(1, sizeof(app_t));
 
-    InitWindow(NESW * PX_SZ, NESH * PX_SZ, "NES_xD");
+    const uint32_t WindowFlags = FLAG_WINDOW_RESIZABLE;
+
+    SetConfigFlags(WindowFlags);
+    InitWindow(NES_W * 2, NES_H * 2, "NES_xD");
+    SetWindowMinSize(NES_W, NES_H);
     SetTargetFPS(60);
+
+    app->screenW = GetRenderWidth();
+    app->screenH = GetRenderHeight();
 
 #ifndef NOVID
     SetRandomSeed(40028922U);
-    RenderTexture2D screen = LoadRenderTexture(NESW * PX_SZ, NESH * PX_SZ);
+    // SetRandomSeed(time(NULL));
 
-    int *seq = LoadRandomSequence(NESW * NESH, 0, 0xFFFFFF);
-    for (size_t i = 0; i < NESW * NESH; ++i)
+    int *seq = LoadRandomSequence(NES_W * NES_H, 0, 0xFFFFFF);
+    for (size_t i = 0; i < NES_W * NES_H; ++i)
         seq[i] = (seq[i] << 8) + 0xFF;
 
+    RenderTexture2D screen = LoadRenderTexture(NES_W, NES_H);
+
+    const Rectangle sourceRec = { 0.0f, 0.0f, (float)screen.texture.width, -(float)screen.texture.height };
+    Rectangle destRec = { 0, 0, app->screenW - 1, app->screenH - 1 };
+
     BeginTextureMode(screen);
-    for (int x = 0; x < NESW; ++x) {
-        for (int y = 0; y < NESH; ++y) {
-            DrawRectangle(x * PX_SZ, y * PX_SZ, PX_SZ, PX_SZ, GetColor(seq[XY2Index(x, y, NESW)]));
+
+    ClearBackground(KXD_BG);
+
+    for (int y = 0; y < screen.texture.height; ++y) {
+        for (int x = 0; x < screen.texture.width; ++x) {
+            DrawPixel(x, y, GetColor(seq[XY2Index(x, y, NES_W)]));
         }
     }
+
+    VARLOG(screen.texture.width, "%d");
+    VARLOG(screen.texture.height, "%d");
+
+    // DrawRectangleLines(0, 0, NES_W, NES_H, GREEN);
+
+    const Color r = GetColor(0xFF0000FF), g = GetColor(0x00FF00FF), b = GetColor(0x0000FFFF), p = GetColor(0xFF00FFFF);
+
+    for (int x = 0; x < screen.texture.width; x++) {
+        DrawPixel(x, screen.texture.height - 1, r);
+        DrawPixel(x, 0, g);
+    }
+    for (int y = 0; y < screen.texture.height; y++) {
+        DrawPixel(0, y, b);
+        DrawPixel(screen.texture.width - 1, y, p);
+    }
+
     EndTextureMode();
 
     UnloadRandomSequence(seq);
@@ -29,48 +68,82 @@ int main(void) {
 
     const char *memBinPath = "./mem.bin";
     size_t insSize = 0;
-    FILE *memBin = fopen(memBinPath, "rb");
+    FILE *memBin = NULL;
 
-    if (memBin == NULL) {
-        LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
-        exit(1);
+    if (!NOP) {
+        memBin = fopen(memBinPath, "rb");
+
+        if (memBin == NULL) {
+            LOG_ERR("Could not open \'%s\': %s", memBinPath, strerror(errno));
+            LOG_INF("Operating with \'INS_NOP\' only");
+            NOP = true;
+            // exit(1);
+        }
     }
 
-    fseek(memBin, 0, SEEK_END);
-    insSize = ftell(memBin);
-    rewind(memBin);
+    if (!NOP) {
+        fseek(memBin, 0, SEEK_END);
+        insSize = ftell(memBin);
+        rewind(memBin);
 
-    if (insSize == 0) {
-        LOG_ERR("No bytes to read from \"%s\", exiting...", memBinPath);
-        exit(1);
+        if (insSize == 0) {
+            LOG_ERR("No bytes to read from \"%s\", exiting...", memBinPath);
+            exit(1);
+        }
+
+        uint8_t *instructions = callocWrapper(insSize, sizeof(uint8_t));
+
+        LOG_INF("Reading %zu instructions from \"%s\"", insSize, memBinPath);
+        fread(instructions, 1, insSize, memBin);
+        fclose(memBin);
+
+        addMultipleToMem(app->nes.cpu.mem, 0, instructions, insSize);
+        addToMem(app->nes.cpu.mem, 0xDD, 0x0101);
+        free(instructions);
     }
-
-    uint8_t *instructions = callocWrapper(insSize, sizeof(uint8_t));
-
-    LOG_INF("Reading %zu instructions from \"%s\"", insSize, memBinPath);
-    fread(instructions, 1, insSize, memBin);
-    fclose(memBin);
-
-    addMultipleToMem(app->nes.cpu.mem, 0, instructions, insSize);
-    addToMem(app->nes.cpu.mem, 0xDD, 0x0101);
-    free(instructions);
 
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
 
+    loadConfig(app);
+
     while (!WindowShouldClose() && !app->quit) {
-        // SetRandomSeed(0);
+        if (IsWindowResized()) {
+            LOG_INF("Window Resized...");
+
+            app->screenW = GetRenderWidth();
+            app->screenH = GetRenderHeight();
+
+            if (app->screenH < app->screenW) {
+                destRec.width = app->screenH * NES_AR;
+                destRec.height = app->screenH;
+
+                destRec.x = (app->screenW * .5f) - (destRec.width * .5f);
+                destRec.y = 0;
+                if (destRec.x < 0)
+                    destRec.x = 0;
+            } else {
+                destRec.height = app->screenW * NES_AR;
+                destRec.width = app->screenW;
+
+                destRec.x = 0;
+                destRec.y = (app->screenH * .5f) - (destRec.height * .5f);
+                if (destRec.y < 0)
+                    destRec.y = 0;
+            }
+        }
 
         BeginDrawing();
 
+        ClearBackground(KXD_BG);
+
 #ifndef NOVID
-        DrawTexture(screen.texture, 0, 0, WHITE);
-#else
-        ClearBackground(KXDBG);
+        DrawTexturePro(screen.texture, sourceRec, destRec, Vector2Zero(), 0, WHITE);
 #endif
 
-        DrawRectangle(4, 4, 75, 20, KXDBG);
-        DrawFPS(5, 5);
+        // DrawRectangle(4, 4, 75, 20, KXD_BG);
+        // DrawFPS(5, 5);
+
         EndDrawing();
         processInstruction(&app->nes.cpu);
         if (app->nes.cpu.B)
@@ -86,30 +159,37 @@ int main(void) {
 }
 
 void memDmp(cpu_t *cpu, size_t memSize) {
-    FILE *f = fopen("memDmp.log", "wt");
-    fprintf(f, "Registers\nPC: 0x%04X | SP: 0x%02X | A: 0x%02X | X: 0x%02X | Y: 0x%02X\n", cpu->PC, cpu->SP, cpu->A, cpu->X, cpu->Y);
-    fprintf(f, "Status Registers:\n");
-    fprintf(f, "    CZIDBVN\n");
-    fprintf(f, "    %d%d%d%d%d%d%d\n", cpu->C, cpu->Z, cpu->I, cpu->D, cpu->B, cpu->V, cpu->N);
+    const char *logPath = "memDmp.log";
+    FILE *log = fopen(logPath, "wt");
+
+    if (log == NULL) {
+        LOG_ERR("Could not open \'%s\': %s, Dumping log to STDOUT...", logPath, strerror(errno));
+        log = stdout;
+    }
+
+    fprintf(log, "Registers\nPC: 0x%04X | SP: 0x%02X | A: 0x%02X | X: 0x%02X | Y: 0x%02X\n", cpu->PC, cpu->SP, cpu->A, cpu->X, cpu->Y);
+    fprintf(log, "Status Registers:\n");
+    fprintf(log, "    CZIDBVN\n");
+    fprintf(log, "    %d%d%d%d%d%d%d\n", cpu->C, cpu->Z, cpu->I, cpu->D, cpu->B, cpu->V, cpu->N);
 
     for (size_t i = 0; i < 85; i++) {
-        fputc('_', f);
+        fputc('_', log);
     }
-    fprintf(f, "\n");
+    fprintf(log, "\n");
 
-    fprintf(f, "----  ");
+    fprintf(log, "XXXX  ");
     for (int i = 0; i < 16; ++i) {
-        fprintf(f, "%04X ", i);
+        fprintf(log, "%04X ", i);
     }
-    fprintf(f, "\n0000: ");
+    fprintf(log, "\n0000: ");
     for (size_t i = 0; i < memSize; ++i) {
         if (i > 0 && i % 16 == 0) {
-            fprintf(f, "\n%04zX: ", i);
+            fprintf(log, "\n%04zX: ", i);
         }
-        fprintf(f, "0x%02X ", cpu->mem[i]);
+        fprintf(log, "0x%02X ", cpu->mem[i]);
     }
-    fprintf(f, "\n");
-    fclose(f);
+    fprintf(log, "\n");
+    fclose(log);
 }
 
 void addToMem(uint8_t *mem, size_t loc, uint64_t value) {
@@ -256,4 +336,37 @@ void processRomHeader(nes_t *nes) {
     unloadRom(nes);
     exit(0);
 #endif
+}
+
+void loadConfig(app_t *app) {
+    FILE *cfgFile = fopen(app->config.fileName, "rb");
+    app->config.hasConfig = (cfgFile != NULL);
+    assert(!app->config.hasConfig);
+    // TODO: read config file
+    configController(app);
+
+    fclose(cfgFile);
+}
+
+void configController(app_t *app) {
+
+    // controller_t *controller = &app->nes.controller;
+
+    if (!app->config.hasConfig) {
+        app->nes.controller.ButtonUp = KEY_W;
+        app->nes.controller.ButtonDown = KEY_S;
+        app->nes.controller.ButtonLeft = KEY_A;
+        app->nes.controller.ButtonRight = KEY_D;
+
+        app->nes.controller.ButtonA = KEY_Z;
+        app->nes.controller.ButtonB = KEY_X;
+
+        app->nes.controller.ButtonStart = KEY_ENTER;
+        app->nes.controller.ButtonSelect = KEY_BACKSPACE;
+
+        // app->nes.controller.ButtonL = KEY_Q;
+        // app->nes.controller.ButtonR = KEY_E;
+    } else {
+        assert(0 && "UNREACHABLE -> TODO: config file and load controller config from file");
+    }
 }

@@ -36,6 +36,8 @@
         "locale": "c",
         "ios": "c",
         "cstdint": "c",
-        "compare": "c"
+        "compare": "c",
+        "execution": "c",
+        "algorithm": "c"
     }
 }
