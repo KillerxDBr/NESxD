@@ -7,19 +7,19 @@
 #define MEMSIZE 2048ULL
 
 typedef struct {
-    int ButtonUp;
-    int ButtonDown;
-    int ButtonLeft;
-    int ButtonRight;
+    uint16_t ButtonUp;
+    uint16_t ButtonDown;
+    uint16_t ButtonLeft;
+    uint16_t ButtonRight;
 
-    int ButtonA;
-    int ButtonB;
+    uint16_t ButtonA;
+    uint16_t ButtonB;
 
-    int ButtonStart;
-    int ButtonSelect;
+    uint16_t ButtonStart;
+    uint16_t ButtonSelect;
 
-    // int ButtonL;
-    // int ButtonR;
+    // uint16_t ButtonL;
+    // uint16_t ButtonR;
 
 } controller_t;
 
@@ -73,11 +73,18 @@ typedef struct {
     bool hasConfig;
 } config_t;
 
+typedef struct
+{
+    bool openFile;
+}menu_t;
+
+
 typedef struct {
     size_t screenW, screenH;
     nes_t nes;
     config_t config;
     bool quit;
+    menu_t menu;
 } app_t;
 
 #endif /* KXD_TYPES_H */

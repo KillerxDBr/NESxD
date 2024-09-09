@@ -10,9 +10,16 @@ int main(int argc, char **argv) {
 
     app_t *app = callocWrapper(1, sizeof(app_t));
 
-    const uint32_t WindowFlags = FLAG_WINDOW_RESIZABLE;
+    app->config.fileName = callocWrapper(strlen(argv[0]) + 1 - sizeof("nesxd.exe") + sizeof(CONFIG_FILE), 1);
 
-    SetConfigFlags(WindowFlags);
+    strcpy(app->config.fileName, argv[0]);
+
+    char *slash = strrchr(app->config.fileName, '\\');
+    slash++;
+
+    memcpy(slash, CONFIG_FILE, sizeof(CONFIG_FILE));
+
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(NES_W * 2, NES_H * 2, "NES_xD");
     SetWindowMinSize(NES_W, NES_H);
     SetTargetFPS(60);
@@ -22,7 +29,6 @@ int main(int argc, char **argv) {
 
 #ifndef NOVID
     SetRandomSeed(40028922U);
-    // SetRandomSeed(time(NULL));
 
     int *seq = LoadRandomSequence(NES_W * NES_H, 0, 0xFFFFFF);
     for (size_t i = 0; i < NES_W * NES_H; ++i)
@@ -31,7 +37,25 @@ int main(int argc, char **argv) {
     RenderTexture2D screen = LoadRenderTexture(NES_W, NES_H);
 
     const Rectangle sourceRec = { 0.0f, 0.0f, (float)screen.texture.width, -(float)screen.texture.height };
-    Rectangle destRec = { 0, 0, app->screenW - 1, app->screenH - 1 };
+    Rectangle destRec = { 0 };
+
+    if (app->screenH < app->screenW) {
+        destRec.width = app->screenH * NES_AR;
+        destRec.height = app->screenH;
+
+        destRec.x = (app->screenW * .5f) - (destRec.width * .5f);
+        destRec.y = 0;
+        if (destRec.x < 0)
+            destRec.x = 0;
+    } else {
+        destRec.height = app->screenW * NES_AR;
+        destRec.width = app->screenW;
+
+        destRec.x = 0;
+        destRec.y = (app->screenH * .5f) - (destRec.height * .5f);
+        if (destRec.y < 0)
+            destRec.y = 0;
+    }
 
     BeginTextureMode(screen);
 
@@ -107,6 +131,8 @@ int main(int argc, char **argv) {
 
     loadConfig(app);
 
+    GuiWindowFileDialogState state = InitGuiWindowFileDialog();
+
     while (!WindowShouldClose() && !app->quit) {
         if (IsWindowResized()) {
             LOG_INF("Window Resized...");
@@ -144,6 +170,12 @@ int main(int argc, char **argv) {
         // DrawRectangle(4, 4, 75, 20, KXD_BG);
         // DrawFPS(5, 5);
 
+        if(IsKeyPressed(KEY_J))
+            state.fileDialogActive = !state.fileDialogActive;
+        
+        if(state.fileDialogActive)
+            GuiWindowFileDialog(&state);
+
         EndDrawing();
         processInstruction(&app->nes.cpu);
         if (app->nes.cpu.B)
@@ -154,6 +186,7 @@ int main(int argc, char **argv) {
     UnloadRenderTexture(screen);
 #endif
     unloadRom(&app->nes);
+    saveConfig(app);
     free(app);
     return 0;
 }
@@ -336,37 +369,4 @@ void processRomHeader(nes_t *nes) {
     unloadRom(nes);
     exit(0);
 #endif
-}
-
-void loadConfig(app_t *app) {
-    FILE *cfgFile = fopen(app->config.fileName, "rb");
-    app->config.hasConfig = (cfgFile != NULL);
-    assert(!app->config.hasConfig);
-    // TODO: read config file
-    configController(app);
-
-    fclose(cfgFile);
-}
-
-void configController(app_t *app) {
-
-    // controller_t *controller = &app->nes.controller;
-
-    if (!app->config.hasConfig) {
-        app->nes.controller.ButtonUp = KEY_W;
-        app->nes.controller.ButtonDown = KEY_S;
-        app->nes.controller.ButtonLeft = KEY_A;
-        app->nes.controller.ButtonRight = KEY_D;
-
-        app->nes.controller.ButtonA = KEY_Z;
-        app->nes.controller.ButtonB = KEY_X;
-
-        app->nes.controller.ButtonStart = KEY_ENTER;
-        app->nes.controller.ButtonSelect = KEY_BACKSPACE;
-
-        // app->nes.controller.ButtonL = KEY_Q;
-        // app->nes.controller.ButtonR = KEY_E;
-    } else {
-        assert(0 && "UNREACHABLE -> TODO: config file and load controller config from file");
-    }
 }

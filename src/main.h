@@ -8,15 +8,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <time.h>
+
+#include "raylib.h"
 
 #include "InsFlags.h"
+#include "config.h"
 #include "kxdDebug.h"
 #include "kxdTypes.h"
-#include "raylib.h"
 
 #define RAYMATH_STATIC_INLINE
 #include "raymath.h"
+
+#define RAYGUI_IMPLEMENTATION
+#include "../include/raygui.h"
+
+#define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
+#include "gui_window_file_dialog.h"
 
 #include "bundle.h"
 
@@ -53,19 +60,5 @@ void loadRomFromMem(nes_t *nes, const char *fileName);
 void unloadRom(nes_t *nes);
 void processRomHeader(nes_t *nes);
 void debugCPU(cpu_t *cpu);
-
-// Config Functions
-// TODO: move config related functions to separate file
-void loadConfig(app_t *app);
-void configController(app_t *app);
-
-static inline void *callocWrapper(size_t n, size_t sz) {
-    void *ptr = calloc(n, sz);
-    if (ptr == NULL) {
-        fprintf(stderr, "\nCould not allocate memory (%zu bytes) in \'%s:%d\', exiting...\n\n", n * sz, __FILE__, __LINE__);
-        exit(1);
-    }
-    return ptr;
-}
 
 #endif /* KXD_MAIN_H */
