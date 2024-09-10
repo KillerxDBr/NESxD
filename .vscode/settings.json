@@ -38,6 +38,7 @@
         "cstdint": "c",
         "compare": "c",
         "execution": "c",
-        "algorithm": "c"
+        "algorithm": "c",
+        "cstdlib": "c"
     }
 }

@@ -73,11 +73,9 @@ typedef struct {
     bool hasConfig;
 } config_t;
 
-typedef struct
-{
+typedef struct {
     bool openFile;
-}menu_t;
-
+} menu_t;
 
 typedef struct {
     size_t screenW, screenH;

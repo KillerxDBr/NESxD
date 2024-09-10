@@ -11,6 +11,9 @@
 #define HEX8  "0x%02X"
 #define HEX16 "0x%04X"
 
+#define XSTR(A) #A
+#define STR(A) XSTR(A)
+
 #define BIT8 "%d%d%d%d%d%d%d%d"
 
 #define BITN(v, N) (v & (1 << N))

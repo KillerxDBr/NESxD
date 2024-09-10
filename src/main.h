@@ -20,10 +20,12 @@
 #include "raymath.h"
 
 #define RAYGUI_IMPLEMENTATION
-#include "../include/raygui.h"
+#include "raygui.h"
 
-#define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
-#include "gui_window_file_dialog.h"
+#include "tinyfiledialogs/tinyfiledialogs.h"
+
+// #define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
+// #include "gui_window_file_dialog.h"
 
 #include "bundle.h"
 

@@ -1,0 +1,30 @@
+#include "../styles/ashes/style_ashes.h"
+#include "../styles/bluish/style_bluish.h"
+#include "../styles/candy/style_candy.h"
+#include "../styles/cherry/style_cherry.h"
+#include "../styles/cyber/style_cyber.h"
+#include "../styles/dark/style_dark.h"
+#include "../styles/enefete/style_enefete.h"
+#include "../styles/jungle/style_jungle.h"
+#include "../styles/lavanda/style_lavanda.h"
+#include "../styles/sunny/style_sunny.h"
+#include "../styles/terminal/style_terminal.h"
+
+    int oldTheme = state->activeTheme;
+
+        if (oldTheme != state->activeTheme) {
+            switch (state->activeTheme) {
+                case  1: GuiLoadStyleAshes();    break;
+                case  2: GuiLoadStyleBluish();   break;
+                case  3: GuiLoadStyleCandy();    break;
+                case  4: GuiLoadStyleCherry();   break;
+                case  5: GuiLoadStyleCyber();    break;
+                case  6: GuiLoadStyleDark();     break;
+                case  7: GuiLoadStyleEnefete();  break;
+                case  8: GuiLoadStyleJungle();   break;
+                case  9: GuiLoadStyleLavanda();  break;
+                case 10: GuiLoadStyleSunny();    break;
+                case 11: GuiLoadStyleTerminal(); break;
+                default: GuiLoadStyleDefault();  break;
+            }
+        }

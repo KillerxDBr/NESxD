@@ -3,7 +3,9 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/extern/*",
+                "${workspaceFolder}/include/*"
             ],
             "defines": [
                 "_DEBUG",
@@ -14,7 +16,9 @@
                 "NOPPU",
                 "GRAPHICS_API_OPENGL_33",
                 "RAYGUI_IMPLEMENTATION",
-                "PLATFORM_DESKTOP"
+                "PLATFORM_DESKTOP",
+                "KXD_DEBUG",
+                "RINI_IMPLEMENTATION"
             ],
             "windowsSdkVersion": "10.0.22621.0",
             "cStandard": "c11",

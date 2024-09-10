@@ -70,17 +70,13 @@ int main(int argc, char **argv) {
     VARLOG(screen.texture.width, "%d");
     VARLOG(screen.texture.height, "%d");
 
-    // DrawRectangleLines(0, 0, NES_W, NES_H, GREEN);
-
-    const Color r = GetColor(0xFF0000FF), g = GetColor(0x00FF00FF), b = GetColor(0x0000FFFF), p = GetColor(0xFF00FFFF);
-
     for (int x = 0; x < screen.texture.width; x++) {
-        DrawPixel(x, screen.texture.height - 1, r);
-        DrawPixel(x, 0, g);
+        DrawPixel(x, screen.texture.height - 1, CLITERAL(Color){ 255, 0, 0, 255 });
+        DrawPixel(x, 0, CLITERAL(Color){ 0, 255, 0, 255 });
     }
     for (int y = 0; y < screen.texture.height; y++) {
-        DrawPixel(0, y, b);
-        DrawPixel(screen.texture.width - 1, y, p);
+        DrawPixel(0, y, CLITERAL(Color){ 0, 0, 255, 255 });
+        DrawPixel(screen.texture.width - 1, y, CLITERAL(Color){ 255, 255, 0, 255 });
     }
 
     EndTextureMode();
@@ -126,12 +122,11 @@ int main(int argc, char **argv) {
         free(instructions);
     }
 
+#if KXD_DEBUG
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
-
+#endif
     loadConfig(app);
-
-    GuiWindowFileDialogState state = InitGuiWindowFileDialog();
 
     while (!WindowShouldClose() && !app->quit) {
         if (IsWindowResized()) {
@@ -167,16 +162,28 @@ int main(int argc, char **argv) {
         DrawTexturePro(screen.texture, sourceRec, destRec, Vector2Zero(), 0, WHITE);
 #endif
 
-        // DrawRectangle(4, 4, 75, 20, KXD_BG);
-        // DrawFPS(5, 5);
-
-        if(IsKeyPressed(KEY_J))
-            state.fileDialogActive = !state.fileDialogActive;
-        
-        if(state.fileDialogActive)
-            GuiWindowFileDialog(&state);
+        DrawRectangle(4, 4, 75, 20, KXD_BG);
+        DrawFPS(5, 5);
 
         EndDrawing();
+#ifdef KXD_DEBUG
+        if (IsKeyPressed(KEY_J))
+            app->menu.openFile = true;
+
+        if (app->menu.openFile) {
+            char *selectedFile = NULL;
+
+            const char *filters[1] = { "*.nes" };
+
+            selectedFile = tinyfd_openFileDialog("Open...", "./", 1, filters, "NES ROM File", false);
+
+            if (selectedFile)
+                tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
+            else
+                tinyfd_messageBox("Error...", "No File Selected", "ok", "error", 0);
+            app->menu.openFile = false;
+        }
+#endif
         processInstruction(&app->nes.cpu);
         if (app->nes.cpu.B)
             break;
