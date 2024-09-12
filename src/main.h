@@ -11,18 +11,19 @@
 
 #include "raylib.h"
 
-#include "InsFlags.h"
-#include "config.h"
-#include "kxdDebug.h"
-#include "kxdTypes.h"
-
 #define RAYMATH_STATIC_INLINE
 #include "raymath.h"
 
-#define RAYGUI_IMPLEMENTATION
+// #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
 #include "tinyfiledialogs/tinyfiledialogs.h"
+
+#include "InsFlags.h"
+#include "config.h"
+#include "gui.h"
+#include "kxdDebug.h"
+#include "kxdTypes.h"
 
 // #define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
 // #include "gui_window_file_dialog.h"

@@ -10,8 +10,10 @@ int main(int argc, char **argv) {
 
     app_t *app = callocWrapper(1, sizeof(app_t));
 
-    app->config.fileName = callocWrapper(strlen(argv[0]) + 1 - sizeof("nesxd.exe") + sizeof(CONFIG_FILE), 1);
-
+    const char *ExecutableName = GetFileName(argv[0]);
+    app->config.fileName = callocWrapper(strlen(argv[0]) + 1 - strlen(ExecutableName) + sizeof(CONFIG_FILE), 1);
+    
+    app->nes.isPaused = NOP;
     strcpy(app->config.fileName, argv[0]);
 
     char *slash = strrchr(app->config.fileName, '\\');
@@ -19,13 +21,15 @@ int main(int argc, char **argv) {
 
     memcpy(slash, CONFIG_FILE, sizeof(CONFIG_FILE));
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE /*| FLAG_WINDOW_UNDECORATED*/);
     InitWindow(NES_W * 2, NES_H * 2, "NES_xD");
     SetWindowMinSize(NES_W, NES_H);
     SetTargetFPS(60);
 
     app->screenW = GetRenderWidth();
     app->screenH = GetRenderHeight();
+
+    GuiLoadStyleDefault();
 
 #ifndef NOVID
     SetRandomSeed(40028922U);
@@ -59,7 +63,8 @@ int main(int argc, char **argv) {
 
     BeginTextureMode(screen);
 
-    ClearBackground(KXD_BG);
+    // ClearBackground(KXD_BG);
+    ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
     for (int y = 0; y < screen.texture.height; ++y) {
         for (int x = 0; x < screen.texture.width; ++x) {
@@ -128,6 +133,8 @@ int main(int argc, char **argv) {
 #endif
     loadConfig(app);
 
+    const char *PausedText = "Paused...";
+
     while (!WindowShouldClose() && !app->quit) {
         if (IsWindowResized()) {
             LOG_INF("Window Resized...");
@@ -156,44 +163,69 @@ int main(int argc, char **argv) {
 
         BeginDrawing();
 
-        ClearBackground(KXD_BG);
+        // ClearBackground(KXD_BG);
+        ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+
+        // app->quit = GuiWindowBox((Rectangle){ 0, 0, app->screenW, app->screenH }, "#198# PORTABLE WINDOW");
 
 #ifndef NOVID
         DrawTexturePro(screen.texture, sourceRec, destRec, Vector2Zero(), 0, WHITE);
 #endif
 
+        DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);
+        DrawLine((app->screenW / 2), 0, (app->screenW / 2), app->screenH, GREEN);
+
         DrawRectangle(4, 4, 75, 20, KXD_BG);
         DrawFPS(5, 5);
+                
+        if(app->nes.isPaused){
+            const Vector2 pauseSize = MeasureTextEx(GetFontDefault(),PausedText, app->screenW *.1f, app->screenW *.01f);
 
-        EndDrawing();
+            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .5f),(app->screenH * .5f) - (pauseSize.y * .5f), pauseSize.x, pauseSize.y, RED);
+            DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW *.1f, RAYWHITE);
+        }
+
 #ifdef KXD_DEBUG
         if (IsKeyPressed(KEY_J))
-            app->menu.openFile = true;
+            app->menu.openFile = !app->menu.openFile;
+            // app->menu.openFile = true;
 
         if (app->menu.openFile) {
-            char *selectedFile = NULL;
+            // char *selectedFile = NULL;
 
-            const char *filters[1] = { "*.nes" };
+            // const char *filters[1] = { "*.nes" };
 
-            selectedFile = tinyfd_openFileDialog("Open...", "./", 1, filters, "NES ROM File", false);
+            // selectedFile = tinyfd_openFileDialog("Open...", ".\\", 1, filters, "NES ROM File (*.nes)", false);
 
-            if (selectedFile)
-                tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
-            else
-                tinyfd_messageBox("Error...", "No File Selected", "ok", "error", 0);
-            app->menu.openFile = false;
+            // if (selectedFile) {
+            //     tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
+            // // tinyfd_notifyPopupW(L"Selected File...", tinyfd_utf8to16(selectedFile), L"info");
+            // }
+            // else {
+            //     tinyfd_messageBox("Error...", "No File Selected", "ok", "error", 0);
+            // }
+            // app->menu.openFile = false;
+            KxDGui(app);
         }
 #endif
-        processInstruction(&app->nes.cpu);
-        if (app->nes.cpu.B)
-            break;
+        EndDrawing();
+        if(IsKeyPressed(app->config.pauseKey)){
+            app->nes.isPaused = !app->nes.isPaused;
+        }
+
+        if (!app->nes.isPaused) {
+            processInstruction(&app->nes.cpu);
+            if (app->nes.cpu.B)
+                break;
+        }
     }
     memDmp(&app->nes.cpu, MEMSIZE);
+    saveConfig(app);
+    unloadRom(&app->nes);
 #ifndef NOVID
     UnloadRenderTexture(screen);
+    CloseWindow();
 #endif
-    unloadRom(&app->nes);
-    saveConfig(app);
     free(app);
     return 0;
 }
@@ -277,16 +309,30 @@ void loadRom(nes_t *nes, const char *fileName) {
     LOG_INF("ROM Loaded with success");
 #endif
 
-    fseek(rom, 0, SEEK_END);
-    nes->romSize = ftell(rom);
-    rewind(rom);
+    if(fseek(rom, 0, SEEK_END) < 0) goto defer;
+
+    long romSize = ftell(rom);
+    if(romSize < 0) goto defer;
+
+    nes->romSize = romSize;
+    if(fseek(rom, 0, SEEK_SET) < 0) goto defer;
 
     nes->rom = callocWrapper(nes->romSize, 1);
     fread(nes->rom, 1, nes->romSize, rom);
+
+    if(ferror(rom)) goto defer;
+
     fclose(rom);
 
     CHECK_ROM_HEADER(nes->rom);
     processRomHeader(nes);
+    return;
+
+defer:
+    LOG_ERR("Error while reading file '%s'", fileName);
+    if(rom)
+        fclose(rom);
+    exit(1);
 }
 
 void loadRomFromMem(nes_t *nes, const char *fileName) {
@@ -343,9 +389,9 @@ void processRomHeader(nes_t *nes) {
         uint8_t mul = LSB & 0b00000011;
         uint8_t exp = LSB & 0b11111100;
 
-        nes->PRGSize = (2 ^ exp * (mul * 2 + 1)) * 16384; // Multipling result by 16 KiB in bytes
+        nes->PRGSize = (2 ^ exp * (mul * 2 + 1)) * KB(16); // Multipling result by 16 KiB in bytes
     } else {
-        nes->PRGSize = (LSB + (MSB << 8)) * 16384; // Multipling result by 16 KiB in bytes
+        nes->PRGSize = (LSB + (MSB << 8)) * KB(16); // Multipling result by 16 KiB in bytes
     }
     // TODO: Check for other types of hardware
     // CHR ROM/RAM?
@@ -356,9 +402,9 @@ void processRomHeader(nes_t *nes) {
         uint8_t mul = LSB & 0b00000011;
         uint8_t exp = LSB & 0b11111100;
 
-        nes->CHRSize = (2 ^ exp * (mul * 2 + 1)) * 8192; // Multipling result by 8 KiB in bytes
+        nes->CHRSize = (2 ^ exp * (mul * 2 + 1)) * KB(8); // Multipling result by 8 KiB in bytes
     } else {
-        nes->CHRSize = (LSB + (MSB << 8)) * 8192; // Multipling result by 8 KiB in bytes
+        nes->CHRSize = (LSB + (MSB << 8)) * KB(8); // Multipling result by 8 KiB in bytes
     }
 
     // Allocating
@@ -372,8 +418,4 @@ void processRomHeader(nes_t *nes) {
 #endif
     nes->CHR = callocWrapper(1, nes->CHRSize);
 
-#if 0
-    unloadRom(nes);
-    exit(0);
-#endif
 }

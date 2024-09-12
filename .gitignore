@@ -80,3 +80,4 @@ bin/
 *.nes
 *.log
 !.vscode/c_cpp_properties.json
+*.exe.old

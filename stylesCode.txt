@@ -1,3 +1,4 @@
+#define MAX_GUI_STYLES_AVAILABLE   12       // NOTE: Included light style
 #include "../styles/ashes/style_ashes.h"
 #include "../styles/bluish/style_bluish.h"
 #include "../styles/candy/style_candy.h"
@@ -13,6 +14,9 @@
     int oldTheme = state->activeTheme;
 
         if (oldTheme != state->activeTheme) {
+            
+            GuiLoadStyleDefault();
+
             switch (state->activeTheme) {
                 case  1: GuiLoadStyleAshes();    break;
                 case  2: GuiLoadStyleBluish();   break;
@@ -25,6 +29,6 @@
                 case  9: GuiLoadStyleLavanda();  break;
                 case 10: GuiLoadStyleSunny();    break;
                 case 11: GuiLoadStyleTerminal(); break;
-                default: GuiLoadStyleDefault();  break;
+                default: break;
             }
         }

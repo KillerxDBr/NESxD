@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #define MEMSIZE 2048ULL
+#define KB(n) (n * 1024)
 
 typedef struct {
     uint16_t ButtonUp;
@@ -20,7 +21,6 @@ typedef struct {
 
     // uint16_t ButtonL;
     // uint16_t ButtonR;
-
 } controller_t;
 
 typedef struct {
@@ -66,11 +66,17 @@ typedef struct {
 
     uint8_t *CHR;
     size_t CHRSize;
+
+    bool isPaused;
 } nes_t;
 
 typedef struct {
     char *fileName;
     bool hasConfig;
+
+    uint8_t selectedTheme;
+    uint16_t fastForwardKey;
+    uint16_t pauseKey;
 } config_t;
 
 typedef struct {
