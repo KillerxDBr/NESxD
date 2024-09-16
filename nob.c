@@ -1,9 +1,18 @@
+#ifdef UNICODE
+#undef UNICODE
+#endif
+#ifdef _UNICODE
+#undef _UNICODE
+#endif
+
+// #define RELEASE
+
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-bool precompileHeader(void);
+bool PrecompileHeader(void);
 bool CompileFiles(void);
 bool CleanupFiles(void);
 bool CompileDependencies(void);
@@ -50,13 +59,13 @@ bool Bundler(void);
 const char *files[] = {
     "main", "6502", "config", "gui", "input",
 };
-#define SORCE_FILES_SIZE sizeof(files) / sizeof(files[0])
+#define FILES_COUNT sizeof(files) / sizeof(files[0])
 
 const char *dependencies[] = {
     "tinyfiledialogs",
-
 };
-#define DEPENDENCIES_SIZE sizeof(dependencies) / sizeof(dependencies[0])
+
+#define DEPENDENCIES_COUNT sizeof(dependencies) / sizeof(dependencies[0])
 
 const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
@@ -66,15 +75,43 @@ typedef struct {
     size_t capacity;
 } Objects;
 
-Objects obj = { 0 };
+typedef struct {
+    const char *file_path;
+    size_t offset;
+    size_t size;
+} Resource;
 
-bool ccache = true;
+typedef struct Resources {
+    Resource *items;
+    size_t count;
+    size_t capacity;
+} Resources;
+
+typedef struct {
+    char **items;
+    size_t count;
+    size_t capacity;
+} EmbedFiles;
+
+Objects obj = { 0 };
+Resources resources = { 0 };
+
+bool ccache;
 
 int main(int argc, char **argv) {
     NOB_GO_REBUILD_URSELF(argc, argv);
-    const char *program = nob_shift_args(&argc, &argv);
 
-    (void)program;
+    // const char *program = nob_shift_args(&argc, &argv);
+    // (void)program;
+    nob_shift_args(&argc, &argv);
+
+    Nob_Cmd cmd = { 0 };
+    nob_cmd_append(&cmd, "where", "ccache");
+
+    ccache = nob_cmd_run_sync(cmd);
+
+    nob_cmd_free(cmd);
+
     nob_log(NOB_INFO, "Using Compiler: \"%s\"", CC);
 
     const char *command;
@@ -85,6 +122,13 @@ int main(int argc, char **argv) {
 
     if (strcmp(command, "build") == 0) {
         nob_log(NOB_INFO, "--- Building ---");
+        if (argc > 0) {
+            if (strcmp(argv[0], "clean") == 0) {
+                nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
+                if (!CleanupFiles())
+                    return 1;
+            }
+        }
 
         if (!nob_mkdir_if_not_exists(BUILD_DIR))
             return 1;
@@ -94,7 +138,7 @@ int main(int argc, char **argv) {
             return 1;
 
         nob_log(NOB_INFO, "--- Precompiling Headers ---");
-        if (!precompileHeader())
+        if (!PrecompileHeader())
             return 1;
 
         nob_log(NOB_INFO, "--- Generating Object Files ---");
@@ -102,6 +146,7 @@ int main(int argc, char **argv) {
             return 1;
 
         nob_log(NOB_INFO, "--- Compiling Executable ---");
+
         if (!nob_mkdir_if_not_exists(BIN_DIR))
             return 1;
 
@@ -126,7 +171,7 @@ int main(int argc, char **argv) {
     }
 
     for (size_t i = 0; i < obj.count; i++) {
-        free(obj.items[i]);
+        free((void *)obj.items[i]);
     }
     nob_da_free(obj);
 
@@ -134,7 +179,7 @@ int main(int argc, char **argv) {
 }
 
 // clang-format off
-
+#ifndef RELEASE
 // CFlags
 #define CFLAGS                                                                                          \
         "-Wall",                                                                                        \
@@ -142,30 +187,35 @@ int main(int argc, char **argv) {
         "-Winvalid-pch",                                                                                \
         "-std=gnu11",                                                                                   \
         "-Og",                                                                                          \
-        "-g3",                                                                                          \
-        "-ggdb",                                                                                        \
+        "-ggdb3",                                                                                       \
         "-march=native",                                                                                \
         "-DKXD_DEBUG",                                                                                  \
-        "-D_UNICODE",                                                                                   \
-        "-DUNICODE",                                                                                    \
         "-DPLATFORM_DESKTOP",                                                                           \
         "-DGRAPHICS_API_OPENGL_33",                                                                     \
         "-DNES"
 
+#else
+
+// CFlags
+#define CFLAGS                                                                                          \
+        "-std=gnu11",                                                                                   \
+        "-O3",                                                                                          \
+        "-march=native",                                                                                \
+        "-DPLATFORM_DESKTOP",                                                                           \
+        "-DGRAPHICS_API_OPENGL_33",                                                                     \
+        "-DNES",                                                                                        \
+        "-mwindows"
+#endif
 // clang-format on
 
 #define STR_SIZE 64ULL
 
-bool precompileHeader(void) {
+bool PrecompileHeader(void) {
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
 
     if (ccache) {
         nob_cmd_append(&cmd, "ccache");
-        if (!nob_cmd_run_sync(cmd)) {
-            cmd.count--;
-            ccache = false;
-        }
     }
     nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc-header", CFLAGS, INCLUDES);
     size_t command_size = cmd.count;
@@ -177,7 +227,7 @@ bool precompileHeader(void) {
     */
     //-o build/6502precomp.h.gch src/6502.h
     Nob_String_Builder sb = { 0 };
-    for (size_t i = 0; i < SORCE_FILES_SIZE; i++) {
+    for (size_t i = 0; i < FILES_COUNT; i++) {
         cmd.count = command_size;
 
         char input[STR_SIZE] = { 0 };
@@ -230,31 +280,10 @@ defer:
     return false;
 }
 
-bool CleanupFiles(void) {
-    Nob_Cmd cmd = { 0 };
-    nob_cmd_append(&cmd, "pwsh.exe");
-    if (!nob_cmd_run_sync(cmd)) {
-        cmd.count--;
-        nob_cmd_append(&cmd, "powershell.exe");
-        // exit(0);
-    }
-    // remove-item -WhatIf * -Include *.exe, *.gch, *.log, *.o, *.ini -Recurse -Exclude *.c, *.h, *.py
-    nob_cmd_append(&cmd, "-command", "remove-item", "*", "-Include", "nesxd.exe", ",", "*.gch", ",", "*.log", ",", "*.o", ",", "*.ini",
-                   "-Recurse", "-Exclude", "nob.exe", ",", "*.c", ",", "*.h", ",", "*.py");
-    bool result = nob_cmd_run_sync(cmd);
-    nob_cmd_free(cmd);
-    return result;
-    // exit(0);
-}
-
 bool CompileExecutable(void) {
     Nob_Cmd cmd = { 0 };
     if (ccache) {
         nob_cmd_append(&cmd, "ccache");
-        if (!nob_cmd_run_sync(cmd)) {
-            cmd.count--;
-            ccache = false;
-        }
     }
 
     // for (size_t i = 0; i < obj.count; i++) {
@@ -268,7 +297,7 @@ bool CompileExecutable(void) {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
         nob_cmd_append(&cmd, "-o", EXE_OUTPUT);
         nob_da_append_many(&cmd, obj.items, obj.count);
-        nob_cmd_append(&cmd, RAYLIB, CFLAGS, LIBS, "-DKXD_DEBUG");
+        nob_cmd_append(&cmd, RAYLIB, CFLAGS, LIBS);
     } else
         nob_log(NOB_INFO, skippingMsg, EXE_OUTPUT);
 
@@ -284,10 +313,6 @@ bool CompileFiles(void) {
 
     if (ccache) {
         nob_cmd_append(&cmd, "ccache");
-        if (!nob_cmd_run_sync(cmd)) {
-            cmd.count--;
-            ccache = false;
-        }
     }
     nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS, INCLUDES);
     size_t command_size = cmd.count;
@@ -300,7 +325,7 @@ bool CompileFiles(void) {
     */
 
     Nob_String_Builder sb = { 0 };
-    for (size_t i = 0; i < SORCE_FILES_SIZE; i++) {
+    for (size_t i = 0; i < FILES_COUNT; i++) {
         cmd.count = command_size;
 
         char input[STR_SIZE] = { 0 };
@@ -385,24 +410,26 @@ bool CompileFiles(void) {
     // nob_log(NOB_INFO, "------------------");
 
     // windres -i resource.rc -o build/resource.o
-    const char *resource = BUILD_DIR "/resource.o";
+
     const char *rc_input = "resource.rc";
     const char *manifest = "manifest.xml";
-    const char *inputs[] = { rc_input, manifest };
+    if (nob_file_exists(rc_input) == 1 && nob_file_exists(manifest) == 1) {
+        const char *resource = BUILD_DIR "/resource.o";
+        const char *inputs[] = { rc_input, manifest };
 
-    if (nob_needs_rebuild(resource, inputs, 2)) {
-        nob_log(NOB_INFO, "    Building %s file", rc_input);
-        cmd.count = 0;
-        nob_cmd_append(&cmd, "windres", "-i", rc_input, "-o", resource);
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, resource);
+        if (nob_needs_rebuild(resource, inputs, 2)) {
+            nob_log(NOB_INFO, "    Building %s file", rc_input);
+            cmd.count = 0;
+            nob_cmd_append(&cmd, "windres", "-i", rc_input, "-o", resource);
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
+        } else {
+            nob_log(NOB_INFO, skippingMsg, resource);
+        }
+        // char *toObj = malloc(strlen(resource) + 1);
+        // strcpy(toObj, resource);
+        // nob_da_append(&obj, toObj);
+        nob_da_append(&obj, strdup(resource));
     }
-
-    // char *toObj = malloc(strlen(resource) + 1);
-    // strcpy(toObj, resource);
-    // nob_da_append(&obj, toObj);
-    nob_da_append(&obj, strdup(resource));
 
     bool result = nob_procs_wait(procs);
     nob_cmd_free(cmd);
@@ -416,16 +443,11 @@ defer:
 }
 
 bool CompileDependencies(void) {
-#if 1
     Nob_String_Builder sb = { 0 };
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
     if (ccache) {
         nob_cmd_append(&cmd, "ccache");
-        if (!nob_cmd_run_sync(cmd)) {
-            cmd.count--;
-            ccache = false;
-        }
     }
     /*
     gcc -fdiagnostics-color=always -Ibuild/ -I. -Iinclude -Isrc -Istyles -Iextern -o bin/nesxd.exe build/main.o build/6502.o build/input.o
@@ -434,7 +456,7 @@ bool CompileDependencies(void) {
     -lole32 -DKXD_DEBUG*/
     nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS, INCLUDES);
 
-    for (size_t i = 0; i < DEPENDENCIES_SIZE; ++i) {
+    for (size_t i = 0; i < DEPENDENCIES_COUNT; ++i) {
         char input[STR_SIZE] = { 0 };
         char output[STR_SIZE] = { 0 };
 
@@ -478,9 +500,6 @@ bool CompileDependencies(void) {
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
-        // char *toObj = malloc(strlen(output) + 1);
-        // strcpy(toObj, output);
-        // nob_da_append(&obj, toObj);
         nob_da_append(&obj, strdup(output));
     }
 
@@ -492,20 +511,12 @@ bool CompileDependencies(void) {
 defer:
     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
     return false;
-#else
-    nob_log(NOB_ERROR, "Compile Dependencies Not implemented, Skipping...");
-    return true;
-#endif
 }
 
 bool CompileNobHeader(void) {
     Nob_Cmd cmd = { 0 };
     if (ccache) {
         nob_cmd_append(&cmd, "ccache");
-        if (!nob_cmd_run_sync(cmd)) {
-            cmd.count--;
-            ccache = false;
-        }
     }
     const char *output = BUILD_DIR "/nob.o";
 
@@ -530,20 +541,6 @@ bool CompileNobHeader(void) {
         fprintf((out), __VA_ARGS__);                                                                                                       \
         fprintf((out), " // %s:%d\n", __FILE__, __LINE__);                                                                                 \
     } while (0)
-
-typedef struct {
-    const char *file_path;
-    size_t offset;
-    size_t size;
-} Resource;
-
-typedef struct Resources {
-    Resource *items;
-    size_t count;
-    size_t capacity;
-} Resources;
-
-Resources resources = { 0 };
 
 bool generate_resource_bundle(void) {
     bool result = true;
@@ -611,12 +608,6 @@ defer:
     return result;
 }
 
-typedef struct {
-    char **items;
-    size_t count;
-    size_t capacity;
-} EmbedFiles;
-
 void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
     Nob_File_Paths children = { 0 };
 
@@ -639,7 +630,7 @@ void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
         nob_sb_append_cstr(sb, children.items[i]);
         nob_sb_append_null(sb);
         Nob_File_Type rst = nob_get_file_type(sb->items);
-        printf("File: %s | Type '%d'\n", sb->items, rst);
+        // printf("File: %s | Type '%d'\n", sb->items, rst);
         switch (rst) {
         case NOB_FILE_DIRECTORY:
             sb->count--;
@@ -690,5 +681,53 @@ bool Bundler(void) {
     nob_sb_free(sb);
     nob_da_free(procs);
     nob_da_free(eb);
+    return result;
+}
+
+bool CleanupFiles(void) {
+    bool result = true;
+
+    Nob_String_Builder sb = { 0 };
+    nob_sb_append_cstr(&sb, "./" BUILD_DIR);
+
+    EmbedFiles eb = { 0 };
+    recurse_dir(&sb, &eb);
+
+    sb.count = 0;
+    nob_sb_append_cstr(&sb, "./" BIN_DIR);
+    recurse_dir(&sb, &eb);
+
+    nob_sb_free(sb);
+
+    for (size_t i = 0; i < eb.count; i++) {
+        nob_log(NOB_INFO, "Removing file: '%s' (%zu/%zu)", eb.items[i], i + 1, eb.count);
+        if (remove(eb.items[i]) != 0) {
+            nob_log(NOB_ERROR, "Could not remove file '%s': %s", eb.items[i], strerror(errno));
+            return false;
+        }
+    }
+    bool binDir = nob_file_exists(BIN_DIR);
+    bool buildDir = nob_file_exists(BUILD_DIR);
+    int totalDirs = binDir + buildDir;
+    int dirCount = 1;
+
+    if (binDir) {
+        nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BIN_DIR, dirCount, totalDirs);
+        if (rmdir(BIN_DIR) != 0)
+            nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BIN_DIR, strerror(errno));
+        dirCount++;
+    }
+
+    if (buildDir) {
+        nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BUILD_DIR, dirCount, totalDirs);
+        if (rmdir(BUILD_DIR) != 0)
+            nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BUILD_DIR, strerror(errno));
+        dirCount++;
+    }
+
+    for (size_t i = 0; i < eb.count; i++)
+        free(eb.items[i]);
+
+    free(eb.items);
     return result;
 }

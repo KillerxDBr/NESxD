@@ -81,3 +81,4 @@ bin/
 *.log
 !.vscode/c_cpp_properties.json
 *.exe.old
+extern/raylib-5.0
