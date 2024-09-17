@@ -26,6 +26,9 @@ bool Bundler(void);
 #if _WIN32
 #if defined(__GNUC__)
 #define CC "gcc"
+#else
+#error No GCC Found...
+/*
 #elif defined(__clang__)
 #define CC "clang"
 #elif defined(_MSC_VER)
@@ -34,6 +37,9 @@ bool Bundler(void);
 #endif
 #else
 #define CC "cc"
+*/
+
+#endif
 #endif
 
 #define RAYLIB "./lib/libraylib.a"
@@ -96,6 +102,8 @@ typedef struct {
 Objects obj = { 0 };
 Resources resources = { 0 };
 
+void GetIncludedHeaders(Objects *eh, const char *header);
+
 bool ccache;
 
 int main(int argc, char **argv) {
@@ -123,7 +131,7 @@ int main(int argc, char **argv) {
     if (strcmp(command, "build") == 0) {
         nob_log(NOB_INFO, "--- Building ---");
         if (argc > 0) {
-            if (strcmp(argv[0], "clean") == 0) {
+            if (strcmp(command, "clean") == 0 || strcmp(command, "cls") == 0) {
                 nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
                 if (!CleanupFiles())
                     return 1;
@@ -161,13 +169,13 @@ int main(int argc, char **argv) {
             return 1;
         // assert(0 && "Not Implemented!");
 
-    } else if (strcmp(command, "clean") == 0) {
+    } else if (strcmp(command, "clean") == 0 || strcmp(command, "cls") == 0) {
         nob_log(NOB_INFO, "--- Cleaning Files ---");
         if (!CleanupFiles())
             return 1;
 
     } else {
-        nob_log(NOB_INFO, "Unknown command, expects: <build, bundler, clean>");
+        nob_log(NOB_INFO, "Unknown command, expects: <build, bundler, clean/cls>");
     }
 
     for (size_t i = 0; i < obj.count; i++) {
@@ -211,6 +219,7 @@ int main(int argc, char **argv) {
 #define STR_SIZE 64ULL
 
 bool PrecompileHeader(void) {
+    Objects extraHeaders = { 0 };
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
 
@@ -261,7 +270,18 @@ bool PrecompileHeader(void) {
 
         strcpy(output, sb.items);
 
-        if (nob_needs_rebuild1(output, &input[0])) {
+        GetIncludedHeaders(&extraHeaders, input);
+        nob_da_append(&extraHeaders, input);
+
+        nob_log(NOB_INFO, "------------------------------------");
+        for (size_t j = 0; j < extraHeaders.count; j++)
+        {
+            nob_log(NOB_INFO, "%s", extraHeaders.items[j]);
+        }
+        nob_log(NOB_INFO, "------------------------------------");
+        
+
+        if (nob_needs_rebuild(output, extraHeaders.items, extraHeaders.count)) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
             nob_cmd_append(&cmd, "-o", output, input);
             nob_da_append(&procs, nob_cmd_run_async(cmd));
@@ -730,4 +750,44 @@ bool CleanupFiles(void) {
 
     free(eb.items);
     return result;
+}
+
+#define INCLUDE_TXT "#include \""
+
+void GetIncludedHeaders(Objects *eh, const char *header) {
+    Nob_String_Builder sb = {0};
+    eh->count = 0;
+    char line[1024] = { 0 };
+
+    FILE *fHeader = fopen(header, "rt");
+
+    if (fHeader == NULL)
+        return;
+    size_t sz;
+    nob_log(NOB_INFO, "Header: '%s'", header);
+    while (feof(fHeader) == 0) {
+        line[0] = '\0';
+        fgets(line, sizeof(line), fHeader);
+        sz = strlen(line);
+        if (sz <= 1)
+            continue;
+        line[--sz] = '\0'; // removing \n from end
+
+        if (strncmp(line, INCLUDE_TXT, sizeof(INCLUDE_TXT) - 1) == 0) {
+            // char *hName = strdup(line) + sizeof(INCLUDE_TXT) - 1;
+            // hName[strlen(hName) - 1] = '\0'; // removing last " from line
+
+            sb.count = 0;
+            nob_sb_append_buf(&sb, line + sizeof(INCLUDE_TXT) - 1, sz + sizeof(INCLUDE_TXT) - 2);
+            nob_sb_append_null(&sb);
+            nob_log(NOB_INFO, "%s", sb.items);
+            
+            // nob_da_append(eh, hName);
+        }
+    }
+    exit(0);
+    nob_log(NOB_INFO, "%zu Headers found in %s", eh->count, header);
+    for (size_t i = 0; i < eh->count; ++i) {
+        nob_log(NOB_INFO, "   %s", eh->items[i]);
+    }
 }

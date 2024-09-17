@@ -33,6 +33,71 @@ void processInstruction(cpu_t *cpu) {
         incrementPC(cpu);
         break;
 
+    case INS_CLI:
+        cpu->I = false;
+        incrementPC(cpu);
+        break;
+
+    case INS_SEI:
+        cpu->I = true;
+        incrementPC(cpu);
+        break;
+
+    case INS_CLV:
+        cpu->V = false;
+        incrementPC(cpu);
+        break;
+
+    case INS_CLD:
+        cpu->D = false;
+        incrementPC(cpu);
+        break;
+
+    case INS_SED:
+        cpu->D = true;
+        incrementPC(cpu);
+        break;
+
+    case INS_ADC_IM:
+        assert(0 && "TODO: INS_ADC_IM");
+        incrementPC(cpu);
+        break;
+
+    case INS_ADC_Z:
+        assert(0 && "TODO: INS_ADC_Z");
+        incrementPC(cpu);
+        break;
+
+    case INS_ADC_ZX:
+        assert(0 && "TODO: INS_ADC_ZX");
+        incrementPC(cpu);
+        break;
+
+    case INS_ADC_A:
+        assert(0 && "TODO: INS_ADC_A");
+        incrementPC(cpu);
+        break;
+
+    case INS_ADC_AX:
+        assert(0 && "TODO: INS_ADC_AX");
+        incrementPC(cpu);
+        break;
+
+    case INS_ADC_AY:
+        assert(0 && "TODO: INS_ADC_AY");
+        incrementPC(cpu);
+        break;
+
+    case INS_ADC_INX:
+        assert(0 && "TODO: INS_ADC_INX");
+        incrementPC(cpu);
+        break;
+
+    case INS_ADC_INY:
+        assert(0 && "TODO: INS_ADC_INY");
+        incrementPC(cpu);
+        break;
+
     case INS_LDA_IM: // Immediate mode, Load the next byte to A
         cpu->A = cpu->mem[incrementPC(cpu)];
 #ifdef KXD_DEBUG
@@ -154,18 +219,16 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_STA_INY:
-        assert(0 && "TODO");
-/*
-        case INS_LDA_INY:
-        cpu->A = cpu->mem[cpu->mem[cpu->mem[incrementPC(cpu)]] + (cpu->mem[cpu->mem[cpu->PC] + 1] << 8) + cpu->Y];
+        value8 = cpu->mem[incrementPC(cpu)];
+        value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8) + cpu->Y;
 #ifdef KXD_DEBUG
         VARLOG(cpu->A, HEX8);
+        VARLOG(cpu->Y, HEX8);
+        VARLOG(value8, HEX8);
+        VARLOG(value16, HEX16);
 #endif
-        LD_FLAGS(cpu->A);
+        cpu->mem[value16] = cpu->A;
         incrementPC(cpu);
-        break;
-        */
-
         break;
 
     case INS_LDX_IM:
@@ -262,6 +325,41 @@ void processInstruction(cpu_t *cpu) {
         cpu->PC = cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8);
         break;
 
+    case INS_DEC_A:
+        value16 = cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8);
+        cpu->mem[value16]--;
+        DEC_FLAGS(cpu->mem[value16]);
+        // assert(0 && "TODO: DEC");
+        incrementPC(cpu);
+        break;
+
+    case INS_DEC_AX:
+        assert(0 && "TODO: DEC AX");
+        incrementPC(cpu);
+        break;
+
+    case INS_DEC_Z:
+        assert(0 && "TODO: DEC Z");
+        incrementPC(cpu);
+        break;
+
+    case INS_DEC_ZX:
+        assert(0 && "TODO: DEC ZX");
+        incrementPC(cpu);
+        break;
+
+    case INS_DEX:
+        cpu->X--;
+        DEC_FLAGS(cpu->X);
+        incrementPC(cpu);
+        break;
+
+    case INS_DEY:
+        cpu->Y--;
+        DEC_FLAGS(cpu->Y);
+        incrementPC(cpu);
+        break;
+
     default:
         LOG_INF("Unhandled Instruction: mem[" HEX16 "] -> " HEX8 ", Skipping...", cpu->PC, cpu->mem[cpu->PC]);
         incrementPC(cpu);
@@ -270,8 +368,9 @@ void processInstruction(cpu_t *cpu) {
 #ifdef KXD_DEBUG
     debugCPU(cpu);
     LOG_INF("Cycles used in execution: %u", cpu->PC - oldPC);
+    LOG_INF("------------------------------------------------");
 #endif
-//     cpu->PC = cpu->PC & (MEMSIZE - 1);
+    //     cpu->PC = cpu->PC & (MEMSIZE - 1);
 
     (void)value16;
     (void)value8;

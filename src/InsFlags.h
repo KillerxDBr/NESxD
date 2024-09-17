@@ -11,5 +11,7 @@
         cpu->N = BITN((reg), 7);                                                                                                     \
     } while (0)
 
+#define DEC_FLAGS(reg) LD_FLAGS(reg)
+
 #endif /* KXD_INS_FLAGS_H */
 

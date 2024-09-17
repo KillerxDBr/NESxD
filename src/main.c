@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
 
     const char *ExecutableName = GetFileName(argv[0]);
     app->config.fileName = callocWrapper(strlen(argv[0]) + 1 - strlen(ExecutableName) + sizeof(CONFIG_FILE), 1);
-    
+
     app->nes.isPaused = NOP;
     strcpy(app->config.fileName, argv[0]);
 
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
         fclose(memBin);
 
         addMultipleToMem(app->nes.cpu.mem, 0, instructions, insSize);
-        addToMem(app->nes.cpu.mem, 0xDD, 0x0101);
+        // addToMem(app->nes.cpu.mem, 0xDD, 0x0101);
         free(instructions);
     }
 
@@ -177,18 +177,20 @@ int main(int argc, char **argv) {
 
         DrawRectangle(4, 4, 75, 20, KXD_BG);
         DrawFPS(5, 5);
-                
-        if(app->nes.isPaused){
-            const Vector2 pauseSize = MeasureTextEx(GetFontDefault(),PausedText, app->screenW *.1f, app->screenW *.01f);
 
-            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .5f),(app->screenH * .5f) - (pauseSize.y * .5f), pauseSize.x, pauseSize.y, RED);
-            DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW *.1f, RAYWHITE);
+        if (app->nes.isPaused) {
+            const Vector2 pauseSize = MeasureTextEx(GetFontDefault(), PausedText, app->screenW * .1f, app->screenW * .01f);
+
+            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), pauseSize.x, pauseSize.y,
+                          RED);
+            DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW * .1f,
+                     RAYWHITE);
         }
 
 #ifdef KXD_DEBUG
         if (IsKeyPressed(KEY_J))
             app->menu.openFile = !app->menu.openFile;
-            // app->menu.openFile = true;
+        // app->menu.openFile = true;
 
         if (app->menu.openFile) {
             // char *selectedFile = NULL;
@@ -209,7 +211,7 @@ int main(int argc, char **argv) {
         }
 #endif
         EndDrawing();
-        if(IsKeyPressed(app->config.pauseKey)){
+        if (IsKeyPressed(app->config.pauseKey)) {
             app->nes.isPaused = !app->nes.isPaused;
         }
 
@@ -291,7 +293,11 @@ void addMultipleToMem(uint8_t *mem, size_t loc, uint8_t *values, size_t valuesSi
         addToMem(mem, loc, values[0]);
         return;
     }
-    assert(loc + valuesSize < MEMSIZE);
+    // VARLOG(loc, "%zu");
+    // VARLOG(valuesSize, "%zu");
+    // VARLOG(loc + valuesSize, "%zu");
+    // VARLOG(MEMSIZE, "%zu");
+    assert(loc + valuesSize <= MEMSIZE);
     for (size_t i = 0; i < valuesSize; i++) {
         mem[loc + i] = values[i];
     }
@@ -309,18 +315,22 @@ void loadRom(nes_t *nes, const char *fileName) {
     LOG_INF("ROM Loaded with success");
 #endif
 
-    if(fseek(rom, 0, SEEK_END) < 0) goto defer;
+    if (fseek(rom, 0, SEEK_END) < 0)
+        goto defer;
 
     long romSize = ftell(rom);
-    if(romSize < 0) goto defer;
+    if (romSize < 0)
+        goto defer;
 
     nes->romSize = romSize;
-    if(fseek(rom, 0, SEEK_SET) < 0) goto defer;
+    if (fseek(rom, 0, SEEK_SET) < 0)
+        goto defer;
 
     nes->rom = callocWrapper(nes->romSize, 1);
     fread(nes->rom, 1, nes->romSize, rom);
 
-    if(ferror(rom)) goto defer;
+    if (ferror(rom))
+        goto defer;
 
     fclose(rom);
 
@@ -330,7 +340,7 @@ void loadRom(nes_t *nes, const char *fileName) {
 
 defer:
     LOG_ERR("Error while reading file '%s'", fileName);
-    if(rom)
+    if (rom)
         fclose(rom);
     exit(1);
 }
@@ -417,5 +427,4 @@ void processRomHeader(nes_t *nes) {
     LOG_INF("Allocating %d bytes for CHR-ROM...", nes->CHRSize);
 #endif
     nes->CHR = callocWrapper(1, nes->CHRSize);
-
 }

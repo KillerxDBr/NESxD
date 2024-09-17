@@ -3,6 +3,7 @@ from cffi import FFI
 
 HEADER  = "./src/instructions.h"
 MEMORY  = "./mem.bin"
+MEMSIZE = 2048
 NOBREAK = '-NB'
 
 def LOG_ERR(*args, **kwargs):
@@ -86,7 +87,12 @@ def main():
         LOG_INFO('Adding "INS_BRK" (0x00) to end of sequence of instructions...')
         final.append(0)
 
-    LOG_INFO(f'Writing {len(final)} instructions to "{MEMORY}"')
+    ins_count = len(final)
+    if(ins_count > MEMSIZE):
+        LOG_ERR(f"Too much instructions, received: {ins_count}, MAX: {MEMSIZE}")
+        exit(4)
+
+    LOG_INFO(f'Writing {ins_count} instructions to "{MEMORY}"')
 
     with open(MEMORY, "wb") as f:
         f.write(bytes(final))
