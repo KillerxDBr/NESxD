@@ -12,14 +12,6 @@
 #include <stdio.h>
 #include <string.h>
 
-bool PrecompileHeader(void);
-bool CompileFiles(void);
-bool CleanupFiles(void);
-bool CompileDependencies(void);
-bool CompileExecutable(void);
-bool CompileNobHeader(void);
-bool Bundler(void);
-
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
@@ -65,13 +57,15 @@ bool Bundler(void);
 const char *files[] = {
     "main", "6502", "config", "gui", "input",
 };
-#define FILES_COUNT sizeof(files) / sizeof(files[0])
+// #define FILES_COUNT sizeof(files) / sizeof(files[0])
 
 const char *dependencies[] = {
     "tinyfiledialogs",
 };
 
-#define DEPENDENCIES_COUNT sizeof(dependencies) / sizeof(dependencies[0])
+const char *dirs[] = { BUILD_DIR, BIN_DIR, SRC_DIR, EXTERN_DIR };
+
+// #define DEPENDENCIES_COUNT sizeof(dependencies) / sizeof(dependencies[0])
 
 const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
@@ -102,6 +96,13 @@ typedef struct {
 Objects obj = { 0 };
 Resources resources = { 0 };
 
+bool PrecompileHeader(void);
+bool CompileFiles(void);
+bool CleanupFiles(void);
+bool CompileDependencies(void);
+bool CompileExecutable(void);
+bool CompileNobHeader(void);
+bool Bundler(void);
 void GetIncludedHeaders(Objects *eh, const char *header);
 
 bool ccache;
@@ -236,8 +237,9 @@ bool PrecompileHeader(void) {
     */
     //-o build/6502precomp.h.gch src/6502.h
     Nob_String_Builder sb = { 0 };
-    for (size_t i = 0; i < FILES_COUNT; i++) {
+    for (size_t i = 0; i < NOB_ARRAY_LEN(files); i++) {
         cmd.count = command_size;
+        extraHeaders.count = 0;
 
         char input[STR_SIZE] = { 0 };
         char output[STR_SIZE] = { 0 };
@@ -271,23 +273,36 @@ bool PrecompileHeader(void) {
         strcpy(output, sb.items);
 
         GetIncludedHeaders(&extraHeaders, input);
+
         nob_da_append(&extraHeaders, input);
-
-        nob_log(NOB_INFO, "------------------------------------");
-        for (size_t j = 0; j < extraHeaders.count; j++)
-        {
-            nob_log(NOB_INFO, "%s", extraHeaders.items[j]);
-        }
-        nob_log(NOB_INFO, "------------------------------------");
-        
-
+        // nob_log(NOB_INFO, "------------------------------------");
+        // for (size_t j = 0; j < extraHeaders.count; j++) {
+        //     nob_log(NOB_INFO, "Extra Headers: %s", extraHeaders.items[j]);
+        // }
+        // nob_log(NOB_INFO, "Number of extra headers: %zu", extraHeaders.count);
+        // nob_log(NOB_INFO, "------------------------------------");
         if (nob_needs_rebuild(output, extraHeaders.items, extraHeaders.count)) {
+            // DWORD err;
+            // if (err = GetLastError()) {
+            //     LPVOID ptr;
+            //     nob_log(NOB_ERROR, "Teste");
+
+            //     DWORD msg = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            //                                NULL, err, LANG_SYSTEM_DEFAULT, (LPTSTR)&ptr, 0, NULL);
+            //     nob_log(NOB_ERROR, "%s (%lu)", ptr, err);
+            //     exit(1);
+            // }
+
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
             nob_cmd_append(&cmd, "-o", output, input);
             nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
+
+        // for (size_t i = 0; i < extraHeaders.count; i++) {
+        //     free(extraHeaders.items[i]);
+        // }
     }
     nob_cmd_free(cmd);
     nob_sb_free(sb);
@@ -345,7 +360,7 @@ bool CompileFiles(void) {
     */
 
     Nob_String_Builder sb = { 0 };
-    for (size_t i = 0; i < FILES_COUNT; i++) {
+    for (size_t i = 0; i < NOB_ARRAY_LEN(files); i++) {
         cmd.count = command_size;
 
         char input[STR_SIZE] = { 0 };
@@ -476,7 +491,7 @@ bool CompileDependencies(void) {
     -lole32 -DKXD_DEBUG*/
     nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS, INCLUDES);
 
-    for (size_t i = 0; i < DEPENDENCIES_COUNT; ++i) {
+    for (size_t i = 0; i < NOB_ARRAY_LEN(dependencies); ++i) {
         char input[STR_SIZE] = { 0 };
         char output[STR_SIZE] = { 0 };
 
@@ -755,14 +770,14 @@ bool CleanupFiles(void) {
 #define INCLUDE_TXT "#include \""
 
 void GetIncludedHeaders(Objects *eh, const char *header) {
-    Nob_String_Builder sb = {0};
-    eh->count = 0;
+    Nob_String_Builder sb = { 0 };
     char line[1024] = { 0 };
 
     FILE *fHeader = fopen(header, "rt");
 
     if (fHeader == NULL)
         return;
+
     size_t sz;
     nob_log(NOB_INFO, "Header: '%s'", header);
     while (feof(fHeader) == 0) {
@@ -774,20 +789,22 @@ void GetIncludedHeaders(Objects *eh, const char *header) {
         line[--sz] = '\0'; // removing \n from end
 
         if (strncmp(line, INCLUDE_TXT, sizeof(INCLUDE_TXT) - 1) == 0) {
-            // char *hName = strdup(line) + sizeof(INCLUDE_TXT) - 1;
-            // hName[strlen(hName) - 1] = '\0'; // removing last " from line
+            for (size_t i = 0; i < NOB_ARRAY_LEN(dirs); ++i) {
+                sb.count = 0;
+                // nob_sb_append_cstr(&sb, "./");
+                nob_sb_append_cstr(&sb, dirs[i]);
+                nob_sb_append_cstr(&sb, "/");
+                nob_sb_append_buf(&sb, line + sizeof(INCLUDE_TXT) - 1, sz - sizeof(INCLUDE_TXT));
 
-            sb.count = 0;
-            nob_sb_append_buf(&sb, line + sizeof(INCLUDE_TXT) - 1, sz + sizeof(INCLUDE_TXT) - 2);
-            nob_sb_append_null(&sb);
-            nob_log(NOB_INFO, "%s", sb.items);
-            
-            // nob_da_append(eh, hName);
+                nob_sb_append_null(&sb);
+
+                if (nob_file_exists(sb.items) == 1) {
+                    // nob_log(NOB_INFO, "  File Exists: %s", sb.items);
+                    nob_da_append(eh, strdup(sb.items));
+                }
+            }
         }
     }
-    exit(0);
-    nob_log(NOB_INFO, "%zu Headers found in %s", eh->count, header);
-    for (size_t i = 0; i < eh->count; ++i) {
-        nob_log(NOB_INFO, "   %s", eh->items[i]);
-    }
+    nob_sb_free(sb);
+    fclose(fHeader);
 }

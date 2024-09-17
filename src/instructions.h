@@ -65,10 +65,10 @@ typedef enum {
     INS_LSR_ZX  = 0x56,   // LSR Zero Page, X
 
     // DEC Instructions
-    INS_DEC_A   = 0xCE,  // DEC Absolute
-    INS_DEC_AX  = 0xDE,  // DEC Absolute, X
-    INS_DEC_Z   = 0xC6,  // DEC Zero Page
-    INS_DEC_ZX  = 0xD6,  // DEC Zero Page, X
+    INS_DEC_A   = 0xCE,   // DEC Absolute
+    INS_DEC_AX  = 0xDE,   // DEC Absolute, X
+    INS_DEC_Z   = 0xC6,   // DEC Zero Page
+    INS_DEC_ZX  = 0xD6,   // DEC Zero Page, X
 
     INS_DEX     = 0xCA,   // DEX Implied
     INS_DEY     = 0x88,   // DEY Implied
