@@ -132,7 +132,9 @@ int main(int argc, char **argv) {
     if (strcmp(command, "build") == 0) {
         nob_log(NOB_INFO, "--- Building ---");
         if (argc > 0) {
-            if (strcmp(command, "clean") == 0 || strcmp(command, "cls") == 0) {
+            command = nob_shift_args(&argc, &argv);
+            // nob.exe build clean/cls
+            if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0)) {
                 nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
                 if (!CleanupFiles())
                     return 1;
@@ -168,9 +170,8 @@ int main(int argc, char **argv) {
         nob_log(NOB_INFO, "--- Bundler ---");
         if (!Bundler())
             return 1;
-        // assert(0 && "Not Implemented!");
 
-    } else if (strcmp(command, "clean") == 0 || strcmp(command, "cls") == 0) {
+    } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0)) {
         nob_log(NOB_INFO, "--- Cleaning Files ---");
         if (!CleanupFiles())
             return 1;
@@ -693,6 +694,15 @@ bool Bundler(void) {
     nob_log(NOB_INFO, "Starting Dir read!");
 
     const char *path = "./rom";
+
+    DIR *dir = NULL;
+    dir = opendir(path);
+    if (dir == NULL) {
+        nob_log(NOB_ERROR, "Could not open directory '%s': %s (%d)", path, strerror(errno), errno);
+        return false;
+    }
+    closedir(dir);
+
     nob_sb_append_cstr(&sb, path);
 
     EmbedFiles eb = { 0 };
@@ -781,7 +791,7 @@ void GetIncludedHeaders(Objects *eh, const char *header) {
     size_t sz;
     nob_log(NOB_INFO, "Header: '%s'", header);
     while (feof(fHeader) == 0) {
-        line[0] = '\0';
+        // line[0] = '\0';
         fgets(line, sizeof(line), fHeader);
         sz = strlen(line);
         if (sz <= 1)

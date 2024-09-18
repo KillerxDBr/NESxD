@@ -2,7 +2,7 @@
 
 void processInstruction(cpu_t *cpu) {
     uint16_t value16;
-    uint8_t value8;
+    uint8_t value8, oldValue;
 
 #ifdef KXD_DEBUG
     uint16_t oldPC = cpu->PC;
@@ -59,42 +59,60 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_ADC_IM:
-        assert(0 && "TODO: INS_ADC_IM");
+        // assert(0 && "TODO: INS_ADC_IM");
+        oldValue = cpu->A;
+        value8 = cpu->mem[incrementPC(cpu)];
+        cpu->A += value8;
+        ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_Z:
         assert(0 && "TODO: INS_ADC_Z");
+        oldValue = cpu->A;
+        ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_ZX:
         assert(0 && "TODO: INS_ADC_ZX");
+        oldValue = cpu->A;
+        ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_A:
         assert(0 && "TODO: INS_ADC_A");
+        oldValue = cpu->A;
+        ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_AX:
         assert(0 && "TODO: INS_ADC_AX");
+        oldValue = cpu->A;
+        ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_AY:
         assert(0 && "TODO: INS_ADC_AY");
+        oldValue = cpu->A;
+        ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_INX:
         assert(0 && "TODO: INS_ADC_INX");
+        oldValue = cpu->A;
+        ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_INY:
         assert(0 && "TODO: INS_ADC_INY");
+        oldValue = cpu->A;
+        ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
@@ -327,9 +345,9 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_DEC_A:
         value16 = cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8);
-        cpu->mem[value16]--;
+        cpu->mem[value16] -= 1;
         DEC_FLAGS(cpu->mem[value16]);
-        // assert(0 && "TODO: DEC");
+        // assert(0 && "TODO: DEC A");
         incrementPC(cpu);
         break;
 
@@ -339,7 +357,11 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_DEC_Z:
-        assert(0 && "TODO: DEC Z");
+        // assert(0 && "TODO: DEC Z");
+        value8 = cpu->mem[incrementPC(cpu)];
+        value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8);
+        cpu->mem[value16] -= 1;
+        DEC_FLAGS(cpu->mem[value16]);
         incrementPC(cpu);
         break;
 
@@ -349,13 +371,13 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_DEX:
-        cpu->X--;
+        cpu->X -= 1;
         DEC_FLAGS(cpu->X);
         incrementPC(cpu);
         break;
 
     case INS_DEY:
-        cpu->Y--;
+        cpu->Y -= 1;
         DEC_FLAGS(cpu->Y);
         incrementPC(cpu);
         break;
@@ -374,6 +396,7 @@ void processInstruction(cpu_t *cpu) {
 
     (void)value16;
     (void)value8;
+    (void)oldValue;
 }
 
 void debugCPU(cpu_t *cpu) {
