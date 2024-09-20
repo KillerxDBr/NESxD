@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
+
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
@@ -31,8 +32,8 @@
 #define CC "cc"
 */
 
-#endif
-#endif
+#endif /* defined(__GNUC__) */
+#endif /* _WIN32 */
 
 #define RAYLIB "./lib/libraylib.a"
 
@@ -63,7 +64,7 @@ const char *filesFlags[] = {
 };
 
 const char *dependencies[] = {
-    "tinyfiledialogs",
+    "tinyfiledialogs", "WindowsHeader",
 };
 
 const char *dirs[] = { BUILD_DIR, BIN_DIR, SRC_DIR, EXTERN_DIR };
@@ -503,7 +504,10 @@ bool CompileDependencies(void) {
     -lole32 -DKXD_DEBUG*/
     nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS, INCLUDES);
 
+
+    size_t command_size = cmd.count;
     for (size_t i = 0; i < NOB_ARRAY_LEN(dependencies); ++i) {
+        cmd.count = command_size;
         char input[STR_SIZE] = { 0 };
         char output[STR_SIZE] = { 0 };
 
