@@ -22,12 +22,14 @@ int main(int argc, char **argv) {
     memcpy(slash, CONFIG_FILE, sizeof(CONFIG_FILE));
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE /*| FLAG_WINDOW_UNDECORATED*/);
-    InitWindow(NES_W * 2, NES_H * 2, "NES_xD");
+    InitWindow((NES_W * FACTOR), (NES_H * FACTOR), "NES_xD");
     SetWindowMinSize(NES_W, NES_H);
     SetTargetFPS(60);
 
     app->screenW = GetRenderWidth();
     app->screenH = GetRenderHeight();
+    LOG_INF("Screen Width:  %zu", app->screenW);
+    LOG_INF("Screen Heigth: %zu", app->screenH);
 
     GuiLoadStyleDefault();
 
@@ -63,7 +65,6 @@ int main(int argc, char **argv) {
 
     BeginTextureMode(screen);
 
-    // ClearBackground(KXD_BG);
     ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
     for (int y = 0; y < screen.texture.height; ++y) {
@@ -72,8 +73,8 @@ int main(int argc, char **argv) {
         }
     }
 
-    VARLOG(screen.texture.width, "%d");
-    VARLOG(screen.texture.height, "%d");
+    // VARLOG(screen.texture.width, "%d");
+    // VARLOG(screen.texture.height, "%d");
 
     for (int x = 0; x < screen.texture.width; x++) {
         DrawPixel(x, screen.texture.height - 1, CLITERAL(Color){ 255, 0, 0, 255 });
@@ -99,10 +100,9 @@ int main(int argc, char **argv) {
         memBin = fopen(memBinPath, "rb");
 
         if (memBin == NULL) {
-            LOG_ERR("Could not open \'%s\': %s", memBinPath, strerror(errno));
-            LOG_INF("Operating with \'INS_NOP\' only");
+            LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
+            LOG_INF("Operating with \"INS_NOP\" only");
             NOP = true;
-            // exit(1);
         }
     }
 
@@ -123,7 +123,6 @@ int main(int argc, char **argv) {
         fclose(memBin);
 
         addMultipleToMem(app->nes.cpu.mem, 0, instructions, insSize);
-        // addToMem(app->nes.cpu.mem, 0xDD, 0x0101);
         free(instructions);
     }
 
@@ -132,6 +131,9 @@ int main(int argc, char **argv) {
     loadRomFromMem(&app->nes, fileName);
 #endif
     loadConfig(app);
+
+    app->config.activeTheme = 6; // Dark Theme
+    initGui(app);
 
     const char *PausedText = "Paused...";
 
@@ -148,16 +150,18 @@ int main(int argc, char **argv) {
 
                 destRec.x = (app->screenW * .5f) - (destRec.width * .5f);
                 destRec.y = 0;
-                if (destRec.x < 0)
+                if (destRec.x < 0) {
                     destRec.x = 0;
+                }
             } else {
                 destRec.height = app->screenW * NES_AR;
                 destRec.width = app->screenW;
 
                 destRec.x = 0;
                 destRec.y = (app->screenH * .5f) - (destRec.height * .5f);
-                if (destRec.y < 0)
+                if (destRec.y < 0) {
                     destRec.y = 0;
+                }
             }
         }
 
@@ -181,18 +185,20 @@ int main(int argc, char **argv) {
         if (app->nes.isPaused) {
             const Vector2 pauseSize = MeasureTextEx(GetFontDefault(), PausedText, app->screenW * .1f, app->screenW * .01f);
 
-            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), pauseSize.x, pauseSize.y,
-                          RED);
+            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f), (app->screenH * .5f) - (pauseSize.y * .6f),
+                          pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f), RED);
+
             DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW * .1f,
                      RAYWHITE);
         }
 
 #ifdef KXD_DEBUG
-        if (IsKeyPressed(KEY_J))
-            app->menu.openFile = !app->menu.openFile;
+        if (IsKeyPressed(KEY_J)) {
+            app->menu.openMenu = !app->menu.openMenu;
+        }
         // app->menu.openFile = true;
 
-        if (app->menu.openFile) {
+        if (app->menu.openMenu) {
             // char *selectedFile = NULL;
 
             // const char *filters[1] = { "*.nes" };
@@ -311,9 +317,7 @@ void loadRom(nes_t *nes, const char *fileName) {
         exit(1);
     }
 
-#ifdef KXD_DEBUG
     LOG_INF("ROM Loaded with success");
-#endif
 
     if (fseek(rom, 0, SEEK_END) < 0)
         goto defer;
@@ -349,15 +353,13 @@ void loadRomFromMem(nes_t *nes, const char *fileName) {
     for (size_t i = 0; i < resources_count; ++i) {
         if (strcmp(fileName, resources[i].file_path) == 0) {
             nes->romSize = resources[i].size;
-#ifdef KXD_DEBUG
             LOG_INF("File: \"%s\" (%zu bytes)", fileName, nes->romSize);
-#endif
+
             nes->rom = callocWrapper(nes->romSize, 1);
             memcpy(nes->rom, &bundle[resources[i].offset], nes->romSize);
             CHECK_ROM_HEADER(nes->rom);
 
             processRomHeader(nes);
-
             return;
         }
     }
@@ -419,12 +421,9 @@ void processRomHeader(nes_t *nes) {
 
     // Allocating
 
-#ifdef KXD_DEBUG
     LOG_INF("Allocating %d bytes for PRG-ROM...", nes->PRGSize);
-#endif
     nes->PRG = callocWrapper(1, nes->PRGSize);
-#ifdef KXD_DEBUG
+
     LOG_INF("Allocating %d bytes for CHR-ROM...", nes->CHRSize);
-#endif
     nes->CHR = callocWrapper(1, nes->CHRSize);
 }

@@ -3,7 +3,6 @@
 void processInstruction(cpu_t *cpu) {
     uint16_t value16;
     uint8_t value8, oldValue;
-
 #ifdef KXD_DEBUG
     uint16_t oldPC = cpu->PC;
 #endif
@@ -11,15 +10,15 @@ void processInstruction(cpu_t *cpu) {
     case INS_BRK:
         cpu->B = true;
         incrementPC(cpu);
-#ifdef KXD_DEBUG
+
         LOG_INF("BRK");
-#endif
+
         break;
 
     case INS_NOP:
-#ifdef KXD_DEBUG
+
         LOG_INF("NOP");
-#endif
+
         incrementPC(cpu);
         break;
 
@@ -59,7 +58,6 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_ADC_IM:
-        // assert(0 && "TODO: INS_ADC_IM");
         oldValue = cpu->A;
         value8 = cpu->mem[incrementPC(cpu)];
         cpu->A += value8;
@@ -68,8 +66,12 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_ADC_Z:
-        assert(0 && "TODO: INS_ADC_Z");
         oldValue = cpu->A;
+        value8 = cpu->mem[cpu->mem[incrementPC(cpu)]];
+
+        VARLOG(value8, HEX8);
+
+        cpu->A += value8;
         ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
@@ -118,81 +120,81 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_LDA_IM: // Immediate mode, Load the next byte to A
         cpu->A = cpu->mem[incrementPC(cpu)];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
-#endif
+
         LD_FLAGS(cpu->A);
         incrementPC(cpu);
         break;
 
     case INS_LDA_Z: // Zero Page Mode, Use next byte as Index to load byte in A
         cpu->A = cpu->mem[cpu->mem[incrementPC(cpu)]];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
-#endif
+
         LD_FLAGS(cpu->A);
         incrementPC(cpu);
         break;
 
     case INS_LDA_ZX:
         cpu->A = cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->X];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
-#endif
+
         LD_FLAGS(cpu->A);
         incrementPC(cpu);
         break;
 
     case INS_LDA_A:
         cpu->A = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8)];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
-#endif
+
         LD_FLAGS(cpu->A);
         incrementPC(cpu);
         break;
 
     case INS_LDA_AX:
         cpu->A = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->X];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
-#endif
+
         LD_FLAGS(cpu->A);
         incrementPC(cpu);
         break;
 
     case INS_LDA_AY:
         cpu->A = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->Y];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
-#endif
+
         LD_FLAGS(cpu->A);
         incrementPC(cpu);
         break;
 
     case INS_LDA_INX:
         cpu->A = cpu->mem[cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->X] + (cpu->mem[cpu->mem[cpu->PC] + cpu->X + 1] << 8)];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
-#endif
+
         LD_FLAGS(cpu->A);
         incrementPC(cpu);
         break;
 
     case INS_LDA_INY:
         cpu->A = cpu->mem[cpu->mem[cpu->mem[incrementPC(cpu)]] + (cpu->mem[cpu->mem[cpu->PC] + 1] << 8) + cpu->Y];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
-#endif
+
         LD_FLAGS(cpu->A);
         incrementPC(cpu);
         break;
 
     case INS_STA_A:
         cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8)] = cpu->A;
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->mem[cpu->mem[cpu->PC - 1] + (cpu->mem[cpu->PC] << 8)], HEX8);
-#endif
+
         incrementPC(cpu);
         break;
 
@@ -201,37 +203,37 @@ void processInstruction(cpu_t *cpu) {
         // VARLOG(value16, HEX16);
         // VARLOG(value16, "%u");
         cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->X] = cpu->A;
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->mem[cpu->mem[cpu->PC - 1] + (cpu->mem[cpu->PC] << 8) + cpu->X], HEX8);
-#endif
+
         incrementPC(cpu);
         break;
 
     case INS_STA_Z:
         cpu->mem[cpu->mem[incrementPC(cpu)]] = cpu->A;
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->mem[cpu->mem[cpu->PC]], HEX8);
-#endif
+
         incrementPC(cpu);
         break;
 
     case INS_STA_ZX:
         cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->X] = cpu->A;
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->mem[cpu->mem[cpu->PC] + cpu->X], HEX8);
-#endif
+
         incrementPC(cpu);
         break;
 
     case INS_STA_INX:
         value8 = cpu->mem[incrementPC(cpu)] + cpu->X;
         value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8);
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
         VARLOG(cpu->X, HEX8);
         VARLOG(value8, HEX8);
         VARLOG(value16, HEX16);
-#endif
+
         cpu->mem[value16] = cpu->A;
         incrementPC(cpu);
         break;
@@ -239,102 +241,102 @@ void processInstruction(cpu_t *cpu) {
     case INS_STA_INY:
         value8 = cpu->mem[incrementPC(cpu)];
         value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8) + cpu->Y;
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->A, HEX8);
         VARLOG(cpu->Y, HEX8);
         VARLOG(value8, HEX8);
         VARLOG(value16, HEX16);
-#endif
+
         cpu->mem[value16] = cpu->A;
         incrementPC(cpu);
         break;
 
     case INS_LDX_IM:
         cpu->X = cpu->mem[incrementPC(cpu)];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->X, HEX8);
-#endif
+
         LD_FLAGS(cpu->X);
         incrementPC(cpu);
         break;
 
     case INS_LDX_Z:
         cpu->X = cpu->mem[cpu->mem[incrementPC(cpu)]];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->X, HEX8);
-#endif
+
         LD_FLAGS(cpu->X);
         incrementPC(cpu);
         break;
 
     case INS_LDX_ZY:
         cpu->X = cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->Y];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->X, HEX8);
-#endif
+
         LD_FLAGS(cpu->X);
         incrementPC(cpu);
         break;
 
     case INS_LDX_A:
         cpu->X = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8)];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->X, HEX8);
-#endif
+
         LD_FLAGS(cpu->X);
         incrementPC(cpu);
         break;
 
     case INS_LDX_AY:
         cpu->X = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->Y];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->X, HEX8);
-#endif
+
         LD_FLAGS(cpu->X);
         incrementPC(cpu);
         break;
 
     case INS_LDY_IM:
         cpu->Y = cpu->mem[incrementPC(cpu)];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->Y, HEX8);
-#endif
+
         LD_FLAGS(cpu->Y);
         incrementPC(cpu);
         break;
 
     case INS_LDY_Z:
         cpu->Y = cpu->mem[cpu->mem[incrementPC(cpu)]];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->Y, HEX8);
-#endif
+
         LD_FLAGS(cpu->Y);
         incrementPC(cpu);
         break;
 
     case INS_LDY_ZX:
         cpu->Y = cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->X];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->Y, HEX8);
-#endif
+
         LD_FLAGS(cpu->Y);
         incrementPC(cpu);
         break;
 
     case INS_LDY_A:
         cpu->Y = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8)];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->Y, HEX8);
-#endif
+
         LD_FLAGS(cpu->Y);
         incrementPC(cpu);
         break;
 
     case INS_LDY_AX:
         cpu->Y = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->X];
-#ifdef KXD_DEBUG
+
         VARLOG(cpu->Y, HEX8);
-#endif
+
         LD_FLAGS(cpu->Y);
         incrementPC(cpu);
         break;
@@ -357,7 +359,6 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_DEC_Z:
-        // assert(0 && "TODO: DEC Z");
         value8 = cpu->mem[incrementPC(cpu)];
         value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8);
         cpu->mem[value16] -= 1;
@@ -400,7 +401,7 @@ void processInstruction(cpu_t *cpu) {
 }
 
 void debugCPU(cpu_t *cpu) {
-#ifdef KXD_DEBUG
+
     LOG_INF("========================");
     VARLOG(cpu->PC, HEX16);
     VARLOG(cpu->SP, HEX8);
@@ -418,7 +419,4 @@ void debugCPU(cpu_t *cpu) {
     LOG_INF("Memory==================");
     VARLOG(cpu->mem[cpu->PC], "0x%02X");
     LOG_INF("");
-#else
-    (void)cpu;
-#endif
 }

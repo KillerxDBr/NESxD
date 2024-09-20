@@ -18,9 +18,6 @@ typedef struct {
 
     uint16_t ButtonStart;
     uint16_t ButtonSelect;
-
-    // uint16_t ButtonL;
-    // uint16_t ButtonR;
 } controller_t;
 
 typedef struct {
@@ -44,9 +41,11 @@ typedef struct {
     uint8_t mem[MEMSIZE];
 } cpu_t;
 
+#ifndef NOPPU
 typedef struct {
     uint8_t mem[MEMSIZE];
 } ppu_t;
+#endif /* NOPPU */
 
 typedef struct {
     cpu_t cpu;
@@ -74,12 +73,15 @@ typedef struct {
     char *fileName;
     bool hasConfig;
 
+    int activeTheme;
+
     uint8_t selectedTheme;
     uint16_t fastForwardKey;
     uint16_t pauseKey;
 } config_t;
 
 typedef struct {
+    bool openMenu;
     bool openFile;
 } menu_t;
 
@@ -87,8 +89,8 @@ typedef struct {
     size_t screenW, screenH;
     nes_t nes;
     config_t config;
-    bool quit;
     menu_t menu;
+    bool quit;
 } app_t;
 
 #endif /* KXD_TYPES_H */

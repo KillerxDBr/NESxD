@@ -25,9 +25,6 @@
 #include "kxdDebug.h"
 #include "kxdTypes.h"
 
-// #define GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION
-// #include "gui_window_file_dialog.h"
-
 #include "bundle.h"
 
 // #define KXD_DEBUG
@@ -35,8 +32,9 @@
 // #define NOVID
 
 // resolution 256 x 224
-#define NES_W 256
-#define NES_H 224
+#define NES_W  256
+#define NES_H  224
+#define FACTOR 2
 
 #define NES_AR (float)NES_W / (float)NES_H
 
@@ -53,7 +51,6 @@
 
 #define CHECK_ROM_HEADER(rom) assert(rom[0] == 'N' && rom[1] == 'E' && rom[2] == 'S' && rom[3] == 0x1A)
 
-// void *callocWrapper(size_t n, size_t sz);
 void processInstruction(cpu_t *cpu);
 void memDmp(cpu_t *cpu, size_t memSize);
 void addToMem(uint8_t *mem, size_t loc, uint64_t value);

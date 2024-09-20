@@ -2,8 +2,10 @@
 
 void registerInput(nes_t *nes) {
     const controller_t *c = &nes->controller;
-    uint8_t p1 = 0;     // Player 1
-    // uint8_t p2 = 0;     // Player 2
+
+    // TODO: proper player input handle...
+    uint8_t p1 = 0; // Player 1
+    // uint8_t p2 = 0; // Player 2
 
     /*
     BUTTON_A      -> (1 << 7)

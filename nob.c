@@ -57,15 +57,16 @@
 const char *files[] = {
     "main", "6502", "config", "gui", "input",
 };
-// #define FILES_COUNT sizeof(files) / sizeof(files[0])
+
+const char *filesFlags[] = {
+    "-DKXD_MAIN_FILE", "-DKXD_6502_FILE", "-DKXD_CONFIG_FILE", "-DKXD_GUI_FILE", "-DKXD_INPUT_FILE",
+};
 
 const char *dependencies[] = {
     "tinyfiledialogs",
 };
 
 const char *dirs[] = { BUILD_DIR, BIN_DIR, SRC_DIR, EXTERN_DIR };
-
-// #define DEPENDENCIES_COUNT sizeof(dependencies) / sizeof(dependencies[0])
 
 const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
@@ -102,13 +103,14 @@ bool CleanupFiles(void);
 bool CompileDependencies(void);
 bool CompileExecutable(void);
 bool CompileNobHeader(void);
-bool Bundler(void);
+bool Bundler(const char *path);
 void GetIncludedHeaders(Objects *eh, const char *header);
 
 bool ccache;
 
 int main(int argc, char **argv) {
     NOB_GO_REBUILD_URSELF(argc, argv);
+    assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
     // const char *program = nob_shift_args(&argc, &argv);
     // (void)program;
@@ -168,7 +170,14 @@ int main(int argc, char **argv) {
 
     } else if (strcmp(command, "bundler") == 0) {
         nob_log(NOB_INFO, "--- Bundler ---");
-        if (!Bundler())
+
+        const char *bundlerPath;
+        if (argc > 0)
+            bundlerPath = nob_shift_args(&argc, &argv);
+        else
+            bundlerPath = NULL;
+
+        if (!Bundler(bundlerPath))
             return 1;
 
     } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0)) {
@@ -177,7 +186,7 @@ int main(int argc, char **argv) {
             return 1;
 
     } else {
-        nob_log(NOB_INFO, "Unknown command, expects: <build, bundler, clean/cls>");
+        nob_log(NOB_INFO, "Unknown command \"%s\", expects: <build [clean/cls], bundler [dir], clean/cls>", command);
     }
 
     for (size_t i = 0; i < obj.count; i++) {
@@ -295,7 +304,9 @@ bool PrecompileHeader(void) {
             // }
 
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            nob_cmd_append(&cmd, "-o", output, input);
+            nob_cmd_append(&cmd, "-o", output, input, filesFlags[i]);
+            // if(filesFlags[i][0])
+            //     nob_cmd_append(&cmd, filesFlags[i]);
             nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
@@ -433,7 +444,7 @@ bool CompileFiles(void) {
 
         if (nob_needs_rebuild(output, input_files, 2)) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            nob_cmd_append(&cmd, "-o", output, "-include", pch, "-c", input);
+            nob_cmd_append(&cmd, "-o", output, "-include", pch, "-c", input, filesFlags[i]);
             nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
@@ -686,19 +697,62 @@ void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
     }
 }
 
-bool Bundler(void) {
-    // assert(0 && "Not Implemented!");
+bool Bundler(const char *path) {
+    if (path == NULL)
+        path = "./rom";
 
     Nob_String_Builder sb = { 0 };
     Nob_Procs procs = { 0 };
     nob_log(NOB_INFO, "Starting Dir read!");
 
-    const char *path = "./rom";
-
     DIR *dir = NULL;
     dir = opendir(path);
     if (dir == NULL) {
-        nob_log(NOB_ERROR, "Could not open directory '%s': %s (%d)", path, strerror(errno), errno);
+#ifdef _WIN32
+        DWORD err = GetLastError();
+        LPTSTR errorText = NULL;
+
+        FormatMessageA(
+            // use system message tables to retrieve error text
+            FORMAT_MESSAGE_FROM_SYSTEM
+                // allocate buffer on local heap for error text
+                | FORMAT_MESSAGE_ALLOCATE_BUFFER
+                // Important! will fail otherwise, since we're not
+                // (and CANNOT) pass insertion parameters
+                | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL, // unused with FORMAT_MESSAGE_FROM_SYSTEM
+            err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPTSTR)&errorText, // output
+            0,                  // minimum size for output buffer
+            NULL);              // arguments - see note
+
+        if (errorText != NULL) {
+            size_t errStringLen = strlen(errorText);
+
+            if (errStringLen <= 3)
+                goto noMSG;
+
+            //              \r\n\0
+            errorText[errStringLen - 2] = '\0';
+
+            nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path, errorText, err);
+
+            // release memory allocated by FormatMessage()
+            LocalFree(errorText);
+            errorText = NULL;
+#else
+        goto noMSG;
+#endif
+            return false;
+        }
+    noMSG:
+#ifdef _WIN32
+        if (errorText) {
+            LocalFree(errorText);
+            errorText = NULL;
+        }
+#endif
+        nob_log(NOB_ERROR, "Could not open directory '%s'", path);
         return false;
     }
     closedir(dir);
