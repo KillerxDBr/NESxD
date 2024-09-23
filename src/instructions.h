@@ -2,6 +2,7 @@
 #define KXD_INSTRUCTIONS_H
 
 typedef enum {
+    // clang-format off
     INS_BRK     = 0x00,   // Break
     INS_NOP     = 0xEA,   // No Operation
 
@@ -80,7 +81,7 @@ typedef enum {
     INS_JMP_A   = 0x4C,   // JMP Absolute
     INS_JMP_I   = 0x6C,   // JMP Indirect
 
+    // clang-format on
 } KxD_Instructions;
-
 
 #endif /* KXD_INSTRUCTIONS_H */

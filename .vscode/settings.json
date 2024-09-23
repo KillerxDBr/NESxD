@@ -39,6 +39,8 @@
         "compare": "c",
         "execution": "c",
         "algorithm": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "__config": "c",
+        "*.def": "c"
     }
 }

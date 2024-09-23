@@ -18,38 +18,39 @@ void registerInput(nes_t *nes) {
     BUTTON_RIGHT  -> (1 << 0)
     */
 
-    if (IsKeyPressed(c->ButtonUp)) {
+    if (IsKeyDown(c->ButtonUp)) {
         // TODO Controller Input Handle
         p1 |= BUTTON_UP;
     }
-    if (IsKeyPressed(c->ButtonDown)) {
+    if (IsKeyDown(c->ButtonDown)) {
         // TODO Controller Input Handle
         p1 |= BUTTON_DOWN;
     }
-    if (IsKeyPressed(c->ButtonLeft)) {
+    if (IsKeyDown(c->ButtonLeft)) {
         // TODO Controller Input Handle
         p1 |= BUTTON_LEFT;
     }
-    if (IsKeyPressed(c->ButtonRight)) {
+    if (IsKeyDown(c->ButtonRight)) {
         // TODO Controller Input Handle
         p1 |= BUTTON_RIGHT;
     }
-    if (IsKeyPressed(c->ButtonStart)) {
+    if (IsKeyDown(c->ButtonStart)) {
         // TODO Controller Input Handle
         p1 |= BUTTON_START;
     }
-    if (IsKeyPressed(c->ButtonSelect)) {
+    if (IsKeyDown(c->ButtonSelect)) {
         // TODO Controller Input Handle
         p1 |= BUTTON_SELECT;
     }
-    if (IsKeyPressed(c->ButtonA)) {
+    if (IsKeyDown(c->ButtonA)) {
         // TODO Controller Input Handle
         p1 |= BUTTON_A;
     }
-    if (IsKeyPressed(c->ButtonB)) {
+    if (IsKeyDown(c->ButtonB)) {
         // TODO Controller Input Handle
         p1 |= BUTTON_B;
     }
 
-    BITFIELD8LOG(p1);
+    if (p1 > 0)
+        BITFIELD8LOG(p1);
 }

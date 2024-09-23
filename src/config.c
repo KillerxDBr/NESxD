@@ -12,6 +12,7 @@ void loadConfig(app_t *app) {
         LOG_INF("File '%s' exist!", app->config.fileName);
         rini_config cfg = rini_load_config(app->config.fileName);
 
+        // clang-format off
         app->config.selectedTheme  = rini_get_config_value_fallback(cfg, NESxD_SELECTED_THEME, app->config.selectedTheme);
         app->config.fastForwardKey = rini_get_config_value_fallback(cfg, NESxD_FAST_FORWARD,   app->config.fastForwardKey);
         app->config.pauseKey       = rini_get_config_value_fallback(cfg, NESxD_PAUSE,          app->config.pauseKey);
@@ -41,20 +42,13 @@ void loadConfig(app_t *app) {
 
         VARLOG(app->nes.controller.ButtonStart,  "%u");
         VARLOG(app->nes.controller.ButtonSelect, "%u");
+        // clang-format on
 
         rini_unload_config(&cfg);
     }
 }
 
 void saveConfig(app_t *app) {
-    /*
-    const char *header =
-    "# NESxD ================================================================\n"
-    "# Config File for 'program'\n"
-    "#\n"
-    "# Check readme.txt for key numbers\n"
-    "#\n";
-    */
     Nob_String_Builder sb = { 0 };
 
     nob_da_append(&sb, RINI_LINE_COMMENT_DELIMITER);
@@ -73,6 +67,7 @@ void saveConfig(app_t *app) {
 
     rini_config cfg = rini_load_config(NULL);
 
+    // clang-format off
     rini_set_config_value(&cfg, NESxD_SELECTED_THEME, app->config.selectedTheme,  "GUI Theme");
     rini_set_config_value(&cfg, NESxD_FAST_FORWARD,   app->config.fastForwardKey, "Fast Forward Button");
     rini_set_config_value(&cfg, NESxD_PAUSE,          app->config.pauseKey,       "Pause Button");
@@ -87,6 +82,7 @@ void saveConfig(app_t *app) {
 
     rini_set_config_value(&cfg, CTRL_BT_START,  app->nes.controller.ButtonStart,  "Start Button");
     rini_set_config_value(&cfg, CTRL_BT_SELECT, app->nes.controller.ButtonSelect, "Select Button");
+    // clang-format on
 
     LOG_INF("Saving config to '%s'", app->config.fileName);
     rini_save_config(cfg, app->config.fileName, sb.items);
@@ -97,6 +93,7 @@ void saveConfig(app_t *app) {
 }
 
 void configControllerDefault(app_t *app) {
+    // clang-format off
     app->nes.controller.ButtonUp    = KEY_W;
     app->nes.controller.ButtonDown  = KEY_S;
     app->nes.controller.ButtonLeft  = KEY_A;
@@ -107,10 +104,13 @@ void configControllerDefault(app_t *app) {
 
     app->nes.controller.ButtonStart  = KEY_E;
     app->nes.controller.ButtonSelect = KEY_Q;
+    // clang-format on
 }
 
 void loadDefaultConfigs(app_t *app) {
     configControllerDefault(app);
+    // clang-format off
     app->config.fastForwardKey = KEY_SPACE;
     app->config.pauseKey       = KEY_P;
+    // clang-format on
 }

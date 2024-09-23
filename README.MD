@@ -2,7 +2,7 @@
 
 ## Build
 
-    gcc -o nob.exe .\nob.c && .\nob.exe
+    gcc -o nob.exe nob.c extern/WindowsHeader/WindowsHeader.c && .\nob.exe
 
 ## Dependencies
 - [RayLib]

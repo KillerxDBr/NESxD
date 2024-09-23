@@ -8,15 +8,13 @@ void processInstruction(cpu_t *cpu) {
 #endif
     switch (cpu->mem[cpu->PC]) {
     case INS_BRK:
-        cpu->B = true;
-        incrementPC(cpu);
-
         LOG_INF("BRK");
 
+        cpu->B = true;
+        incrementPC(cpu);
         break;
 
     case INS_NOP:
-
         LOG_INF("NOP");
 
         incrementPC(cpu);
@@ -24,36 +22,43 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_CLC:
         cpu->C = false;
+        BOOLLOG(cpu->C);
         incrementPC(cpu);
         break;
 
     case INS_SEC:
         cpu->C = true;
+        BOOLLOG(cpu->C);
         incrementPC(cpu);
         break;
 
     case INS_CLI:
         cpu->I = false;
+        BOOLLOG(cpu->I);
         incrementPC(cpu);
         break;
 
     case INS_SEI:
         cpu->I = true;
+        BOOLLOG(cpu->I);
         incrementPC(cpu);
         break;
 
     case INS_CLV:
         cpu->V = false;
+        BOOLLOG(cpu->V);
         incrementPC(cpu);
         break;
 
     case INS_CLD:
         cpu->D = false;
+        BOOLLOG(cpu->D);
         incrementPC(cpu);
         break;
 
     case INS_SED:
         cpu->D = true;
+        BOOLLOG(cpu->V);
         incrementPC(cpu);
         break;
 
@@ -77,29 +82,45 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_ADC_ZX:
-        assert(0 && "TODO: INS_ADC_ZX");
         oldValue = cpu->A;
+        value8 = cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->X];
+
+        VARLOG(value8, HEX8);
+
+        cpu->A += value8;
         ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_A:
-        assert(0 && "TODO: INS_ADC_A");
         oldValue = cpu->A;
+        value8 = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8)];
+
+        VARLOG(value8, HEX8);
+
+        cpu->A += value8;
         ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_AX:
-        assert(0 && "TODO: INS_ADC_AX");
         oldValue = cpu->A;
+        value8 = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->X];
+
+        VARLOG(value8, HEX8);
+
+        cpu->A += value8;
         ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
 
     case INS_ADC_AY:
-        assert(0 && "TODO: INS_ADC_AY");
         oldValue = cpu->A;
+        value8 = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->Y];
+
+        VARLOG(value8, HEX8);
+
+        cpu->A += value8;
         ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
         break;
@@ -173,7 +194,8 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_LDA_INX:
-        cpu->A = cpu->mem[cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->X] + (cpu->mem[cpu->mem[cpu->PC] + cpu->X + 1] << 8)];
+        value8 = cpu->mem[incrementPC(cpu)];
+        cpu->A = cpu->mem[cpu->mem[value8 + cpu->X] + (cpu->mem[value8 + cpu->X + 1] << 8)];
 
         VARLOG(cpu->A, HEX8);
 
@@ -182,7 +204,8 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_LDA_INY:
-        cpu->A = cpu->mem[cpu->mem[cpu->mem[incrementPC(cpu)]] + (cpu->mem[cpu->mem[cpu->PC] + 1] << 8) + cpu->Y];
+        value8 = cpu->mem[incrementPC(cpu)];
+        cpu->A = cpu->mem[cpu->mem[value8] + (cpu->mem[value8 + 1] << 8) + cpu->Y];
 
         VARLOG(cpu->A, HEX8);
 
@@ -199,9 +222,6 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_STA_AX:
-        // value16 = cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->X;
-        // VARLOG(value16, HEX16);
-        // VARLOG(value16, "%u");
         cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->X] = cpu->A;
 
         VARLOG(cpu->mem[cpu->mem[cpu->PC - 1] + (cpu->mem[cpu->PC] << 8) + cpu->X], HEX8);
@@ -347,21 +367,22 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_DEC_A:
         value16 = cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8);
-        cpu->mem[value16] -= 1;
+        cpu->mem[value16]--;
         DEC_FLAGS(cpu->mem[value16]);
-        // assert(0 && "TODO: DEC A");
         incrementPC(cpu);
         break;
 
     case INS_DEC_AX:
-        assert(0 && "TODO: DEC AX");
+        value16 = cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->X;
+        cpu->mem[value16]--;
+        DEC_FLAGS(cpu->mem[value16]);
         incrementPC(cpu);
         break;
 
     case INS_DEC_Z:
         value8 = cpu->mem[incrementPC(cpu)];
         value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8);
-        cpu->mem[value16] -= 1;
+        cpu->mem[value16]--;
         DEC_FLAGS(cpu->mem[value16]);
         incrementPC(cpu);
         break;
@@ -372,13 +393,13 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_DEX:
-        cpu->X -= 1;
+        cpu->X--;
         DEC_FLAGS(cpu->X);
         incrementPC(cpu);
         break;
 
     case INS_DEY:
-        cpu->Y -= 1;
+        cpu->Y--;
         DEC_FLAGS(cpu->Y);
         incrementPC(cpu);
         break;
@@ -393,7 +414,6 @@ void processInstruction(cpu_t *cpu) {
     LOG_INF("Cycles used in execution: %u", cpu->PC - oldPC);
     LOG_INF("------------------------------------------------");
 #endif
-    //     cpu->PC = cpu->PC & (MEMSIZE - 1);
 
     (void)value16;
     (void)value8;
@@ -401,7 +421,6 @@ void processInstruction(cpu_t *cpu) {
 }
 
 void debugCPU(cpu_t *cpu) {
-
     LOG_INF("========================");
     VARLOG(cpu->PC, HEX16);
     VARLOG(cpu->SP, HEX8);

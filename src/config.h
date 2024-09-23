@@ -1,11 +1,6 @@
 #ifndef KXD_CONFIG_H
 #define KXD_CONFIG_H
 
-#include <assert.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "kxdDebug.h"
 #include "kxdTypes.h"
 

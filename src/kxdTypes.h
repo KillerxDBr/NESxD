@@ -7,6 +7,26 @@
 #define MEMSIZE 2048ULL
 #define KB(n) (n * 1024)
 
+typedef struct IVector2 {
+    int x, y;
+} IVector2;
+
+typedef struct DVector2 {
+    double x, y;
+} DVector2;
+
+#ifndef V2
+#define V2(x, y) (CLITERAL(Vector2){ (float)(x), (float)(y) })
+#endif /* V2 */
+
+#ifndef IV2
+#define IV2(x, y) (CLITERAL(IVector2){ (int)(x), (int)(y) })
+#endif /* IV2 */
+
+#ifndef DV2
+#define DV2(x, y) (CLITERAL(DVector2){ (double)(x), (double)(y) })
+#endif /* IV2 */
+
 typedef struct {
     uint16_t ButtonUp;
     uint16_t ButtonDown;

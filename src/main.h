@@ -14,14 +14,13 @@
 #define RAYMATH_STATIC_INLINE
 #include "raymath.h"
 
-// #define RAYGUI_IMPLEMENTATION
-#include "raygui.h"
-
+#include "WindowsHeader/WindowsHeader.h"
 #include "tinyfiledialogs/tinyfiledialogs.h"
 
 #include "InsFlags.h"
 #include "config.h"
 #include "gui.h"
+#include "input.h"
 #include "kxdDebug.h"
 #include "kxdTypes.h"
 
@@ -32,19 +31,15 @@
 // #define NOVID
 
 // resolution 256 x 224
-#define NES_W  256
-#define NES_H  224
+#define NES_W 256
+#define NES_H 224
 #define FACTOR 2
 
-#define NES_AR (float)NES_W / (float)NES_H
+#define NES_AR ((float)NES_W / (float)NES_H)
 
 #define NOP_CMD "-NOP"
 
-#define KXD_BG                                                                                                                             \
-    CLITERAL(Color) { 0x38, 0x38, 0x38, 0xFF }
-
-#define V2(x, y)                                                                                                                           \
-    CLITERAL(Vector2) { (float)x, (float)y }
+#define KXD_BG (CLITERAL(Color){ 0x38, 0x38, 0x38, 0xFF })
 
 // index = y * W + x
 #define XY2Index(x, y, w) ((y * w) + x)

@@ -1,6 +1,9 @@
 #include "main.h"
 
 int main(int argc, char **argv) {
+    if (!WinH_SetConsoleOutputCP(CP_UTF8))
+        return 1;
+
     bool NOP = false;
     if (argc > 1) {
         for (int i = 0; i < argc; i++) {
@@ -43,25 +46,27 @@ int main(int argc, char **argv) {
     RenderTexture2D screen = LoadRenderTexture(NES_W, NES_H);
 
     const Rectangle sourceRec = { 0.0f, 0.0f, (float)screen.texture.width, -(float)screen.texture.height };
-    Rectangle destRec = { 0 };
+    Rectangle destRec = { 0.0f, 0.0f, (float)app->screenW, (float)app->screenH };
 
-    if (app->screenH < app->screenW) {
+    /*
+    if (app->screenW >= app->screenH * NES_AR) {
         destRec.width = app->screenH * NES_AR;
-        destRec.height = app->screenH;
-
+        destRec.height = destRec.width * (1 / NES_AR);
         destRec.x = (app->screenW * .5f) - (destRec.width * .5f);
         destRec.y = 0;
-        if (destRec.x < 0)
+        if (destRec.x < 0) {
             destRec.x = 0;
+        }
     } else {
-        destRec.height = app->screenW * NES_AR;
-        destRec.width = app->screenW;
-
+        destRec.height = app->screenW * (1 / NES_AR);
+        destRec.width = destRec.height * NES_AR;
         destRec.x = 0;
         destRec.y = (app->screenH * .5f) - (destRec.height * .5f);
-        if (destRec.y < 0)
+        if (destRec.y < 0) {
             destRec.y = 0;
+        }
     }
+    */
 
     BeginTextureMode(screen);
 
@@ -143,10 +148,10 @@ int main(int argc, char **argv) {
 
             app->screenW = GetRenderWidth();
             app->screenH = GetRenderHeight();
-
-            if (app->screenH < app->screenW) {
+            LOG_INF("New Size: " V2_CFMT("%zu"), app->screenW, app->screenH);
+            if (app->screenW >= app->screenH * NES_AR) {
                 destRec.width = app->screenH * NES_AR;
-                destRec.height = app->screenH;
+                destRec.height = destRec.width * (1 / NES_AR);
 
                 destRec.x = (app->screenW * .5f) - (destRec.width * .5f);
                 destRec.y = 0;
@@ -154,8 +159,8 @@ int main(int argc, char **argv) {
                     destRec.x = 0;
                 }
             } else {
-                destRec.height = app->screenW * NES_AR;
-                destRec.width = app->screenW;
+                destRec.height = app->screenW * (1 / NES_AR);
+                destRec.width = destRec.height * NES_AR;
 
                 destRec.x = 0;
                 destRec.y = (app->screenH * .5f) - (destRec.height * .5f);
@@ -163,14 +168,15 @@ int main(int argc, char **argv) {
                     destRec.y = 0;
                 }
             }
+
+            LOG_INF("destRec: " RECT_FMT, RECT_ARGS(destRec));
         }
+
+        // registerInput(&app->nes);
 
         BeginDrawing();
 
-        // ClearBackground(KXD_BG);
         ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
-
-        // app->quit = GuiWindowBox((Rectangle){ 0, 0, app->screenW, app->screenH }, "#198# PORTABLE WINDOW");
 
 #ifndef NOVID
         DrawTexturePro(screen.texture, sourceRec, destRec, Vector2Zero(), 0, WHITE);
@@ -303,7 +309,7 @@ void addMultipleToMem(uint8_t *mem, size_t loc, uint8_t *values, size_t valuesSi
     // VARLOG(valuesSize, "%zu");
     // VARLOG(loc + valuesSize, "%zu");
     // VARLOG(MEMSIZE, "%zu");
-    assert(loc + valuesSize <= MEMSIZE);
+    assert((loc + valuesSize) <= MEMSIZE);
     for (size_t i = 0; i < valuesSize; i++) {
         mem[loc + i] = values[i];
     }

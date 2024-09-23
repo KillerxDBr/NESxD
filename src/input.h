@@ -1,11 +1,15 @@
 #ifndef KXD_INPUT_H
 #define KXD_INPUT_H
 
-#include "kxdTypes.h"
 #include "kxdDebug.h"
+#include "kxdTypes.h"
 
 #include "raylib.h"
 
+// #define RAYMATH_STATIC_INLINE
+// #include "raymath.h"
+
+// clang-format off
 #define BUTTON_A      (1 << 7)
 #define BUTTON_B      (1 << 6)
 #define BUTTON_SELECT (1 << 5)
@@ -14,5 +18,8 @@
 #define BUTTON_DOWN   (1 << 2)
 #define BUTTON_LEFT   (1 << 1)
 #define BUTTON_RIGHT  (1 << 0)
+// clang-format on
+
+void registerInput(nes_t *nes);
 
 #endif /* KXD_INPUT_H */

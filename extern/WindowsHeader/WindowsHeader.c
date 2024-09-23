@@ -1,27 +1,15 @@
-#define WIN32_LEAN_AND_MEAN
-#define NOATOM
-#define NOGDI
-#define NOGDICAPMASKS
-#define NOMETAFILE
-#define NOMINMAX
-#define NOMSG
-#define NOOPENFILE
-#define NORASTEROPS
-#define NOSCROLL
-#define NOSOUND
-#define NOSYSMETRICS
-#define NOTEXTMETRIC
-#define NOWH
-#define NOCOMM
-#define NOKANJI
-#define NOCRYPT
-#define NOMCX
-#define NOSERVICE
-#define NOIME
-
-#include <windows.h>
 #include "WindowsHeader.h"
+#include <windows.h>
 
-bool Win_SetConsoleOutputCP(uint32_t wCodePageID){
+bool WinH_SetConsoleOutputCP(uint32_t wCodePageID) {
+    //
     return SetConsoleOutputCP(wCodePageID);
+}
+
+bool WinH_CopyFileA(const char *sourceFile, const char *destFile, bool failIfExists) {
+    return CopyFileA(sourceFile, destFile, failIfExists);
+}
+
+bool WinH_CopyFileW(const wchar_t *sourceFile, const wchar_t *destFile, bool failIfExists) {
+    return CopyFileW(sourceFile, destFile, failIfExists);
 }

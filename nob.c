@@ -6,12 +6,12 @@
 #endif
 
 // #define RELEASE
+#define STATIC
 
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-
 
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
@@ -35,19 +35,24 @@
 #endif /* defined(__GNUC__) */
 #endif /* _WIN32 */
 
-#define RAYLIB "./lib/libraylib.a"
+// #define RAYLIB "./lib/libraylib.a"
 
 #define BUILD_DIR "build"
 #define BIN_DIR "bin"
 #define SRC_DIR "src"
+#define LIB_DIR "lib"
 #define EXTERN_DIR "extern"
 
+#if _WIN32
 #define EXE_NAME "nesxd.exe"
+#else
+#define EXE_NAME "nesxd"
+#endif /* _WIN32 */
 
 #define EXE_OUTPUT BIN_DIR "/" EXE_NAME
 
 #define PCH_SUFFIX "_pch.h"
-#define GCH_SUFFIX "_pch.h.gch"
+#define GCH_SUFFIX PCH_SUFFIX ".gch"
 
 #define NOB_H_DIR "include/nob.h"
 
@@ -64,12 +69,18 @@ const char *filesFlags[] = {
 };
 
 const char *dependencies[] = {
-    "tinyfiledialogs", "WindowsHeader",
+    "tinyfiledialogs",
+    "WindowsHeader",
 };
 
 const char *dirs[] = { BUILD_DIR, BIN_DIR, SRC_DIR, EXTERN_DIR };
 
 const char *skippingMsg = "    File '%s' already up to date, skipping...";
+
+const char *libraries[] = {
+    "raylib",
+    //  "cimgui",
+};
 
 typedef struct {
     const char **items;
@@ -109,7 +120,55 @@ void GetIncludedHeaders(Objects *eh, const char *header);
 
 bool ccache;
 
+#ifdef _WIN32
+
+#include "extern/WindowsHeader/WindowsHeader.h"
+
+#undef NOB_GO_REBUILD_URSELF
+
+#define NOB_GO_REBUILD_URSELF(argc, argv)                                                                                                  \
+    do {                                                                                                                                   \
+        const char *source_path = __FILE__;                                                                                                \
+        assert(argc >= 1);                                                                                                                 \
+        const char *binary_path = argv[0];                                                                                                 \
+                                                                                                                                           \
+        int rebuild_is_needed = nob_needs_rebuild(binary_path, &source_path, 1);                                                           \
+        if (rebuild_is_needed < 0)                                                                                                         \
+            exit(1);                                                                                                                       \
+        if (rebuild_is_needed) {                                                                                                           \
+            Nob_String_Builder sb = { 0 };                                                                                                 \
+            nob_sb_append_cstr(&sb, binary_path);                                                                                          \
+            nob_sb_append_cstr(&sb, ".old");                                                                                               \
+            nob_sb_append_null(&sb);                                                                                                       \
+                                                                                                                                           \
+            if (!nob_rename(binary_path, sb.items))                                                                                        \
+                exit(1);                                                                                                                   \
+            Nob_Cmd rebuild = { 0 };                                                                                                       \
+            nob_cmd_append(&rebuild, NOB_REBUILD_URSELF(binary_path, source_path), "extern/WindowsHeader/WindowsHeader.c");                \
+            bool rebuild_succeeded = nob_cmd_run_sync(rebuild);                                                                            \
+            nob_cmd_free(rebuild);                                                                                                         \
+            if (!rebuild_succeeded) {                                                                                                      \
+                nob_rename(sb.items, binary_path);                                                                                         \
+                exit(1);                                                                                                                   \
+            }                                                                                                                              \
+                                                                                                                                           \
+            Nob_Cmd cmd = { 0 };                                                                                                           \
+            nob_da_append_many(&cmd, argv, argc);                                                                                          \
+            if (!nob_cmd_run_sync(cmd))                                                                                                    \
+                exit(1);                                                                                                                   \
+            exit(0);                                                                                                                       \
+        }                                                                                                                                  \
+    } while (0)
+// The implementation idea is stolen from https://github.com/zhiayang/nabs
+#endif /* _WIN32 */
+
 int main(int argc, char **argv) {
+
+#ifdef _WIN32
+    if (!WinH_SetConsoleOutputCP(CP_UTF8))
+        nob_log(NOB_INFO, "Could not set console output to UTF-8...");
+#endif /* _WIN32 */
+
     NOB_GO_REBUILD_URSELF(argc, argv);
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
@@ -204,8 +263,6 @@ int main(int argc, char **argv) {
 #define CFLAGS                                                                                          \
         "-Wall",                                                                                        \
         "-Wextra",                                                                                      \
-        "-Winvalid-pch",                                                                                \
-        "-std=gnu11",                                                                                   \
         "-Og",                                                                                          \
         "-ggdb3",                                                                                       \
         "-march=native",                                                                                \
@@ -213,12 +270,10 @@ int main(int argc, char **argv) {
         "-DPLATFORM_DESKTOP",                                                                           \
         "-DGRAPHICS_API_OPENGL_33",                                                                     \
         "-DNES"
-
 #else
 
 // CFlags
 #define CFLAGS                                                                                          \
-        "-std=gnu11",                                                                                   \
         "-O3",                                                                                          \
         "-march=native",                                                                                \
         "-DPLATFORM_DESKTOP",                                                                           \
@@ -345,9 +400,71 @@ bool CompileExecutable(void) {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
         nob_cmd_append(&cmd, "-o", EXE_OUTPUT);
         nob_da_append_many(&cmd, obj.items, obj.count);
-        nob_cmd_append(&cmd, RAYLIB, CFLAGS, LIBS);
-    } else
+        Nob_String_Builder sb = { 0 };
+#ifdef STATIC
+        nob_sb_append_cstr(&sb, LIB_DIR);
+        nob_sb_append_cstr(&sb, "/lib");
+        size_t SBcnt = sb.count;
+        for (size_t i = 0; i < NOB_ARRAY_LEN(libraries); i++) {
+            sb.count = SBcnt;
+            nob_sb_append_cstr(&sb, libraries[i]);
+            nob_sb_append_cstr(&sb, ".a");
+            nob_sb_append_null(&sb);
+            nob_log(NOB_INFO, "Using Static Lib: %s", sb.items);
+            nob_cmd_append(&cmd, strdup(sb.items));
+        }
+#else
+        nob_cmd_append(&cmd, "-L" LIB_DIR);
+        nob_sb_append_cstr(&sb, "-l");
+        size_t SBcnt = sb.count;
+        for (size_t i = 0; i < NOB_ARRAY_LEN(libraries); i++) {
+            sb.count = SBcnt;
+            nob_sb_append_cstr(&sb, libraries[i]);
+            nob_sb_append_null(&sb);
+            nob_log(NOB_INFO, "Dynamic Lib: %s", sb.items);
+            nob_cmd_append(&cmd, strdup(sb.items));
+        }
+        nob_log(NOB_INFO, "--- Copying .DLL files to executable folder ---");
+        sb.count = 0;
+        nob_sb_append_cstr(&sb, LIB_DIR "/");
+        SBcnt = sb.count;
+        Nob_String_Builder dest = { 0 };
+        nob_sb_append_cstr(&dest, BIN_DIR "/");
+        size_t destCnt = dest.count;
+        for (size_t i = 0; i < NOB_ARRAY_LEN(libraries); i++) {
+            sb.count = SBcnt;
+            nob_sb_append_cstr(&sb, libraries[i]);
+            nob_sb_append_cstr(&sb, ".dll");
+            nob_sb_append_null(&sb);
+
+            dest.count = destCnt;
+            nob_sb_append_cstr(&dest, libraries[i]);
+            nob_sb_append_cstr(&dest, ".dll");
+            nob_sb_append_null(&dest);
+
+#ifndef _WIN32
+            Nob_String_Builder sf = { 0 };
+            if (!nob_read_entire_file(sb.items, &sf))
+                return false;
+
+            FILE *destFile = fopen(dest.items, "wb");
+            if (destFile == NULL)
+                return false;
+
+            fwrite(sf.items, 1, sf.count, destFile);
+            fclose(destFile);
+#else
+            if (!WinH_CopyFileA(sb.items, dest.items, false))
+                return false;
+#endif
+        }
+        nob_sb_free(dest);
+#endif
+        nob_sb_free(sb);
+        nob_cmd_append(&cmd, CFLAGS, LIBS);
+    } else {
         nob_log(NOB_INFO, skippingMsg, EXE_OUTPUT);
+    }
 
     bool result = cmd.count > cnt ? nob_cmd_run_sync(cmd) : true;
     nob_cmd_free(cmd);
@@ -503,7 +620,6 @@ bool CompileDependencies(void) {
     -march=native -DKXD_DEBUG -D_UNICODE -DUNICODE -DPLATFORM_DESKTOP -DGRAPHICS_API_OPENGL_33 ./lib/libraylib.a -lgdi32 -lwinmm -lcomdlg32
     -lole32 -DKXD_DEBUG*/
     nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS, INCLUDES);
-
 
     size_t command_size = cmd.count;
     for (size_t i = 0; i < NOB_ARRAY_LEN(dependencies); ++i) {
@@ -739,13 +855,13 @@ bool Bundler(const char *path) {
             //              \r\n\0
             errorText[errStringLen - 2] = '\0';
 
-            nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path, errorText, err);
+            nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, errorText, err);
 
             // release memory allocated by FormatMessage()
             LocalFree(errorText);
             errorText = NULL;
 #else
-        goto noMSG;
+        nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, strerror(errno), errno);
 #endif
             return false;
         }
@@ -784,6 +900,7 @@ bool Bundler(const char *path) {
     nob_sb_free(sb);
     nob_da_free(procs);
     nob_da_free(eb);
+
     return result;
 }
 
@@ -832,6 +949,7 @@ bool CleanupFiles(void) {
         free(eb.items[i]);
 
     free(eb.items);
+
     return result;
 }
 
@@ -849,7 +967,6 @@ void GetIncludedHeaders(Objects *eh, const char *header) {
     size_t sz;
     nob_log(NOB_INFO, "Header: '%s'", header);
     while (feof(fHeader) == 0) {
-        // line[0] = '\0';
         fgets(line, sizeof(line), fHeader);
         sz = strlen(line);
         if (sz <= 1)
