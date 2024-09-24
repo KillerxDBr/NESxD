@@ -95,7 +95,6 @@ typedef struct {
 
     int activeTheme;
 
-    uint8_t selectedTheme;
     uint16_t fastForwardKey;
     uint16_t pauseKey;
 } config_t;

@@ -15,6 +15,8 @@
 
 #include "nob.h"
 
+#include "WindowsHeader/WindowsHeader.h"
+
 #define CONFIG_FILE "config.ini"
 
 void loadConfig(app_t *app);

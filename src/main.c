@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
 
     memcpy(slash, CONFIG_FILE, sizeof(CONFIG_FILE));
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE /*| FLAG_WINDOW_UNDECORATED*/);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow((NES_W * FACTOR), (NES_H * FACTOR), "NES_xD");
     SetWindowMinSize(NES_W, NES_H);
     SetTargetFPS(60);
@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
     LOG_INF("Screen Width:  %zu", app->screenW);
     LOG_INF("Screen Heigth: %zu", app->screenH);
 
-    GuiLoadStyleDefault();
+    // GuiLoadStyleDefault();
 
 #ifndef NOVID
     SetRandomSeed(40028922U);
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
 #endif
     loadConfig(app);
 
-    app->config.activeTheme = 6; // Dark Theme
+    // app->config.activeTheme = 6; // Dark Theme
     initGui(app);
 
     const char *PausedText = "Paused...";
@@ -189,13 +189,19 @@ int main(int argc, char **argv) {
         DrawFPS(5, 5);
 
         if (app->nes.isPaused) {
-            const Vector2 pauseSize = MeasureTextEx(GetFontDefault(), PausedText, app->screenW * .1f, app->screenW * .01f);
+            const Font font = GuiGetFont();
+            const Vector2 pauseSize = MeasureTextEx(font, PausedText, app->screenW * .1f, font.baseSize);
 
             DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f), (app->screenH * .5f) - (pauseSize.y * .6f),
-                          pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f), RED);
+                          pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
+                          GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-            DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW * .1f,
-                     RAYWHITE);
+            // DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW *
+            // .1f,
+            //          GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+
+            DrawTextPro(font, PausedText, V2((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f)),
+                        Vector2Zero(), 0, app->screenW * .1f, font.baseSize, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
         }
 
 #ifdef KXD_DEBUG

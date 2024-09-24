@@ -13,7 +13,7 @@ void loadConfig(app_t *app) {
         rini_config cfg = rini_load_config(app->config.fileName);
 
         // clang-format off
-        app->config.selectedTheme  = rini_get_config_value_fallback(cfg, NESxD_SELECTED_THEME, app->config.selectedTheme);
+        app->config.activeTheme    = rini_get_config_value_fallback(cfg, NESxD_SELECTED_THEME, app->config.activeTheme);
         app->config.fastForwardKey = rini_get_config_value_fallback(cfg, NESxD_FAST_FORWARD,   app->config.fastForwardKey);
         app->config.pauseKey       = rini_get_config_value_fallback(cfg, NESxD_PAUSE,          app->config.pauseKey);
 
@@ -28,7 +28,7 @@ void loadConfig(app_t *app) {
         app->nes.controller.ButtonStart  = rini_get_config_value_fallback(cfg, CTRL_BT_START,  app->nes.controller.ButtonStart);
         app->nes.controller.ButtonSelect = rini_get_config_value_fallback(cfg, CTRL_BT_SELECT, app->nes.controller.ButtonSelect);
 
-        VARLOG(app->config.selectedTheme,  "%u");
+        VARLOG(app->config.activeTheme,    "%u");
         VARLOG(app->config.fastForwardKey, "%u");
         VARLOG(app->config.pauseKey,       "%u");
 
@@ -68,7 +68,7 @@ void saveConfig(app_t *app) {
     rini_config cfg = rini_load_config(NULL);
 
     // clang-format off
-    rini_set_config_value(&cfg, NESxD_SELECTED_THEME, app->config.selectedTheme,  "GUI Theme");
+    rini_set_config_value(&cfg, NESxD_SELECTED_THEME, app->config.activeTheme,    "GUI Theme");
     rini_set_config_value(&cfg, NESxD_FAST_FORWARD,   app->config.fastForwardKey, "Fast Forward Button");
     rini_set_config_value(&cfg, NESxD_PAUSE,          app->config.pauseKey,       "Pause Button");
 
@@ -109,8 +109,22 @@ void configControllerDefault(app_t *app) {
 
 void loadDefaultConfigs(app_t *app) {
     configControllerDefault(app);
+    unsigned long size = 10;
+    char *result = callocWrapper(size, 1);
+
+    bool darkTheme;
+    if (WinH_RegGetValueA(WIN_H_HKEY_CURRENT_USER, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                          "SystemUsesLightTheme", WIN_H_REG_DWORD, NULL, result, &size) == 0) {
+        darkTheme = (result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0]) == 0;
+    } else {
+        darkTheme = false;
+    }
+
     // clang-format off
+    app->config.activeTheme    = darkTheme ? 6 : 0;
     app->config.fastForwardKey = KEY_SPACE;
     app->config.pauseKey       = KEY_P;
     // clang-format on
+
+    free(result);
 }

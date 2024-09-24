@@ -2,9 +2,8 @@
 
 // force loading dark theme for now
 void initGui(app_t *app) {
-    if (app->config.activeTheme != 0) {
-        updateTheme(app);
-    }
+    //
+    updateTheme(app);
 }
 
 void updateTheme(app_t *app) {
