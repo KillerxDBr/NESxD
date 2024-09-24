@@ -58,7 +58,7 @@
 
 #define INCLUDES "-Ibuild/", "-I.", "-Iinclude", "-Isrc", "-Istyles", "-Iextern"
 
-#define LIBS "-lgdi32", "-lwinmm", "-lcomdlg32", "-lole32"
+#define LIBS "-static-libgcc", "-lgdi32", "-lwinmm", "-lcomdlg32", "-lole32"
 
 const char *files[] = {
     "main", "6502", "config", "gui", "input",
@@ -78,7 +78,6 @@ const char *dirs[] = { BUILD_DIR, BIN_DIR, SRC_DIR, EXTERN_DIR };
 const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
 const char *libraries[] = {
-    "raylib",
     //  "cimgui",
 };
 
@@ -109,6 +108,7 @@ typedef struct {
 Objects obj = { 0 };
 Resources resources = { 0 };
 
+bool buildRayLib(void);
 bool PrecompileHeader(void);
 bool CompileFiles(void);
 bool CleanupFiles(void);
@@ -118,70 +118,13 @@ bool CompileNobHeader(void);
 bool Bundler(const char *path);
 void GetIncludedHeaders(Objects *eh, const char *header);
 
-bool ccache;
-
-#ifdef _WIN32
-
-#include "extern/WindowsHeader/WindowsHeader.h"
-
-#undef NOB_GO_REBUILD_URSELF
-
-#define NOB_GO_REBUILD_URSELF(argc, argv)                                                                                                  \
-    do {                                                                                                                                   \
-        const char *source_path = __FILE__;                                                                                                \
-        assert(argc >= 1);                                                                                                                 \
-        const char *binary_path = argv[0];                                                                                                 \
-                                                                                                                                           \
-        int rebuild_is_needed = nob_needs_rebuild(binary_path, &source_path, 1);                                                           \
-        if (rebuild_is_needed < 0)                                                                                                         \
-            exit(1);                                                                                                                       \
-        if (rebuild_is_needed) {                                                                                                           \
-            Nob_String_Builder sb = { 0 };                                                                                                 \
-            nob_sb_append_cstr(&sb, binary_path);                                                                                          \
-            nob_sb_append_cstr(&sb, ".old");                                                                                               \
-            nob_sb_append_null(&sb);                                                                                                       \
-                                                                                                                                           \
-            if (!nob_rename(binary_path, sb.items))                                                                                        \
-                exit(1);                                                                                                                   \
-            Nob_Cmd rebuild = { 0 };                                                                                                       \
-            nob_cmd_append(&rebuild, NOB_REBUILD_URSELF(binary_path, source_path), "extern/WindowsHeader/WindowsHeader.c");                \
-            bool rebuild_succeeded = nob_cmd_run_sync(rebuild);                                                                            \
-            nob_cmd_free(rebuild);                                                                                                         \
-            if (!rebuild_succeeded) {                                                                                                      \
-                nob_rename(sb.items, binary_path);                                                                                         \
-                exit(1);                                                                                                                   \
-            }                                                                                                                              \
-                                                                                                                                           \
-            Nob_Cmd cmd = { 0 };                                                                                                           \
-            nob_da_append_many(&cmd, argv, argc);                                                                                          \
-            if (!nob_cmd_run_sync(cmd))                                                                                                    \
-                exit(1);                                                                                                                   \
-            exit(0);                                                                                                                       \
-        }                                                                                                                                  \
-    } while (0)
-// The implementation idea is stolen from https://github.com/zhiayang/nabs
-#endif /* _WIN32 */
-
 int main(int argc, char **argv) {
-
-#ifdef _WIN32
-    if (!WinH_SetConsoleOutputCP(CP_UTF8))
-        nob_log(NOB_INFO, "Could not set console output to UTF-8...");
-#endif /* _WIN32 */
-
     NOB_GO_REBUILD_URSELF(argc, argv);
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
     // const char *program = nob_shift_args(&argc, &argv);
     // (void)program;
     nob_shift_args(&argc, &argv);
-
-    Nob_Cmd cmd = { 0 };
-    nob_cmd_append(&cmd, "where", "ccache");
-
-    ccache = nob_cmd_run_sync(cmd);
-
-    nob_cmd_free(cmd);
 
     nob_log(NOB_INFO, "Using Compiler: \"%s\"", CC);
 
@@ -191,12 +134,12 @@ int main(int argc, char **argv) {
     else
         command = nob_shift_args(&argc, &argv);
 
-    if (strcmp(command, "build") == 0) {
+    if (strcmp(command, "build") == 0 || strcmp(command, "b") == 0) {
         nob_log(NOB_INFO, "--- Building ---");
         if (argc > 0) {
             command = nob_shift_args(&argc, &argv);
             // nob.exe build clean/cls
-            if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0)) {
+            if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
                 nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
                 if (!CleanupFiles())
                     return 1;
@@ -204,6 +147,10 @@ int main(int argc, char **argv) {
         }
 
         if (!nob_mkdir_if_not_exists(BUILD_DIR))
+            return 1;
+
+        nob_log(NOB_INFO, "--- Building Raylib ---");
+        if (!buildRayLib())
             return 1;
 
         nob_log(NOB_INFO, "--- Building Dependencies ---");
@@ -228,7 +175,7 @@ int main(int argc, char **argv) {
 
         nob_log(NOB_INFO, "--- Finished Compiling ---");
 
-    } else if (strcmp(command, "bundler") == 0) {
+    } else if (strcmp(command, "bundler") == 0 || strcmp(command, "b") == 0) {
         nob_log(NOB_INFO, "--- Bundler ---");
 
         const char *bundlerPath;
@@ -240,13 +187,13 @@ int main(int argc, char **argv) {
         if (!Bundler(bundlerPath))
             return 1;
 
-    } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0)) {
+    } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
         nob_log(NOB_INFO, "--- Cleaning Files ---");
         if (!CleanupFiles())
             return 1;
 
     } else {
-        nob_log(NOB_INFO, "Unknown command \"%s\", expects: <build [clean/cls], bundler [dir], clean/cls>", command);
+        nob_log(NOB_INFO, "Unknown command \"%s\", expects: <[b]uild [[c]lean/cls], [b]undler [dir], [c]lean/cls>", command);
     }
 
     for (size_t i = 0; i < obj.count; i++) {
@@ -290,9 +237,6 @@ bool PrecompileHeader(void) {
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
 
-    if (ccache) {
-        nob_cmd_append(&cmd, "ccache");
-    }
     nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc-header", CFLAGS, INCLUDES);
     size_t command_size = cmd.count;
 
@@ -385,9 +329,6 @@ defer:
 
 bool CompileExecutable(void) {
     Nob_Cmd cmd = { 0 };
-    if (ccache) {
-        nob_cmd_append(&cmd, "ccache");
-    }
 
     // for (size_t i = 0; i < obj.count; i++) {
     //     nob_log(NOB_INFO, "%zu: %s", i + 1ULL, obj.items[i]);
@@ -405,14 +346,15 @@ bool CompileExecutable(void) {
         nob_sb_append_cstr(&sb, LIB_DIR);
         nob_sb_append_cstr(&sb, "/lib");
         size_t SBcnt = sb.count;
-        for (size_t i = 0; i < NOB_ARRAY_LEN(libraries); i++) {
-            sb.count = SBcnt;
-            nob_sb_append_cstr(&sb, libraries[i]);
-            nob_sb_append_cstr(&sb, ".a");
-            nob_sb_append_null(&sb);
-            nob_log(NOB_INFO, "Using Static Lib: %s", sb.items);
-            nob_cmd_append(&cmd, strdup(sb.items));
-        }
+        // nob_cmd_append(&cmd,"-lraylib");
+        // for (size_t i = 0; i < NOB_ARRAY_LEN(libraries); i++) {
+        //     sb.count = SBcnt;
+        //     nob_sb_append_cstr(&sb, libraries[i]);
+        //     nob_sb_append_cstr(&sb, ".a");
+        //     nob_sb_append_null(&sb);
+        //     nob_log(NOB_INFO, "Using Static Lib: %s", sb.items);
+        //     nob_cmd_append(&cmd, strdup(sb.items));
+        // }
 #else
         nob_cmd_append(&cmd, "-L" LIB_DIR);
         nob_sb_append_cstr(&sb, "-l");
@@ -476,9 +418,6 @@ bool CompileFiles(void) {
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
 
-    if (ccache) {
-        nob_cmd_append(&cmd, "ccache");
-    }
     nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS, INCLUDES);
     size_t command_size = cmd.count;
 
@@ -611,9 +550,7 @@ bool CompileDependencies(void) {
     Nob_String_Builder sb = { 0 };
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
-    if (ccache) {
-        nob_cmd_append(&cmd, "ccache");
-    }
+
     /*
     gcc -fdiagnostics-color=always -Ibuild/ -I. -Iinclude -Isrc -Istyles -Iextern -o bin/nesxd.exe build/main.o build/6502.o build/input.o
     build/config.o build/gui.o build/nob.o build/tinyfiledialogs.o build/resource.o -Wall -Wextra -Winvalid-pch -std=gnu11 -Og -g3 -ggdb
@@ -682,9 +619,7 @@ defer:
 
 bool CompileNobHeader(void) {
     Nob_Cmd cmd = { 0 };
-    if (ccache) {
-        nob_cmd_append(&cmd, "ccache");
-    }
+
     const char *output = BUILD_DIR "/nob.o";
 
     size_t cnt = cmd.count;
@@ -965,11 +900,11 @@ void GetIncludedHeaders(Objects *eh, const char *header) {
         return;
 
     size_t sz;
-    nob_log(NOB_INFO, "Header: '%s'", header);
+    // nob_log(NOB_INFO, "Header: '%s'", header);
     while (feof(fHeader) == 0) {
         fgets(line, sizeof(line), fHeader);
         sz = strlen(line);
-        if (sz <= 1)
+        if (sz < sizeof(INCLUDE_TXT) - 1)
             continue;
         line[--sz] = '\0'; // removing \n from end
 
@@ -992,4 +927,183 @@ void GetIncludedHeaders(Objects *eh, const char *header) {
     }
     nob_sb_free(sb);
     fclose(fHeader);
+}
+#define RAYLIB_SRC_PATH "extern/raylib-5.0/src"
+
+#define RAYLIB_CFLAGS                                                                                                                      \
+    "-Wall", "-D_GNU_SOURCE", "-DPLATFORM_DESKTOP", "-DGRAPHICS_API_OPENGL_33", "-Wno-missing-braces", "-Werror=pointer-arith",            \
+        "-fno-strict-aliasing", "-O1", "-std=c99", "-Werror=implicit-function-declaration"
+
+#define INCLUDE_PATHS "-I" RAYLIB_SRC_PATH, "-I" RAYLIB_SRC_PATH "/external/glfw/include", "-I" RAYLIB_SRC_PATH "/external/glfw/deps/mingw"
+
+bool buildRayLib(void) {
+    size_t cmdCount, depsCount;
+    Nob_Cmd cmd = { 0 };
+    Nob_Procs procs = { 0 };
+    Objects deps = { 0 };
+    nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
+    nob_cmd_append(&cmd, INCLUDE_PATHS);
+    nob_cmd_append(&cmd, RAYLIB_CFLAGS);
+    // nob_cmd_append(&cmd, "-static-libgcc", "-lopengl32", "-lgdi32", "-lwinmm");
+
+    // extern/raylib-5.0/src/config.h
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/config.h");
+
+    cmdCount = cmd.count;
+    depsCount = deps.count;
+
+    // rcore.o =======================================================
+    // rcore.c raylib.h rlgl.h utils.h raymath.h rcamera.h rgestures.h
+    cmd.count = cmdCount;
+    deps.count = depsCount;
+
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rcore.c");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rlgl.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/utils.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/raymath.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rcamera.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rgestures.h");
+
+    nob_da_append(&obj, BUILD_DIR "/rcore.o");
+    if (nob_needs_rebuild(BUILD_DIR "/rcore.o", deps.items, deps.count)) {
+        nob_log(NOB_INFO, "--- Generating rcore.o ---");
+        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rcore.o");
+        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rcore.c");
+
+        nob_da_append(&procs, nob_cmd_run_async(cmd));
+    }
+
+    // rglfw.o =======================================================
+    // rglfw.c
+
+    cmd.count = cmdCount;
+    deps.count = depsCount;
+
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rglfw.c");
+
+    nob_da_append(&obj, BUILD_DIR "/rglfw.o");
+    if (nob_needs_rebuild(BUILD_DIR "/rglfw.o", deps.items, deps.count)) {
+        nob_log(NOB_INFO, "--- Generating rglfw.o ---");
+        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rglfw.o");
+        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rglfw.c");
+
+        nob_da_append(&procs, nob_cmd_run_async(cmd));
+    }
+
+    // rshapes.o =====================================================
+    // rshapes.c raylib.h rlgl.h
+
+    cmd.count = cmdCount;
+    deps.count = depsCount;
+
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rshapes.c");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rlgl.h");
+
+    nob_da_append(&obj, BUILD_DIR "/rshapes.o");
+    if (nob_needs_rebuild(BUILD_DIR "/rshapes.o", deps.items, deps.count)) {
+        nob_log(NOB_INFO, "--- Generating rshapes.o ---");
+        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rshapes.o");
+        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rshapes.c");
+        nob_da_append(&procs, nob_cmd_run_async(cmd));
+    }
+
+    // rtextures.o ===================================================
+    // rtextures.c raylib.h rlgl.h utils.h
+
+    cmd.count = cmdCount;
+    deps.count = depsCount;
+
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rtextures.c");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rlgl.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/utils.h");
+
+    nob_da_append(&obj, BUILD_DIR "/rtextures.o");
+    if (nob_needs_rebuild(BUILD_DIR "/rtextures.o", deps.items, deps.count)) {
+        nob_log(NOB_INFO, "--- Generating rtextures.o ---");
+        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rtextures.o");
+        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rtextures.c");
+        nob_da_append(&procs, nob_cmd_run_async(cmd));
+    }
+
+    // rtext.o =======================================================
+    // rtext.c raylib.h utils.h
+
+    cmd.count = cmdCount;
+    deps.count = depsCount;
+
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rtext.c");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/utils.h");
+
+    nob_da_append(&obj, BUILD_DIR "/rtext.o");
+    if (nob_needs_rebuild(BUILD_DIR "/rtext.o", deps.items, deps.count)) {
+        nob_log(NOB_INFO, "--- Generating rtext.o ---");
+        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rtext.o");
+        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rtext.c");
+        nob_da_append(&procs, nob_cmd_run_async(cmd));
+    }
+
+    // utils.o =======================================================
+    // utils.c utils.h
+
+    cmd.count = cmdCount;
+    deps.count = depsCount;
+
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/utils.c");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/utils.h");
+
+    nob_da_append(&obj, BUILD_DIR "/utils.o");
+    if (nob_needs_rebuild(BUILD_DIR "/utils.o", deps.items, deps.count)) {
+        nob_log(NOB_INFO, "--- Generating utils.o ---");
+        nob_cmd_append(&cmd, "-o", BUILD_DIR "/utils.o");
+        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/utils.c");
+        nob_da_append(&procs, nob_cmd_run_async(cmd));
+    }
+
+    // rmodels.o =====================================================
+    // rmodels.c raylib.h rlgl.h raymath.h
+
+    cmd.count = cmdCount;
+    deps.count = depsCount;
+
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rmodels.c");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/rlgl.h");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/raymath.h");
+
+    nob_da_append(&obj, BUILD_DIR "/rmodels.o");
+    if (nob_needs_rebuild(BUILD_DIR "/rmodels.o", deps.items, deps.count)) {
+        nob_log(NOB_INFO, "--- Generating rmodels.o ---");
+        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rmodels.o");
+        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rmodels.c");
+        nob_da_append(&procs, nob_cmd_run_async(cmd));
+    }
+
+    // raudio.o ======================================================
+    // raudio.c raylib.h
+
+    cmd.count = cmdCount;
+    deps.count = depsCount;
+
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/raudio.c");
+    nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
+
+    nob_da_append(&obj, BUILD_DIR "/raudio.o");
+    if (nob_needs_rebuild(BUILD_DIR "/raudio.o", deps.items, deps.count)) {
+        nob_log(NOB_INFO, "--- Generating raudio.o ---");
+        nob_cmd_append(&cmd, "-o", BUILD_DIR "/raudio.o");
+        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/raudio.c");
+        nob_da_append(&procs, nob_cmd_run_async(cmd));
+    }
+
+    bool result = nob_procs_wait(procs);
+
+    nob_cmd_free(cmd);
+    nob_da_free(procs);
+    nob_da_free(deps);
+
+    return result;
 }
