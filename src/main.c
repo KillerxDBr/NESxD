@@ -4,6 +4,12 @@ int main(int argc, char **argv) {
     if (!WinH_SetConsoleOutputCP(CP_UTF8))
         return 1;
 
+#ifdef _UCRT
+    setlocale(LC_ALL, ".UTF-8");
+#else
+    setlocale(LC_ALL, "");
+#endif
+
     bool NOP = false;
     if (argc > 1) {
         for (int i = 0; i < argc; i++) {

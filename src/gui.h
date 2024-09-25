@@ -6,13 +6,12 @@
 
 #include "raylib.h"
 
+#include "raygui.h"
+
 #ifdef KXD_GUI_FILE
 
 #define RAYMATH_STATIC_INLINE
 #include "raymath.h"
-
-#define RAYGUI_IMPLEMENTATION
-#include "raygui.h"
 
 #define MAX_GUI_STYLES_AVAILABLE 12 // NOTE: Included light style
 #include "ashes/style_ashes.h"
@@ -33,8 +32,6 @@ const char *themeNames[MAX_GUI_STYLES_AVAILABLE] = {
 
 #else
 #include "raymath.h"
-
-#include "raygui.h"
 #endif /* KXD_GUI_FILE */
 
 #include "kxdDebug.h"

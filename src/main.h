@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <locale.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
