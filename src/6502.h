@@ -1,6 +1,7 @@
 #ifndef KXD_6502_H
 #define KXD_6502_H
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 

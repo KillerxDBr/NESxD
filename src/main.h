@@ -27,6 +27,10 @@
 
 #include "bundle.h"
 
+#ifndef CP_UTF8
+#define CP_UTF8 65001
+#endif /* CP_UTF8 */
+
 // #define KXD_DEBUG
 #define NOPPU
 // #define NOVID

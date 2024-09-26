@@ -10,6 +10,7 @@ int main(int argc, char **argv) {
     setlocale(LC_ALL, "");
 #endif
 
+    LOG_INF("Locale set to \"%s\"", setlocale(LC_ALL, NULL));
     bool NOP = false;
     if (argc > 1) {
         for (int i = 0; i < argc; i++) {

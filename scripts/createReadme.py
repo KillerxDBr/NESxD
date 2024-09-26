@@ -46,7 +46,7 @@ README_TEXT =  """\
 89   ->  Key: Y | y
 90   ->  Key: Z | z
 91   ->  Key: [
-92   ->  Key: '\'
+92   ->  Key: '\\'
 93   ->  Key: ]
 96   ->  Key: `
 # Function keys ===========

@@ -132,7 +132,8 @@ int main(int argc, char **argv) {
     setlocale(LC_ALL, "");
 #endif
 
-    // nob_log(NOB_INFO, "Locale: %s", loc);
+    nob_log(NOB_INFO, "Locale set to \"%s\"", setlocale(LC_ALL, NULL));
+
     NOB_GO_REBUILD_URSELF(argc, argv);
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
@@ -517,7 +518,7 @@ bool CompileFiles(void) {
     // nob_log(NOB_INFO, "------------------");
 
     // windres -i resource.rc -o build/resource.o
-
+#ifdef _WIN32
     const char *rc_input = "resource.rc";
     const char *manifest = "manifest.xml";
     if (nob_file_exists(rc_input) == 1 && nob_file_exists(manifest) == 1) {
@@ -532,12 +533,9 @@ bool CompileFiles(void) {
         } else {
             nob_log(NOB_INFO, skippingMsg, resource);
         }
-        // char *toObj = malloc(strlen(resource) + 1);
-        // strcpy(toObj, resource);
-        // nob_da_append(&obj, toObj);
         nob_da_append(&obj, strdup(resource));
     }
-
+#endif
     bool result = nob_procs_wait(procs);
     nob_cmd_free(cmd);
     nob_sb_free(sb);

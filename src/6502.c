@@ -388,7 +388,10 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_DEC_ZX:
-        assert(0 && "TODO: DEC ZX");
+        value8 = cpu->mem[incrementPC(cpu)] + cpu->X;
+        value16 = cpu->mem[value8] + (cpu->mem[value8 + 1] << 8);
+        cpu->mem[value16]--;
+        DEC_FLAGS(cpu->mem[value16]);
         incrementPC(cpu);
         break;
 
@@ -405,8 +408,12 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     default:
+    #ifdef KXD_DEBUG
         LOG_INF("Unhandled Instruction: mem[" HEX16 "] -> " HEX8 ", Skipping...", cpu->PC, cpu->mem[cpu->PC]);
         incrementPC(cpu);
+    #else
+    assert(0 && "Unreachable!!!");
+    #endif
         break;
     }
 #ifdef KXD_DEBUG
