@@ -12,9 +12,11 @@ int main(int argc, char **argv) {
 
     LOG_INF("Locale set to \"%s\"", setlocale(LC_ALL, NULL));
     bool NOP = false;
+    bool TEST = false;
     if (argc > 1) {
         for (int i = 0; i < argc; i++) {
             NOP = (strcmp(argv[i], NOP_CMD) == 0);
+            TEST = (strcmp(argv[i], TEST_CMD) == 0);
         }
     }
 
@@ -100,7 +102,11 @@ int main(int argc, char **argv) {
     EndTextureMode();
 
     UnloadRandomSequence(seq);
-#endif
+#endif /* NOVID */
+
+    if(TEST) {
+        exit(!InstructionTest(app));
+    }
 
     memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
@@ -268,8 +274,8 @@ void memDmp(cpu_t *cpu, size_t memSize) {
 
     fprintf(log, "Registers\nPC: 0x%04X | SP: 0x%02X | A: 0x%02X | X: 0x%02X | Y: 0x%02X\n", cpu->PC, cpu->SP, cpu->A, cpu->X, cpu->Y);
     fprintf(log, "Status Registers:\n");
-    fprintf(log, "    CZIDBVN\n");
-    fprintf(log, "    %d%d%d%d%d%d%d\n", cpu->C, cpu->Z, cpu->I, cpu->D, cpu->B, cpu->V, cpu->N);
+    fprintf(log, "    NV1B DIZC\n");
+    fprintf(log, "    %d%d%d%d %d%d%d%d\n", cpu->N, cpu->V, 1,cpu->B, cpu->D, cpu->I, cpu->Z, cpu->C);
 
     for (size_t i = 0; i < 85; i++) {
         fputc('_', log);

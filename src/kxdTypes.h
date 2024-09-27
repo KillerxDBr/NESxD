@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 #define KB(n) (n * 1024)
-#define MEMSIZE 2048ULL
-// #define MEMSIZE KB(64)
+// #define MEMSIZE 2048ULL
+#define MEMSIZE (KB(64))
 
 typedef struct IVector2 {
     int x, y;

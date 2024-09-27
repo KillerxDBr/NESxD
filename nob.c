@@ -63,10 +63,16 @@
 
 const char *files[] = {
     "main", "6502", "config", "gui", "input",
+#ifndef RELEASE
+    "test",
+#endif
 };
 
 const char *filesFlags[] = {
     "-DKXD_MAIN_FILE", "-DKXD_6502_FILE", "-DKXD_CONFIG_FILE", "-DKXD_GUI_FILE", "-DKXD_INPUT_FILE",
+#ifndef RELEASE
+    "-DKXD_TEST_FILE",
+#endif
 };
 
 const char *dependencies[] = {
@@ -526,7 +532,7 @@ bool CompileFiles(void) {
         const char *inputs[] = { rc_input, manifest };
 
         if (nob_needs_rebuild(resource, inputs, 2)) {
-            nob_log(NOB_INFO, "    Building %s file", rc_input);
+            nob_log(NOB_INFO, "--- Building %s file", rc_input);
             cmd.count = 0;
             nob_cmd_append(&cmd, "windres", "-i", rc_input, "-o", resource);
             nob_da_append(&procs, nob_cmd_run_async(cmd));

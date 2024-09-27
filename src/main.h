@@ -25,6 +25,10 @@
 #include "kxdDebug.h"
 #include "kxdTypes.h"
 
+#ifdef KXD_DEBUG
+#include "test.h"
+#endif
+
 #include "bundle.h"
 
 #ifndef CP_UTF8
@@ -43,6 +47,7 @@
 #define NES_AR ((float)NES_W / (float)NES_H)
 
 #define NOP_CMD "-NOP"
+#define TEST_CMD "-T"
 
 #define KXD_BG (CLITERAL(Color){ 0x38, 0x38, 0x38, 0xFF })
 
