@@ -201,7 +201,8 @@ int main(int argc, char **argv) {
             return 1;
 
         nob_log(NOB_INFO, "--- Finished Compiling ---");
-
+        
+        return 0;
     } else if (strcmp(command, "bundler") == 0 || strcmp(command, "b") == 0) {
         nob_log(NOB_INFO, "--- Bundler ---");
 
@@ -211,24 +212,18 @@ int main(int argc, char **argv) {
         else
             bundlerPath = NULL;
 
-        if (!Bundler(bundlerPath))
-            return 1;
+        return !Bundler(bundlerPath);
 
     } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
         nob_log(NOB_INFO, "--- Cleaning Files ---");
-        if (!CleanupFiles())
-            return 1;
+        return !CleanupFiles();
 
     } else {
         nob_log(NOB_INFO, "Unknown command \"%s\", expects: <[b]uild [[c]lean/cls], [b]undler [dir], [c]lean/cls>", command);
+        return 1;
     }
 
-    for (size_t i = 0; i < obj.count; i++) {
-        free((void *)obj.items[i]);
-    }
-    nob_da_free(obj);
-
-    return 0;
+    assert(0 && "UNREACHABLE!!!");
 }
 
 // clang-format off
