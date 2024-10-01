@@ -1,8 +1,10 @@
 import json
 from sys import argv
+# from pprint import pprint
 
 # from pprint import pprint
 import ctypes as ct
+# import struct as s
 
 """
 #define KB(n) (n * 1024)
@@ -32,10 +34,19 @@ typedef struct {
 """
 
 MEMSIZE = 64 * 1024
+MASK_C = 0b1
+MASK_Z = 0b10
+MASK_I = 0b100
+MASK_D = 0b1000
+MASK_B = 0b10000
+#
+MASK_V = 0b1000000
+MASK_N = 0b10000000
 
 
 class cpu_t(ct.Structure):
     _fields_ = [
+        # ------------------------------
         ("PC", ct.c_uint16),
         ("SP", ct.c_uint8),
         #
@@ -43,13 +54,14 @@ class cpu_t(ct.Structure):
         ("X", ct.c_uint8),
         ("Y", ct.c_uint8),
         #
-        ("C", ct.c_bool),
-        ("Z", ct.c_bool),
-        ("I", ct.c_bool),
-        ("D", ct.c_bool),
-        ("B", ct.c_bool),
-        ("V", ct.c_bool),
-        ("N", ct.c_bool),
+        ("C", ct.c_bool),  # 0
+        ("Z", ct.c_bool),  # 1
+        ("I", ct.c_bool),  # 2
+        ("D", ct.c_bool),  # 3
+        ("B", ct.c_bool),  # 4
+        #                    5
+        ("V", ct.c_bool),  # 6
+        ("N", ct.c_bool),  # 7
         #
         ("mem", ct.c_uint8 * MEMSIZE),
     ]
@@ -68,9 +80,16 @@ def printStruct(struct: ct.Structure):
             ctype = "uint8_t[]"
 
         value = getattr(struct, field_name)
-        # if isinstance(value, ct.Array):
-        #     value = list(value)
+        if isinstance(value, ct.Array):
+            value = list(value)
+            for i, m in enumerate(value):
+                if(m > 0):
+                    print(f"mem[0x{i:04X}] = 0x{m:02X}")
+            continue
         print(f"{ctype} {field_name}: {value}")
+        if field_name in ["SP", "Y", "N"]:
+            print("#")
+    print('')
 
 
 if len(argv) <= 1:
@@ -83,17 +102,47 @@ with open(argv[1], "rt") as f:
 inicial = cpu_t()
 final = cpu_t()
 
-print("Sizeof: ", ct.sizeof(inicial))
-inicial.PC = 10
-for x in range(MEMSIZE):
-    inicial.mem[x] = 0xEA
-    final.mem[x] = 0xEA
+print(f"sizeof(cpu_t) = {ct.sizeof(cpu_t)}")
+print(f'{"-" * 30}')
 
-printStruct(inicial)
-# pprint(jsonFile, sort_dicts=False)
 
-# print(f'inicial: {inicial.PC}')
+def createCPUState(cpu: cpu_t, jsonState: dict):
+    k: str
+    for k, v in jsonState.items():
+        if k == "p":
+            cpu.C = v & MASK_C
+            cpu.Z = v & MASK_Z
+            cpu.I = v & MASK_I
+            cpu.D = v & MASK_D
+            cpu.B = v & MASK_B
+            cpu.V = v & MASK_V
+            cpu.N = v & MASK_N
+        elif k == "ram":
+            # continue
+            for x in v:
+                cpu.mem[x[0]] = x[1]
+        else:
+            if k == "s":
+                k = "SP"
+            else:
+                k = k.upper()
+            # print(k, v)
+            setattr(cpu, k, v)
+    # pprint(jsonState, sort_dicts=False)
+    printStruct(cpu)
+    # return cpu
+    # pass
 
-# print("NV1BDIZC")
-# print(bin(jsonFile["initial"]["p"])[2:])
-# print(bin(jsonFile["final"]["p"])[2:])
+# for x in range(MEMSIZE):
+#     inicial.mem[x] = 0xEA
+#     final.mem[x] = 0xEA
+createCPUState(inicial, jsonFile["initial"])
+createCPUState(final,   jsonFile["final"])
+# printStruct(inicial)
+# print('')
+
+TESTBIN = "./test.bin"
+rst = bytes(inicial) + bytes(final)
+
+with open(TESTBIN, 'wb') as f:
+    f.write(rst)

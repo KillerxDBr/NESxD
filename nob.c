@@ -201,7 +201,7 @@ int main(int argc, char **argv) {
             return 1;
 
         nob_log(NOB_INFO, "--- Finished Compiling ---");
-        
+
         return 0;
     } else if (strcmp(command, "bundler") == 0 || strcmp(command, "b") == 0) {
         nob_log(NOB_INFO, "--- Bundler ---");
@@ -927,7 +927,16 @@ void GetIncludedHeaders(Objects *eh, const char *header) {
             }
         }
     }
+
     nob_sb_free(sb);
+
+    for (size_t i = 0; i < eh->count; ++i) {
+        if (strcmp(eh->items[i], "src/InsFlags.h") == 0) {
+            nob_da_append(eh, "src/instructions.h");
+            break;
+        }
+    }
+
     fclose(fHeader);
 }
 #define RAYLIB_SRC_PATH "extern/raylib-5.0/src"

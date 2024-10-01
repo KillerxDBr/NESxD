@@ -11,7 +11,7 @@ void processInstruction(cpu_t *cpu) {
         LOG_INF("BRK");
 
         cpu->B = true;
-        incrementPC(cpu);
+        // incrementPC(cpu);
         break;
 
     case INS_NOP:
@@ -271,6 +271,27 @@ void processInstruction(cpu_t *cpu) {
         incrementPC(cpu);
         break;
 
+    case INS_STX_A:
+        assert(0 && "TODO: INS_STX_A");
+        incrementPC(cpu);
+        break;
+
+    case INS_STX_Z:
+        cpu->mem[cpu->mem[incrementPC(cpu)]] = cpu->X;
+
+        VARLOG(cpu->mem[cpu->mem[cpu->PC]], HEX8);
+
+        incrementPC(cpu);
+        break;
+
+    case INS_STX_ZY:
+        cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->Y] = cpu->X;
+
+        VARLOG(cpu->mem[cpu->mem[cpu->PC] + cpu->Y], HEX8);
+
+        incrementPC(cpu);
+        break;
+
     case INS_LDX_IM:
         cpu->X = cpu->mem[incrementPC(cpu)];
 
@@ -408,12 +429,12 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     default:
-    #ifdef KXD_DEBUG
+#ifdef KXD_DEBUG
         LOG_INF("Unhandled Instruction: mem[" HEX16 "] -> " HEX8 ", Skipping...", cpu->PC, cpu->mem[cpu->PC]);
         incrementPC(cpu);
-    #else
-    assert(0 && "Unreachable!!!");
-    #endif
+#else
+        assert(0 && "Unreachable!!!");
+#endif
         break;
     }
 #ifdef KXD_DEBUG

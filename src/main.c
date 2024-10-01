@@ -13,20 +13,19 @@ int main(int argc, char **argv) {
     LOG_INF("Locale set to \"%s\"", setlocale(LC_ALL, NULL));
     bool NOP = false;
     bool TEST = false;
-    if (argc > 1) {
-        for (int i = 0; i < argc; i++) {
-            NOP = (strcmp(argv[i], NOP_CMD) == 0);
-            TEST = (strcmp(argv[i], TEST_CMD) == 0);
-        }
-    }
 
     app_t *app = callocWrapper(1, sizeof(app_t));
 
-    const char *ExecutableName = GetFileName(argv[0]);
-    app->config.fileName = callocWrapper(strlen(argv[0]) + 1 - strlen(ExecutableName) + sizeof(CONFIG_FILE), 1);
+    app->config.fileName = nob_shift_args(&argc, &argv);
+
+    for (int i = 0; i < argc; i++) {
+        NOP = (strcmp(argv[i], NOP_CMD) == 0) || NOP;
+        TEST = (strcmp(argv[i], TEST_CMD) == 0) || TEST;
+        if (NOP && TEST)
+            break;
+    }
 
     app->nes.isPaused = NOP;
-    strcpy(app->config.fileName, argv[0]);
 
     char *slash = strrchr(app->config.fileName, '\\');
     slash++;
@@ -104,46 +103,52 @@ int main(int argc, char **argv) {
     UnloadRandomSequence(seq);
 #endif /* NOVID */
 
+    cpu_t final = { 0 };
+
     if (TEST) {
-        exit(!InstructionTest(app));
-    }
+        // final = callocWrapper(1, sizeof(cpu_t));
+        app->nes.isPaused = false;
+        if (!InstructionTest(app, &final))
+            return 1;
+        LOG_INF("SUCCESS");
+        // return 0;
+    } else {
+        memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
-    memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
+        const char *memBinPath = "./mem.bin";
+        size_t insSize = 0;
+        FILE *memBin = NULL;
 
-    const char *memBinPath = "./mem.bin";
-    size_t insSize = 0;
-    FILE *memBin = NULL;
+        if (!NOP) {
+            memBin = fopen(memBinPath, "rb");
 
-    if (!NOP) {
-        memBin = fopen(memBinPath, "rb");
-
-        if (memBin == NULL) {
-            LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
-            LOG_INF("Operating with \"INS_NOP\" only");
-            NOP = true;
-        }
-    }
-
-    if (!NOP) {
-        fseek(memBin, 0, SEEK_END);
-        insSize = ftell(memBin);
-        rewind(memBin);
-
-        if (insSize == 0) {
-            LOG_ERR("No bytes to read from \"%s\", exiting...", memBinPath);
-            exit(1);
+            if (memBin == NULL) {
+                LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
+                LOG_INF("Operating with \"INS_NOP\" only");
+                NOP = true;
+            }
         }
 
-        uint8_t *instructions = callocWrapper(insSize, sizeof(uint8_t));
+        if (!NOP) {
+            fseek(memBin, 0, SEEK_END);
+            insSize = ftell(memBin);
+            rewind(memBin);
 
-        LOG_INF("Reading %zu instructions from \"%s\"", insSize, memBinPath);
-        fread(instructions, 1, insSize, memBin);
-        fclose(memBin);
+            if (insSize == 0) {
+                LOG_ERR("No bytes to read from \"%s\", exiting...", memBinPath);
+                exit(1);
+            }
 
-        addMultipleToMem(app->nes.cpu.mem, 0, instructions, insSize);
-        free(instructions);
+            uint8_t *instructions = callocWrapper(insSize, sizeof(uint8_t));
+
+            LOG_INF("Reading %zu instructions from \"%s\"", insSize, memBinPath);
+            fread(instructions, 1, insSize, memBin);
+            fclose(memBin);
+
+            addMultipleToMem(app->nes.cpu.mem, 0, instructions, insSize);
+            free(instructions);
+        }
     }
-
 #if KXD_DEBUG
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
@@ -252,7 +257,58 @@ int main(int argc, char **argv) {
                 break;
         }
     }
+    if (TEST) {
+        final.B = true; // Probable only necessary for this sample test
+        printf("\n===========================\n");
+        bool testResult
+            = (memcmp(&app->nes.cpu, &final, (sizeof(cpu_t) - MEMSIZE - 1)) == 0) && (memcmp(&app->nes.cpu.mem, final.mem, MEMSIZE) == 0);
+
+        for (size_t i = 0; i < sizeof(cpu_t) - MEMSIZE - 1; i++)
+            LOG_INF("cpu: 0x%02X | final: 0x%02X", ((uint8_t *)&app->nes.cpu)[i], ((uint8_t *)&final)[i]);
+
+        // exit(0);
+
+        if (testResult)
+            LOG_INF("SUCESS!!! app->nes.cpu == final");
+        else
+            LOG_ERR("NOPE!!! app->nes.cpu != final");
+        LOG_INF("");
+        LOG_INF("Test Log ------------------");
+        LOG_INF("Program Counter:");
+        LOG_INF("Value: %u | Expected %u", app->nes.cpu.PC, final.PC);
+        LOG_INF("===========================");
+        LOG_INF("Stack Pointer");
+        LOG_INF("Value: %u | Expected %u", app->nes.cpu.SP, final.SP);
+        LOG_INF("===========================");
+        LOG_INF("Registers:");
+        LOG_INF("A: Value: %5u | Expected %5u", app->nes.cpu.A, final.A);
+        LOG_INF("X: Value: %5u | Expected %5u", app->nes.cpu.X, final.X);
+        LOG_INF("Y: Value: %5u | Expected %5u", app->nes.cpu.Y, final.Y);
+        LOG_INF("===========================");
+        LOG_INF("Status Registers:");
+        LOG_INF("          NV1B DIZC");
+        LOG_INF("Value:    %d%d%d%d %d%d%d%d", app->nes.cpu.N, app->nes.cpu.V, 1, app->nes.cpu.B, app->nes.cpu.D, app->nes.cpu.I,
+                app->nes.cpu.Z, app->nes.cpu.C);
+        LOG_INF("===========================");
+        LOG_INF("          NV1B DIZC");
+        LOG_INF("Expected: %d%d%d%d %d%d%d%d", final.N, final.V, 1, final.B, final.D, final.I, final.Z, final.C);
+        LOG_INF("===========================");
+        LOG_INF("Memory:");
+        LOG_INF("mem[%5u]: %3u", 2637, app->nes.cpu.mem[2637]);
+        LOG_INF("mem[%5u]: %3u", 2638, app->nes.cpu.mem[2638]);
+        LOG_INF("mem[%5u]: %3u", 2639, app->nes.cpu.mem[2639]);
+        LOG_INF("mem[%5u]: %3u", 2640, app->nes.cpu.mem[2640]);
+        LOG_INF("mem[%5u]: %3u", 20428, app->nes.cpu.mem[20428]);
+        LOG_INF("Expected:");
+        LOG_INF("final[%5u]: %3u", 2637, final.mem[2637]);
+        LOG_INF("final[%5u]: %3u", 2638, final.mem[2638]);
+        LOG_INF("final[%5u]: %3u", 2639, final.mem[2639]);
+        LOG_INF("final[%5u]: %3u", 2640, final.mem[2640]);
+        LOG_INF("final[%5u]: %3u", 20428, final.mem[20428]);
+        printf("===========================\n\n");
+    }
     memDmp(&app->nes.cpu, MEMSIZE);
+    // memDmp(final, MEMSIZE);
     saveConfig(app);
     unloadRom(&app->nes);
 #ifndef NOVID
