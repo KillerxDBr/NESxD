@@ -84,6 +84,6 @@ extern/raylib-5.0/*
 !extern/raylib-5.0/src
 extern/raylib-5.0/src/*
 !extern/raylib-5.0/src/config.h
-teste.c
+# teste.c
 .gdb_history
 *.bin

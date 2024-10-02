@@ -17,6 +17,7 @@
 - https://www.nesdev.org/obelisk-6502-guide/
 - https://www.nesdev.org/wiki/NES_2.0#Header
 - https://www.pagetable.com/c64ref/6502/?tab=2
+- https://github.com/SingleStepTests/65x02/tree/main/nes6502
 
 [RayLib]: <https://github.com/raysan5/raylib>
 [RayGUI]: <https://github.com/raysan5/raygui>

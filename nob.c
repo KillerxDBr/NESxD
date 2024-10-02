@@ -124,6 +124,7 @@ bool CompileExecutable(void);
 bool CompileNobHeader(void);
 bool Bundler(const char *path);
 void GetIncludedHeaders(Objects *eh, const char *header);
+bool TestFile(void);
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -214,6 +215,9 @@ int main(int argc, char **argv) {
 
         return !Bundler(bundlerPath);
 
+    } else if ((strcmp(command, "test") == 0) || (strcmp(command, "t") == 0)) {
+        nob_log(NOB_INFO, "--- Building Test File ---");
+        return !TestFile();
     } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
         nob_log(NOB_INFO, "--- Cleaning Files ---");
         return !CleanupFiles();
@@ -1162,4 +1166,15 @@ bool buildRayLib(void) {
     nob_da_free(deps);
 
     return result;
+}
+
+bool TestFile(void) {
+    const char *input = "outTest.c";
+    const char *output = "outTest.exe";
+    if (nob_needs_rebuild1(output, input)) {
+        Nob_Cmd cmd = { 0 };
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-o", output, input, "-Wall", "-Wextra", "-O2");
+        return nob_cmd_run_sync(cmd);
+    }
+    return true;
 }
