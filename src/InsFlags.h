@@ -4,7 +4,7 @@
 // Instructions Enum separated for python script to be able to read file
 #include "instructions.h"
 
-#define BITN(v, N) (v & (1 << N))
+#define BITN(v, N) ((bool)(v & (1 << N)))
 
 /*
 // Flags
@@ -41,6 +41,12 @@
         }                                                                                                                                  \
         cpu->V = (BITN((reg), 7) != BITN((oldValue), 7));                                                                                  \
         LD_FLAGS((reg));                                                                                                                   \
+    } while (0)
+
+#define CLEAR_BIT(v, N)                                                                                                                    \
+    do {                                                                                                                                   \
+        if (BITN(v, N))                                                                                                                    \
+            v -= (1 << N);                                                                                                                 \
     } while (0)
 
 #endif /* KXD_INS_FLAGS_H */

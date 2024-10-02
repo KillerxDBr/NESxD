@@ -34,13 +34,13 @@ typedef struct {
 """
 
 MEMSIZE = 64 * 1024
-MASK_C = 0b1
-MASK_Z = 0b10
-MASK_I = 0b100
-MASK_D = 0b1000
-MASK_B = 0b10000
-#
-MASK_V = 0b1000000
+MASK_C = 0b00000001
+MASK_Z = 0b00000010
+MASK_I = 0b00000100
+MASK_D = 0b00001000
+MASK_B = 0b00010000
+#UNUSD = 0b00100000
+MASK_V = 0b01000000
 MASK_N = 0b10000000
 
 
@@ -76,8 +76,8 @@ def printStruct(struct: ct.Structure):
             ctype = "uint8_t"
         elif ctype == "<class 'ctypes.c_bool'>":
             ctype = "bool"
-        elif ctype == f"<class '_ctypes.array.c_ubyte_Array_{MEMSIZE}'>":
-            ctype = "uint8_t[]"
+        # elif ctype == f"<class '_ctypes.array.c_ubyte_Array_{MEMSIZE}'>":
+        #     ctype = f"uint8_t[{MEMSIZE}]"
 
         value = getattr(struct, field_name)
         if isinstance(value, ct.Array):
@@ -103,7 +103,7 @@ inicial = cpu_t()
 final = cpu_t()
 
 print(f"sizeof(cpu_t) = {ct.sizeof(cpu_t)}")
-print(f'{"-" * 30}')
+print(f'{"=" * 30}\n')
 
 
 def createCPUState(cpu: cpu_t, jsonState: dict):
@@ -136,7 +136,10 @@ def createCPUState(cpu: cpu_t, jsonState: dict):
 # for x in range(MEMSIZE):
 #     inicial.mem[x] = 0xEA
 #     final.mem[x] = 0xEA
+print('initial ---------------')
 createCPUState(inicial, jsonFile["initial"])
+#
+print('final -----------------')
 createCPUState(final,   jsonFile["final"])
 # printStruct(inicial)
 # print('')

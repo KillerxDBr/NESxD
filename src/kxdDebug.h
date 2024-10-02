@@ -16,7 +16,7 @@
 
 #define BIT8 "%d%d%d%d%d%d%d%d"
 
-#define BITN(v, N) (v & (1 << N))
+#define BITN(v, N) ((bool)(v & (1 << N)))
 
 #define RECT_CFMT(fmt) "(" fmt ", " fmt ", " fmt ", " fmt ")"
 #define RECT_FMT RECT_CFMT("%.2f")
