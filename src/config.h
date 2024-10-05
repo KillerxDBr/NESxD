@@ -15,7 +15,9 @@
 
 #include "nob.h"
 
+#ifndef PLATFORM_WEB
 #include "WindowsHeader/WindowsHeader.h"
+#endif /* PLATFORM_WEB */
 
 #define CONFIG_FILE "config.ini"
 

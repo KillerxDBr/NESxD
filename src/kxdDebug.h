@@ -74,6 +74,6 @@ static inline void *callocWrapperFunc(size_t n, size_t sz, const char *fileName,
     return ptr;
 }
 // void *callocWrapper(size_t _NumOfElements, size_t _SizeOfElements)
-#define callocWrapper(n, sz) callocWrapperFunc(n, sz, __FILE__, __LINE__)
+#define callocWrapper(n, sz) callocWrapperFunc((n), (sz), __FILE__, __LINE__)
 
 #endif /* KXD_DEBUG_H */

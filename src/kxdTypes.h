@@ -110,6 +110,7 @@ typedef struct {
     nes_t nes;
     config_t config;
     menu_t menu;
+    Rectangle sourceRec, destRec;
     bool quit;
 } app_t;
 

@@ -10,13 +10,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef PLATFORM_WEB
+#include <emscripten/emscripten.h>
+#endif /* PLATFORM_WEB */
+
 #include "raylib.h"
 
 #define RAYMATH_STATIC_INLINE
 #include "raymath.h"
 
+#ifndef PLATFORM_WEB
 #include "WindowsHeader/WindowsHeader.h"
 #include "tinyfiledialogs/tinyfiledialogs.h"
+#endif /* PLATFORM_WEB */
 
 #include "InsFlags.h"
 #include "config.h"
@@ -65,5 +71,11 @@ void loadRomFromMem(nes_t *nes, const char *fileName);
 void unloadRom(nes_t *nes);
 void processRomHeader(nes_t *nes);
 void debugCPU(cpu_t *cpu);
+
+#ifdef PLATFORM_WEB
+void mainLoop(void *app_ptr);
+#else
+static inline void mainLoop(void *app_ptr);
+#endif
 
 #endif /* KXD_MAIN_H */

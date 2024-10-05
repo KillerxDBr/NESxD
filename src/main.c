@@ -1,8 +1,13 @@
 #include "main.h"
 
+RenderTexture2D screen;
+const char *PausedText = "Paused...";
+
 int main(int argc, char **argv) {
+#ifndef PLATFORM_WEB
     if (!WinH_SetConsoleOutputCP(CP_UTF8))
         return 1;
+#endif
 
 #ifdef _UCRT
     setlocale(LC_ALL, ".UTF-8");
@@ -51,10 +56,10 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < NES_W * NES_H; ++i)
         seq[i] = (seq[i] << 8) + 0xFF;
 
-    RenderTexture2D screen = LoadRenderTexture(NES_W, NES_H);
+    screen = LoadRenderTexture(NES_W, NES_H);
 
-    const Rectangle sourceRec = { 0.0f, 0.0f, (float)screen.texture.width, -(float)screen.texture.height };
-    Rectangle destRec = { 0.0f, 0.0f, (float)app->screenW, (float)app->screenH };
+    app->sourceRec = CLITERAL(Rectangle){ 0.0f, 0.0f, (float)screen.texture.width, -(float)screen.texture.height };
+    app->destRec = CLITERAL(Rectangle){ 0.0f, 0.0f, (float)app->screenW, (float)app->screenH };
 
     /*
     if (app->screenW >= app->screenH * NES_AR) {
@@ -106,12 +111,14 @@ int main(int argc, char **argv) {
     cpu_t final = { 0 };
 
     if (TEST) {
+#ifndef PLATFORM_WEB
         // final = callocWrapper(1, sizeof(cpu_t));
         app->nes.isPaused = false;
         if (!InstructionTest(app, &final))
             return 1;
         LOG_INF("SUCCESS");
         // return 0;
+#endif
     } else {
         memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
@@ -157,106 +164,110 @@ int main(int argc, char **argv) {
 
     // app->config.activeTheme = 6; // Dark Theme
     initGui(app);
-
-    const char *PausedText = "Paused...";
-
+#ifdef PLATFORM_WEB
+    emscripten_set_main_loop_arg(mainLoop, app, 60, 1);
+#else
     while (!WindowShouldClose() && !app->quit) {
-        if (IsWindowResized()) {
-            LOG_INF("Window Resized...");
+        mainLoop(app);
+        //         if (IsWindowResized()) {
+        //             LOG_INF("Window Resized...");
 
-            app->screenW = GetRenderWidth();
-            app->screenH = GetRenderHeight();
-            LOG_INF("New Size: " V2_CFMT("%zu"), app->screenW, app->screenH);
-            if (app->screenW >= app->screenH * NES_AR) {
-                destRec.width = app->screenH * NES_AR;
-                destRec.height = destRec.width * (1 / NES_AR);
+        //             app->screenW = GetRenderWidth();
+        //             app->screenH = GetRenderHeight();
+        //             LOG_INF("New Size: " V2_CFMT("%zu"), app->screenW, app->screenH);
+        //             if (app->screenW >= app->screenH * NES_AR) {
+        //                 destRec.width = app->screenH * NES_AR;
+        //                 destRec.height = destRec.width * (1 / NES_AR);
 
-                destRec.x = (app->screenW * .5f) - (destRec.width * .5f);
-                destRec.y = 0;
-                if (destRec.x < 0) {
-                    destRec.x = 0;
-                }
-            } else {
-                destRec.height = app->screenW * (1 / NES_AR);
-                destRec.width = destRec.height * NES_AR;
+        //                 destRec.x = (app->screenW * .5f) - (destRec.width * .5f);
+        //                 destRec.y = 0;
+        //                 if (destRec.x < 0) {
+        //                     destRec.x = 0;
+        //                 }
+        //             } else {
+        //                 destRec.height = app->screenW * (1 / NES_AR);
+        //                 destRec.width = destRec.height * NES_AR;
 
-                destRec.x = 0;
-                destRec.y = (app->screenH * .5f) - (destRec.height * .5f);
-                if (destRec.y < 0) {
-                    destRec.y = 0;
-                }
-            }
+        //                 destRec.x = 0;
+        //                 destRec.y = (app->screenH * .5f) - (destRec.height * .5f);
+        //                 if (destRec.y < 0) {
+        //                     destRec.y = 0;
+        //                 }
+        //             }
 
-            LOG_INF("destRec: " RECT_FMT, RECT_ARGS(destRec));
-        }
+        //             LOG_INF("destRec: " RECT_FMT, RECT_ARGS(destRec));
+        //         }
 
-        // registerInput(&app->nes);
+        //         // registerInput(&app->nes);
 
-        BeginDrawing();
+        //         BeginDrawing();
 
-        ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        //         ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-#ifndef NOVID
-        DrawTexturePro(screen.texture, sourceRec, destRec, Vector2Zero(), 0, WHITE);
-#endif
+        // #ifndef NOVID
+        //         DrawTexturePro(screen.texture, sourceRec, destRec, Vector2Zero(), 0, WHITE);
+        // #endif
 
-        DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);
-        DrawLine((app->screenW / 2), 0, (app->screenW / 2), app->screenH, GREEN);
+        //         DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);
+        //         DrawLine((app->screenW / 2), 0, (app->screenW / 2), app->screenH, GREEN);
 
-        DrawRectangle(4, 4, 75, 20, KXD_BG);
-        DrawFPS(5, 5);
+        //         DrawRectangle(4, 4, 75, 20, KXD_BG);
+        //         DrawFPS(5, 5);
 
-        if (app->nes.isPaused) {
-            const Font font = GuiGetFont();
-            const Vector2 pauseSize = MeasureTextEx(font, PausedText, app->screenW * .1f, font.baseSize);
+        //         if (app->nes.isPaused) {
+        //             const Font font = GuiGetFont();
+        //             const Vector2 pauseSize = MeasureTextEx(font, PausedText, app->screenW * .1f, font.baseSize);
 
-            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f), (app->screenH * .5f) - (pauseSize.y * .6f),
-                          pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
-                          GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        //             DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f), (app->screenH * .5f) - (pauseSize.y * .6f),
+        //                           pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
+        //                           GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-            // DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW *
-            // .1f,
-            //          GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+        //             // DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f),
+        //             app->screenW *
+        //             // .1f,
+        //             //          GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
-            DrawTextPro(font, PausedText, V2((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f)),
-                        Vector2Zero(), 0, app->screenW * .1f, font.baseSize, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
-        }
+        //             DrawTextPro(font, PausedText, V2((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y *
+        //             .5f)),
+        //                         Vector2Zero(), 0, app->screenW * .1f, font.baseSize, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+        //         }
 
-#ifdef KXD_DEBUG
-        if (IsKeyPressed(KEY_J)) {
-            app->menu.openMenu = !app->menu.openMenu;
-        }
-        // app->menu.openFile = true;
+        // #ifdef KXD_DEBUG
+        //         if (IsKeyPressed(KEY_J)) {
+        //             app->menu.openMenu = !app->menu.openMenu;
+        //         }
+        //         // app->menu.openFile = true;
 
-        if (app->menu.openMenu) {
-            // char *selectedFile = NULL;
+        //         if (app->menu.openMenu) {
+        //             // char *selectedFile = NULL;
 
-            // const char *filters[1] = { "*.nes" };
+        //             // const char *filters[1] = { "*.nes" };
 
-            // selectedFile = tinyfd_openFileDialog("Open...", ".\\", 1, filters, "NES ROM File (*.nes)", false);
+        //             // selectedFile = tinyfd_openFileDialog("Open...", ".\\", 1, filters, "NES ROM File (*.nes)", false);
 
-            // if (selectedFile) {
-            //     tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
-            // // tinyfd_notifyPopupW(L"Selected File...", tinyfd_utf8to16(selectedFile), L"info");
-            // }
-            // else {
-            //     tinyfd_messageBox("Error...", "No File Selected", "ok", "error", 0);
-            // }
-            // app->menu.openFile = false;
-            KxDGui(app);
-        }
-#endif
-        EndDrawing();
-        if (IsKeyPressed(app->config.pauseKey)) {
-            app->nes.isPaused = !app->nes.isPaused;
-        }
+        //             // if (selectedFile) {
+        //             //     tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
+        //             // // tinyfd_notifyPopupW(L"Selected File...", tinyfd_utf8to16(selectedFile), L"info");
+        //             // }
+        //             // else {
+        //             //     tinyfd_messageBox("Error...", "No File Selected", "ok", "error", 0);
+        //             // }
+        //             // app->menu.openFile = false;
+        //             KxDGui(app);
+        //         }
+        // #endif
+        //         EndDrawing();
+        //         if (IsKeyPressed(app->config.pauseKey)) {
+        //             app->nes.isPaused = !app->nes.isPaused;
+        //         }
 
-        if (!app->nes.isPaused) {
-            processInstruction(&app->nes.cpu);
-            if (app->nes.cpu.B)
-                break;
-        }
+        //         if (!app->nes.isPaused) {
+        //             processInstruction(&app->nes.cpu);
+        //             if (app->nes.cpu.B)
+        //                 break;
+        //         }
     }
+#endif /* PLATFORM_WEB */
     if (TEST) {
         final.B = true; // Probable only necessary for this sample test
         printf("\n===========================\n");
@@ -268,10 +279,11 @@ int main(int argc, char **argv) {
 
         // exit(0);
 
-        if (testResult)
+        if (testResult) {
             LOG_INF("SUCESS!!! app->nes.cpu == final");
-        else
+        } else {
             LOG_ERR("NOPE!!! app->nes.cpu != final");
+        }
         LOG_INF("");
         LOG_INF("Test Log ------------------");
         LOG_INF("Program Counter:");
@@ -507,4 +519,110 @@ void processRomHeader(nes_t *nes) {
 
     LOG_INF("Allocating %d bytes for CHR-ROM...", nes->CHRSize);
     nes->CHR = callocWrapper(1, nes->CHRSize);
+}
+
+#ifdef PLATFORM_WEB
+void mainLoop(void *app_ptr)
+#else
+static inline void mainLoop(void *app_ptr)
+#endif
+{
+    app_t *app = app_ptr;
+    // while (!WindowShouldClose() && !app->quit) {
+    if (IsWindowResized()) {
+        LOG_INF("Window Resized...");
+
+        app->screenW = GetRenderWidth();
+        app->screenH = GetRenderHeight();
+        LOG_INF("New Size: " V2_CFMT("%zu"), app->screenW, app->screenH);
+        if (app->screenW >= app->screenH * NES_AR) {
+            app->destRec.width = app->screenH * NES_AR;
+            app->destRec.height = app->destRec.width * (1 / NES_AR);
+
+            app->destRec.x = (app->screenW * .5f) - (app->destRec.width * .5f);
+            app->destRec.y = 0;
+            if (app->destRec.x < 0) {
+                app->destRec.x = 0;
+            }
+        } else {
+            app->destRec.height = app->screenW * (1 / NES_AR);
+            app->destRec.width = app->destRec.height * NES_AR;
+
+            app->destRec.x = 0;
+            app->destRec.y = (app->screenH * .5f) - (app->destRec.height * .5f);
+            if (app->destRec.y < 0) {
+                app->destRec.y = 0;
+            }
+        }
+
+        LOG_INF("app->destRec: " RECT_FMT, RECT_ARGS(app->destRec));
+    }
+
+    // registerInput(&app->nes);
+
+    BeginDrawing();
+
+    ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+
+#ifndef NOVID
+    DrawTexturePro(screen.texture, app->sourceRec, app->destRec, Vector2Zero(), 0, WHITE);
+#endif
+
+    DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);
+    DrawLine((app->screenW / 2), 0, (app->screenW / 2), app->screenH, GREEN);
+
+    DrawRectangle(4, 4, 75, 20, KXD_BG);
+    DrawFPS(5, 5);
+
+    if (app->nes.isPaused) {
+        const Font font = GuiGetFont();
+        const Vector2 pauseSize = MeasureTextEx(font, PausedText, app->screenW * .1f, font.baseSize);
+
+        DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f), (app->screenH * .5f) - (pauseSize.y * .6f),
+                      pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
+                      GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+
+        // DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW *
+        // .1f,
+        //          GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+
+        DrawTextPro(font, PausedText, V2((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f)),
+                    Vector2Zero(), 0, app->screenW * .1f, font.baseSize, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+    }
+
+#ifdef KXD_DEBUG
+    if (IsKeyPressed(KEY_J)) {
+        app->menu.openMenu = !app->menu.openMenu;
+    }
+    // app->menu.openFile = true;
+
+    if (app->menu.openMenu) {
+        // char *selectedFile = NULL;
+
+        // const char *filters[1] = { "*.nes" };
+
+        // selectedFile = tinyfd_openFileDialog("Open...", ".\\", 1, filters, "NES ROM File (*.nes)", false);
+
+        // if (selectedFile) {
+        //     tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
+        // // tinyfd_notifyPopupW(L"Selected File...", tinyfd_utf8to16(selectedFile), L"info");
+        // }
+        // else {
+        //     tinyfd_messageBox("Error...", "No File Selected", "ok", "error", 0);
+        // }
+        // app->menu.openFile = false;
+        KxDGui(app);
+    }
+#endif
+    EndDrawing();
+    if (IsKeyPressed(app->config.pauseKey)) {
+        app->nes.isPaused = !app->nes.isPaused;
+    }
+
+    if (!app->nes.isPaused) {
+        processInstruction(&app->nes.cpu);
+        if (app->nes.cpu.B)
+            return;
+    }
+    // }
 }

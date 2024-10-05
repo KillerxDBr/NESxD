@@ -17,7 +17,7 @@
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
-#if _WIN32
+// #if WIN32
 #if defined(__GNUC__)
 #define CC "gcc"
 #else
@@ -34,11 +34,14 @@
 */
 
 #endif /* defined(__GNUC__) */
-#endif /* _WIN32 */
+// #endif /* _WIN32 */
+
+#define EMCC "emcc"
 
 #define RAYLIB_A "./lib/libraylib.a"
 
 #define BUILD_DIR "build"
+#define WASM_DIR (BUILD_DIR "/wasm")
 #define BIN_DIR "bin"
 #define SRC_DIR "src"
 #define LIB_DIR "lib"
@@ -50,10 +53,10 @@
 #define EXE_NAME "nesxd"
 #endif /* _WIN32 */
 
-#define EXE_OUTPUT BIN_DIR "/" EXE_NAME
+#define EXE_OUTPUT (BIN_DIR "/" EXE_NAME)
 
 #define PCH_SUFFIX "_pch.h"
-#define GCH_SUFFIX PCH_SUFFIX ".gch"
+#define GCH_SUFFIX (PCH_SUFFIX ".gch")
 
 #define NOB_H_DIR "include/nob.h"
 
@@ -77,7 +80,9 @@ const char *filesFlags[] = {
 
 const char *dependencies[] = {
     "tinyfiledialogs",
+#ifdef WIN32
     "WindowsHeader",
+#endif
 };
 
 const char *dirs[] = { BUILD_DIR, BIN_DIR, SRC_DIR, EXTERN_DIR };
@@ -149,6 +154,7 @@ int main(int argc, char **argv) {
     nob_shift_args(&argc, &argv);
 
     nob_log(NOB_INFO, "Using Compiler: \"%s\"", CC);
+    nob_log(NOB_INFO, "Using WASM Compiler: \"%s\"", EMCC);
 
     const char *command;
     if (argc <= 0)
@@ -163,8 +169,7 @@ int main(int argc, char **argv) {
             // nob.exe build clean/cls
             if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
                 nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
-                if (!CleanupFiles())
-                    return 1;
+                CleanupFiles();
             }
         }
 
@@ -204,7 +209,11 @@ int main(int argc, char **argv) {
         nob_log(NOB_INFO, "--- Finished Compiling ---");
 
         return 0;
-    } else if (strcmp(command, "bundler") == 0 || strcmp(command, "b") == 0) {
+
+    } else if (strcmp(command, "web") == 0 || strcmp(command, "w") == 0) {
+        assert(0 && "TODO: WASM Build implementation");
+
+    } else if (strcmp(command, "bundler") == 0) {
         nob_log(NOB_INFO, "--- Bundler ---");
 
         const char *bundlerPath;
@@ -218,12 +227,14 @@ int main(int argc, char **argv) {
     } else if ((strcmp(command, "test") == 0) || (strcmp(command, "t") == 0)) {
         nob_log(NOB_INFO, "--- Building Test File ---");
         return !TestFile();
+
     } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
         nob_log(NOB_INFO, "--- Cleaning Files ---");
-        return !CleanupFiles();
+        CleanupFiles();
+        return 0;
 
     } else {
-        nob_log(NOB_INFO, "Unknown command \"%s\", expects: <[b]uild [[c]lean/cls], [b]undler [dir], [c]lean/cls>", command);
+        nob_log(NOB_INFO, "Unknown command \"%s\", expects: <[b]uild [[c]lean/cls], <[w]eb>, bundler [dir], [c]lean/cls>", command);
         return 1;
     }
 
@@ -864,18 +875,27 @@ bool CleanupFiles(void) {
         nob_log(NOB_INFO, "Removing file: '%s' (%zu/%zu)", eb.items[i], i + 1, eb.count);
         if (remove(eb.items[i]) != 0) {
             nob_log(NOB_ERROR, "Could not remove file '%s': %s", eb.items[i], strerror(errno));
-            return false;
+            nob_return_defer(false);
         }
     }
     bool binDir = nob_file_exists(BIN_DIR);
     bool buildDir = nob_file_exists(BUILD_DIR);
-    int totalDirs = binDir + buildDir;
+    bool wasmDir = nob_file_exists(WASM_DIR);
+
+    int totalDirs = binDir + buildDir + wasmDir;
     int dirCount = 1;
 
     if (binDir) {
         nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BIN_DIR, dirCount, totalDirs);
         if (rmdir(BIN_DIR) != 0)
             nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BIN_DIR, strerror(errno));
+        dirCount++;
+    }
+
+    if (wasmDir) {
+        nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", WASM_DIR, dirCount, totalDirs);
+        if (rmdir(WASM_DIR) != 0)
+            nob_log(NOB_ERROR, "Could not remove directory '%s': %s", WASM_DIR, strerror(errno));
         dirCount++;
     }
 
@@ -886,6 +906,7 @@ bool CleanupFiles(void) {
         dirCount++;
     }
 
+defer:
     for (size_t i = 0; i < eb.count; i++)
         free(eb.items[i]);
 
@@ -1176,5 +1197,6 @@ bool TestFile(void) {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-o", output, input, "-Wall", "-Wextra", "-O2");
         return nob_cmd_run_sync(cmd);
     }
+    nob_log(NOB_INFO, "File \"%s\" is up to date", output);
     return true;
 }
