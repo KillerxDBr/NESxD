@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define KB(n) (n * 1024)
-// #define MEMSIZE 2048ULL
+// #define MEMSIZE (KB(2))
 #define MEMSIZE (KB(64))
 
 typedef struct IVector2 {
@@ -106,11 +106,17 @@ typedef struct {
 } menu_t;
 
 typedef struct {
+    // Screen
     size_t screenW, screenH;
+    Rectangle sourceRec, destRec;
+    RenderTexture2D screen;
+
+    // NES
     nes_t nes;
     config_t config;
     menu_t menu;
-    Rectangle sourceRec, destRec;
+    
+    // MISC
     bool quit;
 } app_t;
 

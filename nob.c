@@ -7,6 +7,7 @@
 
 // #define RELEASE
 #define STATIC
+#define EMSDK_ENV "D:\\emsdk\\emsdk_env.bat"
 
 #include <assert.h>
 #include <locale.h>
@@ -17,7 +18,7 @@
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
-// #if WIN32
+// #if _WIN32
 #if defined(__GNUC__)
 #define CC "gcc"
 #else
@@ -41,22 +42,26 @@
 #define RAYLIB_A "./lib/libraylib.a"
 
 #define BUILD_DIR "build"
-#define WASM_DIR (BUILD_DIR "/wasm")
+#define WASM_DIR "wasm"
+#define BUILD_WASM_DIR BUILD_DIR "/" WASM_DIR
 #define BIN_DIR "bin"
 #define SRC_DIR "src"
 #define LIB_DIR "lib"
 #define EXTERN_DIR "extern"
 
+#define PROGRAM_NAME "nesxd"
+
 #if _WIN32
-#define EXE_NAME "nesxd.exe"
+#define EXE_NAME PROGRAM_NAME ".exe"
 #else
-#define EXE_NAME "nesxd"
+#define EXE_NAME PROGRAM_NAME
 #endif /* _WIN32 */
 
-#define EXE_OUTPUT (BIN_DIR "/" EXE_NAME)
+#define EXE_OUTPUT BIN_DIR "/" EXE_NAME
+#define WASM_OUTPUT WASM_DIR "/" PROGRAM_NAME ".html"
 
 #define PCH_SUFFIX "_pch.h"
-#define GCH_SUFFIX (PCH_SUFFIX ".gch")
+#define GCH_SUFFIX PCH_SUFFIX ".gch"
 
 #define NOB_H_DIR "include/nob.h"
 
@@ -80,9 +85,9 @@ const char *filesFlags[] = {
 
 const char *dependencies[] = {
     "tinyfiledialogs",
-#ifdef WIN32
+#ifdef _WIN32
     "WindowsHeader",
-#endif
+#endif /* _WIN32 */
 };
 
 const char *dirs[] = { BUILD_DIR, BIN_DIR, SRC_DIR, EXTERN_DIR };
@@ -120,16 +125,17 @@ typedef struct {
 Objects obj = { 0 };
 Resources resources = { 0 };
 
-bool buildRayLib(void);
-bool PrecompileHeader(void);
-bool CompileFiles(void);
+bool buildRayLib(bool isWeb);
+bool PrecompileHeader(bool isWeb);
+bool CompileFiles(bool isWeb);
 bool CleanupFiles(void);
-bool CompileDependencies(void);
-bool CompileExecutable(void);
-bool CompileNobHeader(void);
+bool CompileDependencies(bool isWeb);
+bool CompileExecutable(bool isWeb);
+bool CompileNobHeader(bool isWeb);
 bool Bundler(const char *path);
 void GetIncludedHeaders(Objects *eh, const char *header);
 bool TestFile(void);
+bool BuildWasm(void);
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -164,21 +170,35 @@ int main(int argc, char **argv) {
 
     if (strcmp(command, "build") == 0 || strcmp(command, "b") == 0) {
         nob_log(NOB_INFO, "--- Building ---");
+
+        bool isWeb = false;
+
+        if (!nob_mkdir_if_not_exists(BUILD_DIR))
+            return 1;
+
         if (argc > 0) {
             command = nob_shift_args(&argc, &argv);
             // nob.exe build clean/cls
             if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
                 nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
                 CleanupFiles();
+            } else if (strcmp(command, "web") == 0 || strcmp(command, "w") == 0) {
+                if (!nob_mkdir_if_not_exists(BUILD_WASM_DIR))
+                    return 1;
+                isWeb = true;
+                if (argc > 0) {
+                    command = nob_shift_args(&argc, &argv);
+                    if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
+                        nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
+                        CleanupFiles();
+                    }
+                }
             }
         }
 
-        if (!nob_mkdir_if_not_exists(BUILD_DIR))
-            return 1;
-
-        size_t bkpCount = obj.count;
+        const size_t bkpCount = obj.count;
         nob_log(NOB_INFO, "--- Building Raylib ---");
-        if (!buildRayLib()) {
+        if (!buildRayLib(isWeb)) {
             if (nob_file_exists(RAYLIB_A) != 1)
                 return 1;
 
@@ -187,15 +207,17 @@ int main(int argc, char **argv) {
         }
 
         nob_log(NOB_INFO, "--- Building Dependencies ---");
-        if (!CompileDependencies())
+        if (!CompileDependencies(isWeb))
             return 1;
 
-        nob_log(NOB_INFO, "--- Precompiling Headers ---");
-        if (!PrecompileHeader())
-            return 1;
+        if (!isWeb) {
+            nob_log(NOB_INFO, "--- Precompiling Headers ---");
+            if (!PrecompileHeader(false))
+                return 1;
+        }
 
         nob_log(NOB_INFO, "--- Generating Object Files ---");
-        if (!CompileFiles())
+        if (!CompileFiles(isWeb))
             return 1;
 
         nob_log(NOB_INFO, "--- Compiling Executable ---");
@@ -203,15 +225,29 @@ int main(int argc, char **argv) {
         if (!nob_mkdir_if_not_exists(BIN_DIR))
             return 1;
 
-        if (!CompileExecutable())
+        if (isWeb) {
+            if (!nob_mkdir_if_not_exists(WASM_DIR))
+                return 1;
+        }
+
+        if (!CompileExecutable(isWeb))
             return 1;
 
         nob_log(NOB_INFO, "--- Finished Compiling ---");
 
         return 0;
 
-    } else if (strcmp(command, "web") == 0 || strcmp(command, "w") == 0) {
-        assert(0 && "TODO: WASM Build implementation");
+        // } else if (strcmp(command, "web") == 0 || strcmp(command, "w") == 0) {
+        //     if (!nob_mkdir_if_not_exists(BUILD_DIR))
+        //         return 1;
+
+        //     if (!nob_mkdir_if_not_exists(BUILD_WASM_DIR))
+        //         return 1;
+
+        //     if (!nob_mkdir_if_not_exists(WASM_DIR))
+        //         return 1;
+
+        //     return !BuildWasm();
 
     } else if (strcmp(command, "bundler") == 0) {
         nob_log(NOB_INFO, "--- Bundler ---");
@@ -234,7 +270,7 @@ int main(int argc, char **argv) {
         return 0;
 
     } else {
-        nob_log(NOB_INFO, "Unknown command \"%s\", expects: <[b]uild [[c]lean/cls], <[w]eb>, bundler [dir], [c]lean/cls>", command);
+        nob_log(NOB_INFO, "Unknown command \"%s\", expects: <[b]uild [[w]eb] [[c]lean/cls],  bundler [dir], [c]lean/cls>", command);
         return 1;
     }
 
@@ -266,14 +302,46 @@ int main(int argc, char **argv) {
 #endif
 // clang-format on
 
-#define STR_SIZE 64ULL
+// clang-format off
+// -Os -Wall -s USE_GLFW=3 -s FORCE_FILESYSTEM=1 -s ASYNCIFY -DPLATFORM_WEB --preload-file resources
+#define WFLAGS  "-O3",                                                                   \
+                "-Wall",                                                                 \
+                "-Wextra",                                                               \
+                "-lm",                                                                   \
+                "-sUSE_GLFW=3",                                                          \
+                "-sFORCE_FILESYSTEM=1",                                                  \
+                "-sASYNCIFY",                                                            \
+                "-DPLATFORM_WEB",                                                        \
+                "-DKXD_DEBUG",                                                           \
+                "-DNES",                                                                 \
+                "-sGL_ENABLE_GET_PROC_ADDRESS",                                          \
+                "-sALLOW_MEMORY_GROWTH",                                                 \
+                "-sASSERTIONS",                                                          \
+                "--preload-file",                                                        \
+                "rom"
+// clang-format on
 
-bool PrecompileHeader(void) {
+#define STR_SIZE 128
+
+bool PrecompileHeader(bool isWeb) {
+    if (isWeb)
+        return true;
     Objects extraHeaders = { 0 };
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
 
-    nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc-header", CFLAGS, INCLUDES);
+    if (isWeb) {
+        nob_cmd_append(&cmd, "cmd", "/c", );
+        nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
+        nob_cmd_append(&cmd, "&&");
+        nob_cmd_append(&cmd, EMSDK_ENV);
+        nob_cmd_append(&cmd, "&&");
+        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc-header", WFLAGS);
+    } else {
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc-header", CFLAGS);
+    }
+
+    nob_cmd_append(&cmd, INCLUDES);
     size_t command_size = cmd.count;
 
     /* ccache gcc -fdiagnostics-color=always -xc-header -Ibuild/
@@ -306,7 +374,12 @@ bool PrecompileHeader(void) {
 
         // output
         sb.count = 0;
-        nob_sb_append_cstr(&sb, BUILD_DIR);
+
+        if (isWeb)
+            nob_sb_append_cstr(&sb, BUILD_WASM_DIR);
+        else
+            nob_sb_append_cstr(&sb, BUILD_DIR);
+
         nob_sb_append_cstr(&sb, "/");
         nob_sb_append_cstr(&sb, files[i]);
         nob_sb_append_cstr(&sb, GCH_SUFFIX);
@@ -363,7 +436,7 @@ defer:
     return false;
 }
 
-bool CompileExecutable(void) {
+bool CompileExecutable(bool isWeb) {
     Nob_Cmd cmd = { 0 };
 
     // for (size_t i = 0; i < obj.count; i++) {
@@ -373,7 +446,22 @@ bool CompileExecutable(void) {
     size_t cnt = cmd.count;
     // gcc -o bin/nesxd.exe build/6502.o build/config.o build/gui.o build/input.o build/main.o build/nob.o build/resource.o
     // build/tinyfiledialogs.o lib/libraylib.a -lgdi32 -lwinmm -lcomdlg32 -lole32
-    if (nob_needs_rebuild(EXE_OUTPUT, obj.items, obj.count)) {
+    if (isWeb) {
+        if (nob_needs_rebuild(WASM_OUTPUT, obj.items, obj.count)) {
+            nob_cmd_append(&cmd, "cmd", "/c", );
+            nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
+
+            nob_cmd_append(&cmd, "&&");
+            nob_cmd_append(&cmd, EMSDK_ENV);
+            nob_cmd_append(&cmd, "&&");
+
+            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always");
+
+            nob_cmd_append(&cmd, "-o", WASM_OUTPUT);
+            nob_cmd_append(&cmd, WFLAGS);
+            nob_da_append_many(&cmd, obj.items, obj.count);
+        }
+    } else if (nob_needs_rebuild(EXE_OUTPUT, obj.items, obj.count)) {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
         nob_cmd_append(&cmd, "-o", EXE_OUTPUT);
         nob_da_append_many(&cmd, obj.items, obj.count);
@@ -434,12 +522,23 @@ bool CompileExecutable(void) {
     return result;
 }
 
-bool CompileFiles(void) {
+bool CompileFiles(bool isWeb) {
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
 
-    nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS, INCLUDES);
-    size_t command_size = cmd.count;
+    if (isWeb) {
+        nob_cmd_append(&cmd, "cmd", "/c", );
+        nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
+        nob_cmd_append(&cmd, "&&");
+        nob_cmd_append(&cmd, EMSDK_ENV);
+        nob_cmd_append(&cmd, "&&");
+        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", WFLAGS);
+    } else {
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS);
+    }
+
+    nob_cmd_append(&cmd, INCLUDES);
+    const size_t command_size = cmd.count;
 
     /*
     ccache gcc -fdiagnostics-color=always -include build/6502precomp.h
@@ -471,9 +570,13 @@ bool CompileFiles(void) {
 
         strcpy(input, sb.items);
 
+        // if (!isWeb) {
         // pch
         sb.count = 0;
-        nob_sb_append_cstr(&sb, BUILD_DIR);
+        if (isWeb)
+            nob_sb_append_cstr(&sb, BUILD_WASM_DIR);
+        else
+            nob_sb_append_cstr(&sb, BUILD_DIR);
         nob_sb_append_cstr(&sb, "/");
         nob_sb_append_cstr(&sb, files[i]);
         nob_sb_append_cstr(&sb, PCH_SUFFIX);
@@ -496,10 +599,13 @@ bool CompileFiles(void) {
         }
 
         strcpy(gch, sb.items);
-
+        // }
         // output
         sb.count = 0;
-        nob_sb_append_cstr(&sb, BUILD_DIR);
+        if (isWeb)
+            nob_sb_append_cstr(&sb, BUILD_WASM_DIR);
+        else
+            nob_sb_append_cstr(&sb, BUILD_DIR);
         nob_sb_append_cstr(&sb, "/");
         nob_sb_append_cstr(&sb, files[i]);
         nob_sb_append_cstr(&sb, ".o");
@@ -519,9 +625,16 @@ bool CompileFiles(void) {
 
         const char *input_files[] = { input, gch };
 
-        if (nob_needs_rebuild(output, input_files, 2)) {
+        int input_count = isWeb ? 1 : 2;
+
+        if (nob_needs_rebuild(output, input_files, input_count)) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            nob_cmd_append(&cmd, "-o", output, "-include", pch, "-c", input, filesFlags[i]);
+            nob_cmd_append(&cmd, "-o", output);
+
+            if (!isWeb)
+                nob_cmd_append(&cmd, "-include", pch);
+
+            nob_cmd_append(&cmd, "-c", input, filesFlags[i]);
             nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
@@ -534,22 +647,24 @@ bool CompileFiles(void) {
     // nob_log(NOB_INFO, "------------------");
 
     // windres -i resource.rc -o build/resource.o
-#ifdef _WIN32
-    const char *rc_input = "resource.rc";
-    const char *manifest = "manifest.xml";
-    if (nob_file_exists(rc_input) == 1 && nob_file_exists(manifest) == 1) {
-        const char *resource = BUILD_DIR "/resource.o";
-        const char *inputs[] = { rc_input, manifest };
+#if defined(_WIN32)
+    if (!isWeb) {
+        const char *rc_input = "resource.rc";
+        const char *manifest = "manifest.xml";
+        if (nob_file_exists(rc_input) == 1 && nob_file_exists(manifest) == 1) {
+            const char *resource = BUILD_DIR "/resource.o";
+            const char *inputs[] = { rc_input, manifest };
 
-        if (nob_needs_rebuild(resource, inputs, 2)) {
-            nob_log(NOB_INFO, "--- Building %s file", rc_input);
-            cmd.count = 0;
-            nob_cmd_append(&cmd, "windres", "-i", rc_input, "-o", resource);
-            nob_da_append(&procs, nob_cmd_run_async(cmd));
-        } else {
-            nob_log(NOB_INFO, skippingMsg, resource);
+            if (nob_needs_rebuild(resource, inputs, 2)) {
+                nob_log(NOB_INFO, "--- Building %s file", rc_input);
+                cmd.count = 0;
+                nob_cmd_append(&cmd, "windres", "-i", rc_input, "-o", resource);
+                nob_da_append(&procs, nob_cmd_run_async(cmd));
+            } else {
+                nob_log(NOB_INFO, skippingMsg, resource);
+            }
+            nob_da_append(&obj, strdup(resource));
         }
-        nob_da_append(&obj, strdup(resource));
     }
 #endif
     bool result = nob_procs_wait(procs);
@@ -563,7 +678,7 @@ defer:
     return false;
 }
 
-bool CompileDependencies(void) {
+bool CompileDependencies(bool isWeb) {
     Nob_String_Builder sb = { 0 };
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
@@ -573,10 +688,26 @@ bool CompileDependencies(void) {
     build/config.o build/gui.o build/nob.o build/tinyfiledialogs.o build/resource.o -Wall -Wextra -Winvalid-pch -std=gnu11 -Og -g3 -ggdb
     -march=native -DKXD_DEBUG -D_UNICODE -DUNICODE -DPLATFORM_DESKTOP -DGRAPHICS_API_OPENGL_33 ./lib/libraylib.a -lgdi32 -lwinmm -lcomdlg32
     -lole32 -DKXD_DEBUG*/
-    nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS, INCLUDES);
+    if (isWeb) {
+        nob_cmd_append(&cmd, "cmd", "/c", );
+        nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
+        nob_cmd_append(&cmd, "&&");
+        nob_cmd_append(&cmd, EMSDK_ENV);
+        nob_cmd_append(&cmd, "&&");
+        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", WFLAGS);
+    } else {
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS);
+    }
+
+    nob_cmd_append(&cmd, INCLUDES);
 
     size_t command_size = cmd.count;
     for (size_t i = 0; i < NOB_ARRAY_LEN(dependencies); ++i) {
+        if (isWeb) {
+            if (strcmp(dependencies[i], "tinyfiledialogs") == 0 || strcmp(dependencies[i], "WindowsHeader") == 0)
+                continue;
+        }
+
         cmd.count = command_size;
         char input[STR_SIZE] = { 0 };
         char output[STR_SIZE] = { 0 };
@@ -628,27 +759,45 @@ bool CompileDependencies(void) {
     nob_cmd_free(cmd);
     NOB_FREE(procs.items);
     nob_sb_free(sb);
-    return CompileNobHeader() & result;
+    return CompileNobHeader(isWeb) & result;
 defer:
     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
     return false;
 }
 
-bool CompileNobHeader(void) {
+bool CompileNobHeader(bool isWeb) {
     Nob_Cmd cmd = { 0 };
 
     const char *output = BUILD_DIR "/nob.o";
+    const char *wasmOutput = BUILD_WASM_DIR "/nob.o";
 
-    size_t cnt = cmd.count;
-    if (nob_needs_rebuild1(output, NOB_H_DIR)) {
-        nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
+    const size_t cnt = cmd.count;
+
+    if (isWeb) {
+        if (nob_needs_rebuild1(wasmOutput, NOB_H_DIR)) {
+            nob_log(NOB_INFO, "Rebuilding '%s' file", wasmOutput);
+            nob_cmd_append(&cmd, "cmd", "/c", );
+            nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
+            nob_cmd_append(&cmd, "&&");
+            nob_cmd_append(&cmd, EMSDK_ENV);
+            nob_cmd_append(&cmd, "&&");
+            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", WFLAGS);
+            nob_cmd_append(&cmd, "-o", wasmOutput, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
+        } else {
+            nob_log(NOB_INFO, skippingMsg, wasmOutput);
+        }
+        nob_da_append(&obj, strdup(wasmOutput));
     } else {
-        nob_log(NOB_INFO, skippingMsg, output);
+        if (nob_needs_rebuild1(output, NOB_H_DIR)) {
+            nob_log(NOB_INFO, "Rebuilding '%s' file", output);
+            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
+        } else {
+            nob_log(NOB_INFO, skippingMsg, output);
+        }
+        nob_da_append(&obj, strdup(output));
     }
 
     // nob_da_append(&obj, output);
-    nob_da_append(&obj, strdup(output));
 
     bool result = cmd.count > cnt ? nob_cmd_run_sync(cmd) : true;
     nob_cmd_free(cmd);
@@ -860,13 +1009,17 @@ bool CleanupFiles(void) {
     bool result = true;
 
     Nob_String_Builder sb = { 0 };
-    nob_sb_append_cstr(&sb, "./" BUILD_DIR);
+    nob_sb_append_cstr(&sb, BUILD_DIR);
 
     EmbedFiles eb = { 0 };
     recurse_dir(&sb, &eb);
 
     sb.count = 0;
-    nob_sb_append_cstr(&sb, "./" BIN_DIR);
+    nob_sb_append_cstr(&sb, BIN_DIR);
+    recurse_dir(&sb, &eb);
+
+    sb.count = 0;
+    nob_sb_append_cstr(&sb, WASM_DIR);
     recurse_dir(&sb, &eb);
 
     nob_sb_free(sb);
@@ -878,11 +1031,13 @@ bool CleanupFiles(void) {
             nob_return_defer(false);
         }
     }
-    bool binDir = nob_file_exists(BIN_DIR);
-    bool buildDir = nob_file_exists(BUILD_DIR);
-    bool wasmDir = nob_file_exists(WASM_DIR);
 
-    int totalDirs = binDir + buildDir + wasmDir;
+    const bool binDir = nob_file_exists(BIN_DIR) > 0;
+    const bool buildDir = nob_file_exists(BUILD_DIR) > 0;
+    const bool wasmDir = nob_file_exists(WASM_DIR) > 0;
+    const bool buildWasmDir = nob_file_exists(BUILD_WASM_DIR) > 0;
+
+    const int totalDirs = binDir + buildDir + wasmDir + buildWasmDir;
     int dirCount = 1;
 
     if (binDir) {
@@ -896,6 +1051,13 @@ bool CleanupFiles(void) {
         nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", WASM_DIR, dirCount, totalDirs);
         if (rmdir(WASM_DIR) != 0)
             nob_log(NOB_ERROR, "Could not remove directory '%s': %s", WASM_DIR, strerror(errno));
+        dirCount++;
+    }
+
+    if (buildWasmDir) {
+        nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BUILD_WASM_DIR, dirCount, totalDirs);
+        if (rmdir(BUILD_WASM_DIR) != 0)
+            nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BUILD_WASM_DIR, strerror(errno));
         dirCount++;
     }
 
@@ -977,29 +1139,61 @@ void GetIncludedHeaders(Objects *eh, const char *header) {
                       "-O1",                                               \
                       "-std=c99",                                          \
                       "-Werror=implicit-function-declaration"
-// clang-format on
-#define INCLUDE_PATHS "-I" RAYLIB_SRC_PATH, "-I" RAYLIB_SRC_PATH "/external/glfw/include", "-I" RAYLIB_SRC_PATH "/external/glfw/deps/mingw"
 
-bool buildRayLib(void) {
-    size_t cmdCount, depsCount;
+#define RAYLIB_WFLAGS "-Wall",                                             \
+                      "-D_GNU_SOURCE",                                     \
+                      "-DPLATFORM_WEB",                                    \
+                      "-DGRAPHICS_API_OPENGL_ES2",                         \
+                      "-Wno-missing-braces",                               \
+                      "-Werror=pointer-arith",                             \
+                      "-fno-strict-aliasing",                              \
+                      "-std=gnu99",                                        \
+                      "-Os"
+
+// clang-format on
+#define INCLUDE_PATHS                                                                                                                      \
+    ("-I" RAYLIB_SRC_PATH), ("-I" RAYLIB_SRC_PATH "/external/glfw/include"), ("-I" RAYLIB_SRC_PATH "/external/glfw/deps/mingw")
+
+bool buildRayLib(bool isWeb) {
     Nob_Cmd cmd = { 0 };
     Nob_Procs procs = { 0 };
     Objects deps = { 0 };
-    nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
+    Nob_String_Builder sb = { 0 };
+
+    if (isWeb) {
+        nob_cmd_append(&cmd, "cmd", "/c", );
+        nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
+
+        nob_cmd_append(&cmd, "&&");
+        nob_cmd_append(&cmd, EMSDK_ENV);
+        nob_cmd_append(&cmd, "&&");
+
+        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always");
+        nob_cmd_append(&cmd, RAYLIB_WFLAGS);
+
+        nob_sb_append_cstr(&sb, BUILD_WASM_DIR);
+    } else {
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
+        nob_cmd_append(&cmd, RAYLIB_CFLAGS);
+
+        nob_sb_append_cstr(&sb, BUILD_DIR);
+    }
+
     nob_cmd_append(&cmd, INCLUDE_PATHS);
-    nob_cmd_append(&cmd, RAYLIB_CFLAGS);
     // nob_cmd_append(&cmd, "-static-libgcc", "-lopengl32", "-lgdi32", "-lwinmm");
 
     // extern/raylib-5.0/src/config.h
     nob_da_append(&deps, RAYLIB_SRC_PATH "/config.h");
 
-    cmdCount = cmd.count;
-    depsCount = deps.count;
+    const size_t cmdCount = cmd.count;
+    const size_t depsCount = deps.count;
+    const size_t sbCount = sb.count;
 
     // rcore.o =======================================================
     // rcore.c raylib.h rlgl.h utils.h raymath.h rcamera.h rgestures.h
     cmd.count = cmdCount;
     deps.count = depsCount;
+    sb.count = sbCount;
 
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rcore.c");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
@@ -1009,54 +1203,65 @@ bool buildRayLib(void) {
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rcamera.h");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rgestures.h");
 
-    nob_da_append(&obj, BUILD_DIR "/rcore.o");
-    if (nob_needs_rebuild(BUILD_DIR "/rcore.o", deps.items, deps.count)) {
+    nob_sb_append_cstr(&sb, "/rcore.o");
+    nob_sb_append_null(&sb);
+
+    nob_da_append(&obj, strdup(sb.items));
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
         nob_log(NOB_INFO, "--- Generating rcore.o ---");
-        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rcore.o");
+        nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rcore.c");
 
         nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
-        nob_log(NOB_INFO, skippingMsg, BUILD_DIR "/rcore.o");
+        nob_log(NOB_INFO, skippingMsg, sb.items);
     }
+    if (!isWeb) {
+        // rglfw.o =======================================================
+        // rglfw.c
 
-    // rglfw.o =======================================================
-    // rglfw.c
+        cmd.count = cmdCount;
+        deps.count = depsCount;
+        sb.count = sbCount;
 
-    cmd.count = cmdCount;
-    deps.count = depsCount;
+        nob_da_append(&deps, RAYLIB_SRC_PATH "/rglfw.c");
 
-    nob_da_append(&deps, RAYLIB_SRC_PATH "/rglfw.c");
+        nob_sb_append_cstr(&sb, "/rglfw.o");
+        nob_sb_append_null(&sb);
 
-    nob_da_append(&obj, BUILD_DIR "/rglfw.o");
-    if (nob_needs_rebuild(BUILD_DIR "/rglfw.o", deps.items, deps.count)) {
-        nob_log(NOB_INFO, "--- Generating rglfw.o ---");
-        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rglfw.o");
-        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rglfw.c");
+        nob_da_append(&obj, strdup(sb.items));
+        if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+            nob_log(NOB_INFO, "--- Generating rglfw.o ---");
+            nob_cmd_append(&cmd, "-o", sb.items);
+            nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rglfw.c");
 
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, BUILD_DIR "/rglfw.o");
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
+        } else {
+            nob_log(NOB_INFO, skippingMsg, sb.items);
+        }
     }
-
     // rshapes.o =====================================================
     // rshapes.c raylib.h rlgl.h
 
     cmd.count = cmdCount;
     deps.count = depsCount;
+    sb.count = sbCount;
 
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rshapes.c");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rlgl.h");
 
-    nob_da_append(&obj, BUILD_DIR "/rshapes.o");
-    if (nob_needs_rebuild(BUILD_DIR "/rshapes.o", deps.items, deps.count)) {
+    nob_sb_append_cstr(&sb, "/rshapes.o");
+    nob_sb_append_null(&sb);
+
+    nob_da_append(&obj, strdup(sb.items));
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
         nob_log(NOB_INFO, "--- Generating rshapes.o ---");
-        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rshapes.o");
+        nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rshapes.c");
         nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
-        nob_log(NOB_INFO, skippingMsg, BUILD_DIR "/rshapes.o");
+        nob_log(NOB_INFO, skippingMsg, sb.items);
     }
 
     // rtextures.o ===================================================
@@ -1064,20 +1269,24 @@ bool buildRayLib(void) {
 
     cmd.count = cmdCount;
     deps.count = depsCount;
+    sb.count = sbCount;
 
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rtextures.c");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rlgl.h");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/utils.h");
 
-    nob_da_append(&obj, BUILD_DIR "/rtextures.o");
-    if (nob_needs_rebuild(BUILD_DIR "/rtextures.o", deps.items, deps.count)) {
+    nob_sb_append_cstr(&sb, "/rtextures.o");
+    nob_sb_append_null(&sb);
+
+    nob_da_append(&obj, strdup(sb.items));
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
         nob_log(NOB_INFO, "--- Generating rtextures.o ---");
-        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rtextures.o");
+        nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rtextures.c");
         nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
-        nob_log(NOB_INFO, skippingMsg, BUILD_DIR "/rtextures.o");
+        nob_log(NOB_INFO, skippingMsg, sb.items);
     }
 
     // rtext.o =======================================================
@@ -1085,19 +1294,23 @@ bool buildRayLib(void) {
 
     cmd.count = cmdCount;
     deps.count = depsCount;
+    sb.count = sbCount;
 
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rtext.c");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/utils.h");
 
-    nob_da_append(&obj, BUILD_DIR "/rtext.o");
-    if (nob_needs_rebuild(BUILD_DIR "/rtext.o", deps.items, deps.count)) {
+    nob_sb_append_cstr(&sb, "/rtext.o");
+    nob_sb_append_null(&sb);
+
+    nob_da_append(&obj, strdup(sb.items));
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
         nob_log(NOB_INFO, "--- Generating rtext.o ---");
-        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rtext.o");
+        nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rtext.c");
         nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
-        nob_log(NOB_INFO, skippingMsg, BUILD_DIR "/rtext.o");
+        nob_log(NOB_INFO, skippingMsg, sb.items);
     }
 
     // utils.o =======================================================
@@ -1105,18 +1318,22 @@ bool buildRayLib(void) {
 
     cmd.count = cmdCount;
     deps.count = depsCount;
+    sb.count = sbCount;
 
     nob_da_append(&deps, RAYLIB_SRC_PATH "/utils.c");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/utils.h");
 
-    nob_da_append(&obj, BUILD_DIR "/utils.o");
-    if (nob_needs_rebuild(BUILD_DIR "/utils.o", deps.items, deps.count)) {
+    nob_sb_append_cstr(&sb, "/utils.o");
+    nob_sb_append_null(&sb);
+
+    nob_da_append(&obj, strdup(sb.items));
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
         nob_log(NOB_INFO, "--- Generating utils.o ---");
-        nob_cmd_append(&cmd, "-o", BUILD_DIR "/utils.o");
+        nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/utils.c");
         nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
-        nob_log(NOB_INFO, skippingMsg, BUILD_DIR "/utils.o");
+        nob_log(NOB_INFO, skippingMsg, sb.items);
     }
 
     // rmodels.o =====================================================
@@ -1124,20 +1341,24 @@ bool buildRayLib(void) {
 
     cmd.count = cmdCount;
     deps.count = depsCount;
+    sb.count = sbCount;
 
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rmodels.c");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/rlgl.h");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/raymath.h");
 
-    nob_da_append(&obj, BUILD_DIR "/rmodels.o");
-    if (nob_needs_rebuild(BUILD_DIR "/rmodels.o", deps.items, deps.count)) {
+    nob_sb_append_cstr(&sb, "/rmodels.o");
+    nob_sb_append_null(&sb);
+
+    nob_da_append(&obj, strdup(sb.items));
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
         nob_log(NOB_INFO, "--- Generating rmodels.o ---");
-        nob_cmd_append(&cmd, "-o", BUILD_DIR "/rmodels.o");
+        nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rmodels.c");
         nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
-        nob_log(NOB_INFO, skippingMsg, BUILD_DIR "/rmodels.o");
+        nob_log(NOB_INFO, skippingMsg, sb.items);
     }
 
     // raudio.o ======================================================
@@ -1145,18 +1366,22 @@ bool buildRayLib(void) {
 
     cmd.count = cmdCount;
     deps.count = depsCount;
+    sb.count = sbCount;
 
     nob_da_append(&deps, RAYLIB_SRC_PATH "/raudio.c");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
 
-    nob_da_append(&obj, BUILD_DIR "/raudio.o");
-    if (nob_needs_rebuild(BUILD_DIR "/raudio.o", deps.items, deps.count)) {
+    nob_sb_append_cstr(&sb, "/raudio.o");
+    nob_sb_append_null(&sb);
+
+    nob_da_append(&obj, strdup(sb.items));
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
         nob_log(NOB_INFO, "--- Generating raudio.o ---");
-        nob_cmd_append(&cmd, "-o", BUILD_DIR "/raudio.o");
+        nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/raudio.c");
         nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
-        nob_log(NOB_INFO, skippingMsg, BUILD_DIR "/raudio.o");
+        nob_log(NOB_INFO, skippingMsg, sb.items);
     }
 
     // raygui.o ======================================================
@@ -1164,24 +1389,29 @@ bool buildRayLib(void) {
 
     cmd.count = cmdCount;
     deps.count = depsCount;
+    sb.count = sbCount;
 
     // include/raygui.h
     nob_da_append(&deps, "include/raygui.h");
     nob_da_append(&deps, RAYLIB_SRC_PATH "/raylib.h");
 
-    nob_da_append(&obj, BUILD_DIR "/raygui.o");
-    if (nob_needs_rebuild(BUILD_DIR "/raygui.o", deps.items, deps.count)) {
+    nob_sb_append_cstr(&sb, "/raygui.o");
+    nob_sb_append_null(&sb);
+
+    nob_da_append(&obj, strdup(sb.items));
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
         nob_log(NOB_INFO, "--- Generating raygui.o ---");
-        nob_cmd_append(&cmd, "-xc", "-o", BUILD_DIR "/raygui.o");
+        nob_cmd_append(&cmd, "-xc", "-o", sb.items);
         nob_cmd_append(&cmd, "-c", "include/raygui.h", "-DRAYGUI_IMPLEMENTATION");
         nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
-        nob_log(NOB_INFO, skippingMsg, BUILD_DIR "/raygui.o");
+        nob_log(NOB_INFO, skippingMsg, sb.items);
     }
     // nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
 
     bool result = nob_procs_wait(procs);
 
+    nob_sb_free(sb);
     nob_cmd_free(cmd);
     nob_da_free(procs);
     nob_da_free(deps);
@@ -1199,4 +1429,36 @@ bool TestFile(void) {
     }
     nob_log(NOB_INFO, "File \"%s\" is up to date", output);
     return true;
+}
+
+#define RL_MIN_SHELL "extern/raylib-5.0/src/minshell.html"
+
+bool BuildWasm(void) {
+    bool result = true;
+    Nob_Cmd cmd = { 0 };
+    Nob_Procs procs = { 0 };
+
+    if (!buildRayLib(true))
+        nob_return_defer(false);
+
+    // nob_cmd_append(&cmd, "cmd", "/c", );
+    // nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
+
+    // nob_cmd_append(&cmd, "&&");
+    // nob_cmd_append(&cmd, EMSDK_ENV);
+    // nob_cmd_append(&cmd, "&&");
+
+    // nob_cmd_append(&cmd, EMCC);
+    // const size_t cmdCount = cmd.count;
+
+    // cmd.count = cmdCount;
+    // nob_cmd_append(&cmd, "-o", WASM_DIR "/outTest.html", "-Iinclude", "outTest.c", RAYLIB_WFLAGS, "--shell-file", RL_MIN_SHELL);
+
+    // nob_da_append(&procs, nob_cmd_run_async(cmd));
+
+    // result = nob_procs_wait(procs);
+
+defer:
+    nob_cmd_free(cmd);
+    return result;
 }

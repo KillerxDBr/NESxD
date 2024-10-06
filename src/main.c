@@ -1,26 +1,27 @@
 #include "main.h"
 
-RenderTexture2D screen;
 const char *PausedText = "Paused...";
 
 int main(int argc, char **argv) {
-#ifndef PLATFORM_WEB
+#if !defined(PLATFORM_WEB) && defined(_WIN32)
     if (!WinH_SetConsoleOutputCP(CP_UTF8))
         return 1;
 #endif
 
-#ifdef _UCRT
+#if defined(_UCRT)
     setlocale(LC_ALL, ".UTF-8");
 #else
     setlocale(LC_ALL, "");
-#endif
+#endif /* defined(_UCRT) */
 
     LOG_INF("Locale set to \"%s\"", setlocale(LC_ALL, NULL));
+
     bool NOP = false;
     bool TEST = false;
 
     app_t *app = callocWrapper(1, sizeof(app_t));
 
+#ifndef PLATFORM_WEB
     app->config.fileName = nob_shift_args(&argc, &argv);
 
     for (int i = 0; i < argc; i++) {
@@ -29,13 +30,18 @@ int main(int argc, char **argv) {
         if (NOP && TEST)
             break;
     }
+#else
+    NOP = true;
+#endif /* PLATFORM_WEB */
 
     app->nes.isPaused = NOP;
 
+#ifndef PLATFORM_WEB
     char *slash = strrchr(app->config.fileName, '\\');
     slash++;
 
     memcpy(slash, CONFIG_FILE, sizeof(CONFIG_FILE));
+#endif
 
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow((NES_W * FACTOR), (NES_H * FACTOR), "NES_xD");
@@ -56,9 +62,9 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < NES_W * NES_H; ++i)
         seq[i] = (seq[i] << 8) + 0xFF;
 
-    screen = LoadRenderTexture(NES_W, NES_H);
+    app->screen = LoadRenderTexture(NES_W, NES_H);
 
-    app->sourceRec = CLITERAL(Rectangle){ 0.0f, 0.0f, (float)screen.texture.width, -(float)screen.texture.height };
+    app->sourceRec = CLITERAL(Rectangle){ 0.0f, 0.0f, (float)app->screen.texture.width, -(float)app->screen.texture.height };
     app->destRec = CLITERAL(Rectangle){ 0.0f, 0.0f, (float)app->screenW, (float)app->screenH };
 
     /*
@@ -81,12 +87,12 @@ int main(int argc, char **argv) {
     }
     */
 
-    BeginTextureMode(screen);
+    BeginTextureMode(app->screen);
 
     ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-    for (int y = 0; y < screen.texture.height; ++y) {
-        for (int x = 0; x < screen.texture.width; ++x) {
+    for (int y = 0; y < app->screen.texture.height; ++y) {
+        for (int x = 0; x < app->screen.texture.width; ++x) {
             DrawPixel(x, y, GetColor(seq[XY2Index(x, y, NES_W)]));
         }
     }
@@ -94,13 +100,13 @@ int main(int argc, char **argv) {
     // VARLOG(screen.texture.width, "%d");
     // VARLOG(screen.texture.height, "%d");
 
-    for (int x = 0; x < screen.texture.width; x++) {
-        DrawPixel(x, screen.texture.height - 1, CLITERAL(Color){ 255, 0, 0, 255 });
+    for (int x = 0; x < app->screen.texture.width; x++) {
+        DrawPixel(x, app->screen.texture.height - 1, CLITERAL(Color){ 255, 0, 0, 255 });
         DrawPixel(x, 0, CLITERAL(Color){ 0, 255, 0, 255 });
     }
-    for (int y = 0; y < screen.texture.height; y++) {
+    for (int y = 0; y < app->screen.texture.height; y++) {
         DrawPixel(0, y, CLITERAL(Color){ 0, 0, 255, 255 });
-        DrawPixel(screen.texture.width - 1, y, CLITERAL(Color){ 255, 255, 0, 255 });
+        DrawPixel(app->screen.texture.width - 1, y, CLITERAL(Color){ 255, 255, 0, 255 });
     }
 
     EndTextureMode();
@@ -108,7 +114,9 @@ int main(int argc, char **argv) {
     UnloadRandomSequence(seq);
 #endif /* NOVID */
 
+#ifndef PLATFORM_WEB
     cpu_t final = { 0 };
+#endif
 
     if (TEST) {
 #ifndef PLATFORM_WEB
@@ -160,8 +168,9 @@ int main(int argc, char **argv) {
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
 #endif
+#ifndef PLATFORM_WEB
     loadConfig(app);
-
+#endif
     // app->config.activeTheme = 6; // Dark Theme
     initGui(app);
 #ifdef PLATFORM_WEB
@@ -269,6 +278,7 @@ int main(int argc, char **argv) {
     }
 #endif /* PLATFORM_WEB */
     if (TEST) {
+#if !defined(PLATFORM_WEB)
         final.B = true; // Probable only necessary for this sample test
         printf("\n===========================\n");
         bool testResult
@@ -318,13 +328,16 @@ int main(int argc, char **argv) {
         LOG_INF("final[%5u]: %3u", 2640, final.mem[2640]);
         LOG_INF("final[%5u]: %3u", 20428, final.mem[20428]);
         printf("===========================\n\n");
+#endif /* !defined(PLATFORM_WEB) */
     }
     memDmp(&app->nes.cpu, MEMSIZE);
     // memDmp(final, MEMSIZE);
+#ifndef PLATFORM_WEB
     saveConfig(app);
+#endif
     unloadRom(&app->nes);
 #ifndef NOVID
-    UnloadRenderTexture(screen);
+    UnloadRenderTexture(app->screen);
     CloseWindow();
 #endif
     free(app);
@@ -443,6 +456,7 @@ defer:
 }
 
 void loadRomFromMem(nes_t *nes, const char *fileName) {
+#ifndef PLATFORM_WEB
     for (size_t i = 0; i < resources_count; ++i) {
         if (strcmp(fileName, resources[i].file_path) == 0) {
             nes->romSize = resources[i].size;
@@ -458,6 +472,7 @@ void loadRomFromMem(nes_t *nes, const char *fileName) {
     }
 
     LOG_INF("File \"%s\" not found in bundled assets, trying from disk...", fileName);
+#endif
     loadRom(nes, fileName);
     return;
 }
@@ -565,7 +580,7 @@ static inline void mainLoop(void *app_ptr)
     ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
 #ifndef NOVID
-    DrawTexturePro(screen.texture, app->sourceRec, app->destRec, Vector2Zero(), 0, WHITE);
+    DrawTexturePro(app->screen.texture, app->sourceRec, app->destRec, Vector2Zero(), 0, WHITE);
 #endif
 
     DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);

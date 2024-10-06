@@ -1,6 +1,10 @@
 #ifndef KXD_MAIN_H
 #define KXD_MAIN_H
 
+#ifdef PLATFORM_WEB
+#include <emscripten/emscripten.h>
+#endif /* PLATFORM_WEB */
+
 #include <assert.h>
 #include <errno.h>
 #include <locale.h>
@@ -9,10 +13,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifdef PLATFORM_WEB
-#include <emscripten/emscripten.h>
-#endif /* PLATFORM_WEB */
 
 #include "raylib.h"
 
@@ -35,7 +35,9 @@
 #include "test.h"
 #endif
 
+#ifndef PLATFORM_WEB
 #include "bundle.h"
+#endif
 
 #ifndef CP_UTF8
 #define CP_UTF8 65001

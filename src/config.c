@@ -113,7 +113,7 @@ void loadDefaultConfigs(app_t *app) {
     char *result = callocWrapper(size, 1);
 
     bool darkTheme;
-#ifdef WIN32
+#if defined(_WIN32) && !defined(PLATFORM_WEB)
     if (WinH_RegGetValueA(WIN_H_HKEY_CURRENT_USER, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
                           "SystemUsesLightTheme", WIN_H_REG_DWORD, NULL, result, &size) == 0) {
         darkTheme = (result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0]) == 0;
@@ -121,8 +121,9 @@ void loadDefaultConfigs(app_t *app) {
         darkTheme = false;
     }
 #else
-    darkTheme = true;
-#endif /* WIN32 */
+    darkTheme = true; // Forcing Dark Theme for other platforms by now
+#endif /* defined(_WIN32) && !defined(PLATFORM_WEB) */
+
     // clang-format off
     app->config.activeTheme    = darkTheme ? 6 : 0;
     app->config.fastForwardKey = KEY_SPACE;

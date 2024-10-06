@@ -76,6 +76,8 @@ dkms.conf
 # End of https://www.toptal.com/developers/gitignore/api/c,visualstudiocode
 
 bin/
+build/
+wasm/
 *.nes
 *.log
 !.vscode/c_cpp_properties.json
