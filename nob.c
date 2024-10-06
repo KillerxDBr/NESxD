@@ -69,6 +69,8 @@
 
 #define LIBS "-lgdi32", "-lwinmm", "-lcomdlg32", "-lole32"
 
+#define RL_MIN_SHELL "extern/raylib-5.0/src/minshell.html"
+
 const char *files[] = {
     "main", "6502", "config", "gui", "input",
 #ifndef RELEASE
@@ -135,7 +137,6 @@ bool CompileNobHeader(bool isWeb);
 bool Bundler(const char *path);
 void GetIncludedHeaders(Objects *eh, const char *header);
 bool TestFile(void);
-bool BuildWasm(void);
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -304,18 +305,17 @@ int main(int argc, char **argv) {
 
 // clang-format off
 // -Os -Wall -s USE_GLFW=3 -s FORCE_FILESYSTEM=1 -s ASYNCIFY -DPLATFORM_WEB --preload-file resources
-#define WFLAGS  "-O3",                                                                   \
+#define WFLAGS  "-Os",                                                                   \
                 "-Wall",                                                                 \
                 "-Wextra",                                                               \
                 "-lm",                                                                   \
-                "-sUSE_GLFW=3",                                                          \
-                "-sFORCE_FILESYSTEM=1",                                                  \
-                "-sASYNCIFY",                                                            \
                 "-DPLATFORM_WEB",                                                        \
                 "-DKXD_DEBUG",                                                           \
                 "-DNES",                                                                 \
-                "-sGL_ENABLE_GET_PROC_ADDRESS",                                          \
-                "-sALLOW_MEMORY_GROWTH",                                                 \
+                "-sUSE_GLFW=3",                                                          \
+                "-sFORCE_FILESYSTEM=1",                                                  \
+                "-sALLOW_MEMORY_GROWTH=1",                                               \
+                "-sGL_ENABLE_GET_PROC_ADDRESS=1",                                        \
                 "-sASSERTIONS",                                                          \
                 "--preload-file",                                                        \
                 "rom"
@@ -459,6 +459,7 @@ bool CompileExecutable(bool isWeb) {
 
             nob_cmd_append(&cmd, "-o", WASM_OUTPUT);
             nob_cmd_append(&cmd, WFLAGS);
+            nob_cmd_append(&cmd, "--shell-file", "extern/raylib-5.0/src/shell.html");
             nob_da_append_many(&cmd, obj.items, obj.count);
         }
     } else if (nob_needs_rebuild(EXE_OUTPUT, obj.items, obj.count)) {
@@ -1431,34 +1432,3 @@ bool TestFile(void) {
     return true;
 }
 
-#define RL_MIN_SHELL "extern/raylib-5.0/src/minshell.html"
-
-bool BuildWasm(void) {
-    bool result = true;
-    Nob_Cmd cmd = { 0 };
-    Nob_Procs procs = { 0 };
-
-    if (!buildRayLib(true))
-        nob_return_defer(false);
-
-    // nob_cmd_append(&cmd, "cmd", "/c", );
-    // nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
-
-    // nob_cmd_append(&cmd, "&&");
-    // nob_cmd_append(&cmd, EMSDK_ENV);
-    // nob_cmd_append(&cmd, "&&");
-
-    // nob_cmd_append(&cmd, EMCC);
-    // const size_t cmdCount = cmd.count;
-
-    // cmd.count = cmdCount;
-    // nob_cmd_append(&cmd, "-o", WASM_DIR "/outTest.html", "-Iinclude", "outTest.c", RAYLIB_WFLAGS, "--shell-file", RL_MIN_SHELL);
-
-    // nob_da_append(&procs, nob_cmd_run_async(cmd));
-
-    // result = nob_procs_wait(procs);
-
-defer:
-    nob_cmd_free(cmd);
-    return result;
-}
