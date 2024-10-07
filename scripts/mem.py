@@ -20,7 +20,7 @@ def main():
     # argc > 1 and (
     #     argv[1] == "-h" or argv[1] == "--help" or argv[1] == "-help"
     # )
-
+    LOG_INFO(f'Argument Count: {argc}')
     if argc <= 1 or helpUsage:
         logFunc = LOG_INFO if helpUsage else LOG_ERR
         logFunc(f"Usage: '{executable}' {argv[0]} <Instruction1, Instruction2...>")
@@ -47,6 +47,18 @@ def main():
 
     argvInstructions = " ".join(argv[1:])
 
+    strList = list(argvInstructions)
+
+    while True:
+        try:
+            strList.remove(',')
+        except ValueError:
+            break
+
+    argvInstructions = ''.join(strList)
+
+    LOG_INFO(f'argv: "{argvInstructions}"')
+    # exit(0)
     InsKey = InstructionsDict.keys()
     InsVal = InstructionsDict.values()
 

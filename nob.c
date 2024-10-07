@@ -316,9 +316,8 @@ int main(int argc, char **argv) {
                 "-sFORCE_FILESYSTEM=1",                                                  \
                 "-sALLOW_MEMORY_GROWTH=1",                                               \
                 "-sGL_ENABLE_GET_PROC_ADDRESS=1",                                        \
-                "-sASSERTIONS",                                                          \
-                "--preload-file",                                                        \
-                "rom"
+                "-sASSERTIONS=1"
+
 // clang-format on
 
 #define STR_SIZE 128
@@ -459,7 +458,15 @@ bool CompileExecutable(bool isWeb) {
 
             nob_cmd_append(&cmd, "-o", WASM_OUTPUT);
             nob_cmd_append(&cmd, WFLAGS);
+
+            nob_cmd_append(&cmd, "--preload-file", "rom");
+
+            if (nob_file_exists("mem.bin") == 1) {
+                nob_cmd_append(&cmd, "--preload-file", "mem.bin");
+            }
+
             nob_cmd_append(&cmd, "--shell-file", "extern/raylib-5.0/src/shell.html");
+
             nob_da_append_many(&cmd, obj.items, obj.count);
         }
     } else if (nob_needs_rebuild(EXE_OUTPUT, obj.items, obj.count)) {
@@ -485,7 +492,7 @@ bool CompileExecutable(bool isWeb) {
         SBcnt = sb.count;
         Nob_String_Builder dest = { 0 };
         nob_sb_append_cstr(&dest, BIN_DIR "/");
-        size_t destCnt = dest.count;
+        const size_t destCnt = dest.count;
         for (size_t i = 0; i < NOB_ARRAY_LEN(libraries); i++) {
             sb.count = SBcnt;
             nob_sb_append_cstr(&sb, libraries[i]);
@@ -497,16 +504,7 @@ bool CompileExecutable(bool isWeb) {
             nob_sb_append_cstr(&dest, ".dll");
             nob_sb_append_null(&dest);
 
-            Nob_String_Builder src = { 0 };
-            if (!nob_read_entire_file(sb.items, &src))
-                return false;
-
-            FILE *destFile = fopen(dest.items, "wb");
-            if (destFile == NULL)
-                return false;
-
-            fwrite(src.items, 1, src.count, destFile);
-            fclose(destFile);
+            nob_copy_file(sb.items, dest.items)
         }
 
         nob_sb_free(dest);
@@ -1431,4 +1429,3 @@ bool TestFile(void) {
     nob_log(NOB_INFO, "File \"%s\" is up to date", output);
     return true;
 }
-

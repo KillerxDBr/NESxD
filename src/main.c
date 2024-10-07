@@ -7,6 +7,7 @@ int main(int argc, char **argv) {
     if (!WinH_SetConsoleOutputCP(CP_UTF8))
         return 1;
 #endif
+    const char *program = nob_shift_args(&argc, &argv);
 
 #if defined(_UCRT)
     setlocale(LC_ALL, ".UTF-8");
@@ -22,8 +23,6 @@ int main(int argc, char **argv) {
     app_t *app = callocWrapper(1, sizeof(app_t));
 
 #ifndef PLATFORM_WEB
-    app->config.fileName = nob_shift_args(&argc, &argv);
-
     for (int i = 0; i < argc; i++) {
         NOP = (strcmp(argv[i], NOP_CMD) == 0) || NOP;
         TEST = (strcmp(argv[i], TEST_CMD) == 0) || TEST;
@@ -37,16 +36,26 @@ int main(int argc, char **argv) {
     app->nes.isPaused = NOP;
 
 #ifndef PLATFORM_WEB
+
+    app->config.fileName = callocWrapper(strlen(program) + sizeof(CONFIG_FILE), 1);
+    strcpy(app->config.fileName, program);
+
     char *slash = strrchr(app->config.fileName, '\\');
+    assert(slash != NULL);
+
     slash++;
 
     memcpy(slash, CONFIG_FILE, sizeof(CONFIG_FILE));
+    app->config.fileName = realloc(app->config.fileName, strlen(app->config.fileName));
 #endif
-
+    (void)program;
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow((NES_W * FACTOR), (NES_H * FACTOR), "NES_xD");
+
+#ifndef PLATFORM_WEB
     SetWindowMinSize(NES_W, NES_H);
     SetTargetFPS(60);
+#endif /* PLATFORM_WEB */
 
     app->screenW = GetRenderWidth();
     app->screenH = GetRenderHeight();
@@ -131,37 +140,40 @@ int main(int argc, char **argv) {
         memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
         const char *memBinPath = "./mem.bin";
-        size_t insSize = 0;
-        FILE *memBin = NULL;
+        Nob_String_Builder memory = { 0 };
 
         if (!NOP) {
-            memBin = fopen(memBinPath, "rb");
 
-            if (memBin == NULL) {
-                LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
+            if (!nob_read_entire_file(memBinPath, &memory)) {
+                // LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
                 LOG_INF("Operating with \"INS_NOP\" only");
                 NOP = true;
             }
+
+            // memBin = fopen(memBinPath, "rb");
+
+            // if (memBin == NULL) {
+            //     LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
+            //     LOG_INF("Operating with \"INS_NOP\" only");
+            //     NOP = true;
+            //     // exit(0);
+            // }
         }
 
         if (!NOP) {
-            fseek(memBin, 0, SEEK_END);
-            insSize = ftell(memBin);
-            rewind(memBin);
+            // if (insSize == 0) {
+            //     LOG_ERR("No bytes to read from \"%s\", exiting...", memBinPath);
+            //     exit(1);
+            // }
 
-            if (insSize == 0) {
-                LOG_ERR("No bytes to read from \"%s\", exiting...", memBinPath);
-                exit(1);
-            }
+            // uint8_t *instructions = callocWrapper(insSize, sizeof(uint8_t));
 
-            uint8_t *instructions = callocWrapper(insSize, sizeof(uint8_t));
+            LOG_INF("Reading %zu instructions from \"%s\"", memory.count, memBinPath);
+            // fread(instructions, 1, insSize, memBin);
+            // fclose(memBin);
 
-            LOG_INF("Reading %zu instructions from \"%s\"", insSize, memBinPath);
-            fread(instructions, 1, insSize, memBin);
-            fclose(memBin);
-
-            addMultipleToMem(app->nes.cpu.mem, 0, instructions, insSize);
-            free(instructions);
+            addMultipleToMem(app->nes.cpu.mem, 0, (uint8_t *)memory.items, memory.count);
+            nob_sb_free(memory);
         }
     }
 #if KXD_DEBUG
@@ -276,9 +288,7 @@ int main(int argc, char **argv) {
         //                 break;
         //         }
     }
-#endif /* PLATFORM_WEB */
     if (TEST) {
-#if !defined(PLATFORM_WEB)
         final.B = true; // Probable only necessary for this sample test
         printf("\n===========================\n");
         bool testResult
@@ -328,13 +338,13 @@ int main(int argc, char **argv) {
         LOG_INF("final[%5u]: %3u", 2640, final.mem[2640]);
         LOG_INF("final[%5u]: %3u", 20428, final.mem[20428]);
         printf("===========================\n\n");
-#endif /* !defined(PLATFORM_WEB) */
     }
     memDmp(&app->nes.cpu, MEMSIZE);
     // memDmp(final, MEMSIZE);
-#ifndef PLATFORM_WEB
+
     saveConfig(app);
-#endif
+#endif /* PLATFORM_WEB */
+
     unloadRom(&app->nes);
 #ifndef NOVID
     UnloadRenderTexture(app->screen);
@@ -416,42 +426,21 @@ void addMultipleToMem(uint8_t *mem, size_t loc, uint8_t *values, size_t valuesSi
 }
 
 void loadRom(nes_t *nes, const char *fileName) {
-    FILE *rom = fopen(fileName, "rb");
+    Nob_String_Builder sb = { 0 };
 
-    if (rom == NULL) {
-        LOG_ERR("Could not open \"%s\": %s", fileName, strerror(errno));
-        exit(1);
-    }
+    if (!nob_read_entire_file(fileName, &sb))
+        goto defer;
 
+    nes->rom = (uint8_t *)sb.items;
+    nes->romSize = sb.count;
     LOG_INF("ROM Loaded with success");
-
-    if (fseek(rom, 0, SEEK_END) < 0)
-        goto defer;
-
-    long romSize = ftell(rom);
-    if (romSize < 0)
-        goto defer;
-
-    nes->romSize = romSize;
-    if (fseek(rom, 0, SEEK_SET) < 0)
-        goto defer;
-
-    nes->rom = callocWrapper(nes->romSize, 1);
-    fread(nes->rom, 1, nes->romSize, rom);
-
-    if (ferror(rom))
-        goto defer;
-
-    fclose(rom);
 
     CHECK_ROM_HEADER(nes->rom);
     processRomHeader(nes);
     return;
 
 defer:
-    LOG_ERR("Error while reading file '%s'", fileName);
-    if (rom)
-        fclose(rom);
+    nob_sb_free(sb);
     exit(1);
 }
 
