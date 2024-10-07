@@ -7,7 +7,9 @@
 
 // #define RELEASE
 #define STATIC
-#define EMSDK_ENV "D:\\emsdk\\emsdk_env.bat"
+#define EMSDK_ENV "D:/emsdk/emsdk_env.bat"
+#define ROM_PATH "rom"
+#define MEM_BIN_PATH "mem.bin"
 
 #include <assert.h>
 #include <locale.h>
@@ -194,6 +196,12 @@ int main(int argc, char **argv) {
                         CleanupFiles();
                     }
                 }
+            }
+        }
+        if (isWeb) {
+            if (nob_file_exists(EMSDK_ENV) != 1) {
+                nob_log(NOB_ERROR, "Could not find emsdk env builder \"" EMSDK_ENV "\", check if the path is correct and try again...");
+                exit(1);
             }
         }
 
@@ -446,6 +454,7 @@ bool CompileExecutable(bool isWeb) {
     // gcc -o bin/nesxd.exe build/6502.o build/config.o build/gui.o build/input.o build/main.o build/nob.o build/resource.o
     // build/tinyfiledialogs.o lib/libraylib.a -lgdi32 -lwinmm -lcomdlg32 -lole32
     if (isWeb) {
+        // Building nesxd wasm, html, js, data
         if (nob_needs_rebuild(WASM_OUTPUT, obj.items, obj.count)) {
             nob_cmd_append(&cmd, "cmd", "/c", );
             nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
@@ -459,10 +468,13 @@ bool CompileExecutable(bool isWeb) {
             nob_cmd_append(&cmd, "-o", WASM_OUTPUT);
             nob_cmd_append(&cmd, WFLAGS);
 
-            nob_cmd_append(&cmd, "--preload-file", "rom");
+            if (nob_file_exists(ROM_PATH) == 1) {
+                nob_cmd_append(&cmd, "--preload-file", ROM_PATH);
+            }
 
-            if (nob_file_exists("mem.bin") == 1) {
-                nob_cmd_append(&cmd, "--preload-file", "mem.bin");
+            if (nob_file_exists(MEM_BIN_PATH) == 1) {
+                nob_cmd_append(&cmd, "--preload-file", MEM_BIN_PATH);
+                // nob_copy_file(MEM_BIN_PATH, WASM_DIR "/" MEM_BIN_PATH); // Copying dont work, file needs to be bundled
             }
 
             nob_cmd_append(&cmd, "--shell-file", "extern/raylib-5.0/src/shell.html");
@@ -919,7 +931,7 @@ void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
 
 bool Bundler(const char *path) {
     if (path == NULL)
-        path = "./rom";
+        path = ROM_PATH;
 
     Nob_String_Builder sb = { 0 };
     Nob_Procs procs = { 0 };
