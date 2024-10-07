@@ -4,14 +4,15 @@ from cffi import FFI
 HEADER  = "./src/instructions.h"
 MEMORY  = "./mem.bin"
 MEMSIZE = 2048
-NOBREAK = '-NB'
+NOBREAK = "-NB"
+
 
 def LOG_ERR(*args, **kwargs):
-    print('[ERROR]:', *args, file=stderr, **kwargs)
+    print("[ERROR]:", *args, file=stderr, **kwargs)
 
 
 def LOG_INFO(*args, **kwargs):
-    print('[INFO]:', *args, **kwargs)
+    print("[INFO]:", *args, **kwargs)
 
 
 def main():
@@ -20,7 +21,7 @@ def main():
     # argc > 1 and (
     #     argv[1] == "-h" or argv[1] == "--help" or argv[1] == "-help"
     # )
-    LOG_INFO(f'Argument Count: {argc}')
+    LOG_INFO(f"Argument Count: {argc}")
     if argc <= 1 or helpUsage:
         logFunc = LOG_INFO if helpUsage else LOG_ERR
         logFunc(f"Usage: '{executable}' {argv[0]} <Instruction1, Instruction2...>")
@@ -51,11 +52,11 @@ def main():
 
     while True:
         try:
-            strList.remove(',')
+            strList.remove(",")
         except ValueError:
             break
 
-    argvInstructions = ''.join(strList)
+    argvInstructions = "".join(strList)
 
     LOG_INFO(f'argv: "{argvInstructions}"')
     # exit(0)
@@ -100,7 +101,7 @@ def main():
         final.append(0)
 
     ins_count = len(final)
-    if(ins_count > MEMSIZE):
+    if ins_count > MEMSIZE:
         LOG_ERR(f"Too much instructions, received: {ins_count}, MAX: {MEMSIZE}")
         exit(4)
 
