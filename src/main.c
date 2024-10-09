@@ -127,16 +127,18 @@ int main(int argc, char **argv) {
     cpu_t final = { 0 };
 #endif
 
+#if defined(KXD_DEBUG)
     if (TEST) {
-#ifndef PLATFORM_WEB
+#if !defined(PLATFORM_WEB)
         // final = callocWrapper(1, sizeof(cpu_t));
         app->nes.isPaused = false;
         if (!InstructionTest(app, &final))
             return 1;
         LOG_INF("SUCCESS");
         // return 0;
-#endif
+#endif /* !defined(PLATFORM_WEB) */
     } else {
+#endif /* defined(KXD_DEBUG) */
         memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
         const char *memBinPath = "./mem.bin";
@@ -175,16 +177,18 @@ int main(int argc, char **argv) {
             addMultipleToMem(app->nes.cpu.mem, 0, (uint8_t *)memory.items, memory.count);
             nob_sb_free(memory);
         }
+#if defined(KXD_DEBUG)
     }
-#if KXD_DEBUG
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
-#endif
+#endif /* defined(KXD_DEBUG) */
+
 #ifndef PLATFORM_WEB
     loadConfig(app);
 #endif
-    // app->config.activeTheme = 6; // Dark Theme
+
     initGui(app);
+
 #ifdef PLATFORM_WEB
     emscripten_set_main_loop_arg(mainLoop, app, 60, 1);
 #else

@@ -6,6 +6,7 @@
 #endif
 
 // #define RELEASE
+// #define USE_SDL
 #define STATIC
 #define EMSDK_ENV "D:/emsdk/emsdk_env.bat"
 #define ROM_PATH "rom"
@@ -71,7 +72,44 @@
 
 #define LIBS "-lgdi32", "-lwinmm", "-lcomdlg32", "-lole32"
 
-#define RL_MIN_SHELL "extern/raylib-5.0/src/minshell.html"
+#define RAYLIB_SRC_PATH "extern/raylib/src"
+
+#define RL_MIN_SHELL RAYLIB_SRC_PATH "/minshell.html"
+
+#define PLATFORM "-DPLATFORM_DESKTOP_GLFW"
+
+#define SDL_PATH "C:/msys64/ucrt64/include/SDL2"
+
+#ifdef USE_SDL
+#undef PLATFORM
+#define PLATFORM "-DPLATFORM_DESKTOP_SDL"
+#endif /* USE_SDL */
+
+// TODO: Test SDL Backend, why not?
+// clang-format off
+#define RAYLIB_CFLAGS "-Wall",                                             \
+                      "-D_GNU_SOURCE",                                     \
+                      PLATFORM,                                            \
+                      "-DGRAPHICS_API_OPENGL_33",                          \
+                      "-Wno-missing-braces",                               \
+                      "-Werror=pointer-arith",                             \
+                      "-fno-strict-aliasing",                              \
+                      "-O1",                                               \
+                      "-std=c99",                                          \
+                      "-Werror=implicit-function-declaration"
+
+#define RAYLIB_WFLAGS "-Wall",                                             \
+                      "-D_GNU_SOURCE",                                     \
+                      "-DPLATFORM_WEB",                                    \
+                      "-DGRAPHICS_API_OPENGL_ES2",                         \
+                      "-Wno-missing-braces",                               \
+                      "-Werror=pointer-arith",                             \
+                      "-fno-strict-aliasing",                              \
+                      "-std=gnu99",                                        \
+                      "-Os"
+
+// clang-format on
+#define RL_INCLUDE_PATHS "-I" RAYLIB_SRC_PATH, "-I" RAYLIB_SRC_PATH "/external/glfw/include"
 
 const char *files[] = {
     "main", "6502", "config", "gui", "input",
@@ -523,6 +561,11 @@ bool CompileExecutable(bool isWeb) {
         nob_sb_free(sb);
 #endif /* STATIC */
         nob_cmd_append(&cmd, CFLAGS, LIBS);
+
+#ifdef USE_SDL
+        nob_cmd_append(&cmd, "-lSDL2");
+#endif /* USE_SDL */
+    
     } else {
         nob_log(NOB_INFO, skippingMsg, EXE_OUTPUT);
     }
@@ -1137,33 +1180,6 @@ void GetIncludedHeaders(Objects *eh, const char *header) {
 
     fclose(fHeader);
 }
-#define RAYLIB_SRC_PATH "extern/raylib-5.0/src"
-
-// clang-format off
-#define RAYLIB_CFLAGS "-Wall",                                             \
-                      "-D_GNU_SOURCE",                                     \
-                      "-DPLATFORM_DESKTOP",                                \
-                      "-DGRAPHICS_API_OPENGL_33",                          \
-                      "-Wno-missing-braces",                               \
-                      "-Werror=pointer-arith",                             \
-                      "-fno-strict-aliasing",                              \
-                      "-O1",                                               \
-                      "-std=c99",                                          \
-                      "-Werror=implicit-function-declaration"
-
-#define RAYLIB_WFLAGS "-Wall",                                             \
-                      "-D_GNU_SOURCE",                                     \
-                      "-DPLATFORM_WEB",                                    \
-                      "-DGRAPHICS_API_OPENGL_ES2",                         \
-                      "-Wno-missing-braces",                               \
-                      "-Werror=pointer-arith",                             \
-                      "-fno-strict-aliasing",                              \
-                      "-std=gnu99",                                        \
-                      "-Os"
-
-// clang-format on
-#define INCLUDE_PATHS                                                                                                                      \
-    ("-I" RAYLIB_SRC_PATH), ("-I" RAYLIB_SRC_PATH "/external/glfw/include"), ("-I" RAYLIB_SRC_PATH "/external/glfw/deps/mingw")
 
 bool buildRayLib(bool isWeb) {
     Nob_Cmd cmd = { 0 };
@@ -1187,10 +1203,14 @@ bool buildRayLib(bool isWeb) {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
         nob_cmd_append(&cmd, RAYLIB_CFLAGS);
 
+#ifdef USE_SDL
+        nob_cmd_append(&cmd, "-I" SDL_PATH);
+#endif
+
         nob_sb_append_cstr(&sb, BUILD_DIR);
     }
 
-    nob_cmd_append(&cmd, INCLUDE_PATHS);
+    nob_cmd_append(&cmd, RL_INCLUDE_PATHS);
     // nob_cmd_append(&cmd, "-static-libgcc", "-lopengl32", "-lgdi32", "-lwinmm");
 
     // extern/raylib-5.0/src/config.h
