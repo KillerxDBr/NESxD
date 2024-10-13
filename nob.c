@@ -5,30 +5,39 @@
 #undef _UNICODE
 #endif
 
-// #define RELEASE
-// #define USE_SDL
-#define STATIC
-#define EMSDK_ENV "D:/emsdk/emsdk_env.bat"
-#define ROM_PATH "rom"
-#define MEM_BIN_PATH "mem.bin"
-
-#include <assert.h>
-#include <locale.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
-// #if _WIN32
+#include <locale.h>
+
+// #define RELEASE
+// #define USE_SDL
+#define STATIC
+#define ROM_PATH "rom"
+#define MEM_BIN_PATH "mem.bin"
+
+#if defined(_WIN32)
+#define EMSDK_ENV "D:/emsdk/emsdk_env.bat"
+
+#define EMS(cmd)                                                                                                                           \
+    do {                                                                                                                                   \
+        nob_cmd_append((cmd), "cmd", "/c", );                                                                                              \
+        nob_cmd_append((cmd), "set", "EMSDK_QUIET=1");                                                                                     \
+        nob_cmd_append((cmd), "&&");                                                                                                       \
+        nob_cmd_append((cmd), EMSDK_ENV);                                                                                                  \
+        nob_cmd_append((cmd), "&&");                                                                                                       \
+    } while (0)
+#else
+#define EMS(cmd)
+#endif
+
 #if defined(__GNUC__)
 #define CC "gcc"
-#else
-#error No GCC Found...
-/*
 #elif defined(__clang__)
 #define CC "clang"
+#else
+#error No GCC or CLANG Found...
+/*
 #elif defined(_MSC_VER)
 #error MSVC UNSUPORTED
 #define CC "cl"
@@ -38,7 +47,6 @@
 */
 
 #endif /* defined(__GNUC__) */
-// #endif /* _WIN32 */
 
 #define EMCC "emcc"
 
@@ -55,8 +63,10 @@
 #define PROGRAM_NAME "nesxd"
 
 #if _WIN32
+#define PY_EXEC "py"
 #define EXE_NAME PROGRAM_NAME ".exe"
 #else
+#define PY_EXEC "python3"
 #define EXE_NAME PROGRAM_NAME
 #endif /* _WIN32 */
 
@@ -70,19 +80,22 @@
 
 #define INCLUDES "-I.", "-Ibuild", "-Iinclude", "-Isrc", "-Istyles", "-Iextern"
 
+#if defined(_WIN32)
 #define LIBS "-lgdi32", "-lwinmm", "-lcomdlg32", "-lole32"
+#else
+#define LIBS "-lm"
+#endif
 
 #define RAYLIB_SRC_PATH "extern/raylib/src"
 
 #define RL_MIN_SHELL RAYLIB_SRC_PATH "/minshell.html"
 
-#define PLATFORM "-DPLATFORM_DESKTOP_GLFW"
-
 #define SDL_PATH "C:/msys64/ucrt64/include/SDL2"
 
 #ifdef USE_SDL
-#undef PLATFORM
 #define PLATFORM "-DPLATFORM_DESKTOP_SDL"
+#else
+#define PLATFORM "-DPLATFORM_DESKTOP_GLFW"
 #endif /* USE_SDL */
 
 // TODO: Test SDL Backend, why not?
@@ -136,9 +149,11 @@ const char *dirs[] = { BUILD_DIR, BIN_DIR, SRC_DIR, EXTERN_DIR };
 
 const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
+#if !defined(STATIC)
 const char *libraries[] = {
     //  "cimgui",
 };
+#endif
 
 typedef struct {
     const char **items;
@@ -177,6 +192,7 @@ bool CompileNobHeader(bool isWeb);
 bool Bundler(const char *path);
 void GetIncludedHeaders(Objects *eh, const char *header);
 bool TestFile(void);
+bool WebServer(void);
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -236,12 +252,14 @@ int main(int argc, char **argv) {
                 }
             }
         }
+#if defined(_WIN32)
         if (isWeb) {
             if (nob_file_exists(EMSDK_ENV) != 1) {
                 nob_log(NOB_ERROR, "Could not find emsdk env builder \"" EMSDK_ENV "\", check if the path is correct and try again...");
                 exit(1);
             }
         }
+#endif
 
         const size_t bkpCount = obj.count;
         nob_log(NOB_INFO, "--- Building Raylib ---");
@@ -310,7 +328,9 @@ int main(int argc, char **argv) {
     } else if ((strcmp(command, "test") == 0) || (strcmp(command, "t") == 0)) {
         nob_log(NOB_INFO, "--- Building Test File ---");
         return !TestFile();
-
+    } else if ((strcmp(command, "web") == 0) || (strcmp(command, "w") == 0)) {
+        nob_log(NOB_INFO, "--- Starting WebServer ---");
+        return !WebServer();
     } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
         nob_log(NOB_INFO, "--- Cleaning Files ---");
         CleanupFiles();
@@ -322,6 +342,13 @@ int main(int argc, char **argv) {
     }
 
     assert(0 && "UNREACHABLE!!!");
+
+    // cleanup:
+    //     if (obj.items)
+    //         free(obj.items);
+    //     if (resources.items)
+    //         free(resources.items);
+    //     return 0;
 }
 
 // clang-format off
@@ -376,18 +403,14 @@ bool PrecompileHeader(bool isWeb) {
     Nob_Cmd cmd = { 0 };
 
     if (isWeb) {
-        nob_cmd_append(&cmd, "cmd", "/c", );
-        nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
-        nob_cmd_append(&cmd, "&&");
-        nob_cmd_append(&cmd, EMSDK_ENV);
-        nob_cmd_append(&cmd, "&&");
+        EMS(&cmd);
         nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc-header", WFLAGS);
     } else {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc-header", CFLAGS);
     }
 
     nob_cmd_append(&cmd, INCLUDES);
-    size_t command_size = cmd.count;
+    const size_t command_size = cmd.count;
 
     /* ccache gcc -fdiagnostics-color=always -xc-header -Ibuild/
     -I. -Iinclude -Isrc -Istyles -Iextern -o build/6502precomp.h.gch
@@ -445,7 +468,7 @@ bool PrecompileHeader(bool isWeb) {
         // }
         // nob_log(NOB_INFO, "Number of extra headers: %zu", extraHeaders.count);
         // nob_log(NOB_INFO, "------------------------------------");
-        if (nob_needs_rebuild(output, extraHeaders.items, extraHeaders.count)) {
+        if (nob_needs_rebuild(output, extraHeaders.items, extraHeaders.count) != 0) {
             // DWORD err;
             // if (err = GetLastError()) {
             //     LPVOID ptr;
@@ -488,18 +511,13 @@ bool CompileExecutable(bool isWeb) {
     //     nob_log(NOB_INFO, "%zu: %s", i + 1ULL, obj.items[i]);
     // }
     // exit(0);
-    size_t cnt = cmd.count;
+    const size_t cnt = cmd.count;
     // gcc -o bin/nesxd.exe build/6502.o build/config.o build/gui.o build/input.o build/main.o build/nob.o build/resource.o
     // build/tinyfiledialogs.o lib/libraylib.a -lgdi32 -lwinmm -lcomdlg32 -lole32
     if (isWeb) {
         // Building nesxd wasm, html, js, data
-        if (nob_needs_rebuild(WASM_OUTPUT, obj.items, obj.count)) {
-            nob_cmd_append(&cmd, "cmd", "/c", );
-            nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
-
-            nob_cmd_append(&cmd, "&&");
-            nob_cmd_append(&cmd, EMSDK_ENV);
-            nob_cmd_append(&cmd, "&&");
+        if (nob_needs_rebuild(WASM_OUTPUT, obj.items, obj.count) != 0) {
+            EMS(&cmd);
 
             nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always");
 
@@ -519,7 +537,7 @@ bool CompileExecutable(bool isWeb) {
 
             nob_da_append_many(&cmd, obj.items, obj.count);
         }
-    } else if (nob_needs_rebuild(EXE_OUTPUT, obj.items, obj.count)) {
+    } else if (nob_needs_rebuild(EXE_OUTPUT, obj.items, obj.count) != 0) {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
         nob_cmd_append(&cmd, "-o", EXE_OUTPUT);
         nob_da_append_many(&cmd, obj.items, obj.count);
@@ -565,7 +583,7 @@ bool CompileExecutable(bool isWeb) {
 #ifdef USE_SDL
         nob_cmd_append(&cmd, "-lSDL2");
 #endif /* USE_SDL */
-    
+
     } else {
         nob_log(NOB_INFO, skippingMsg, EXE_OUTPUT);
     }
@@ -581,11 +599,7 @@ bool CompileFiles(bool isWeb) {
     Nob_Cmd cmd = { 0 };
 
     if (isWeb) {
-        nob_cmd_append(&cmd, "cmd", "/c", );
-        nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
-        nob_cmd_append(&cmd, "&&");
-        nob_cmd_append(&cmd, EMSDK_ENV);
-        nob_cmd_append(&cmd, "&&");
+        EMS(&cmd);
         nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", WFLAGS);
     } else {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS);
@@ -681,7 +695,7 @@ bool CompileFiles(bool isWeb) {
 
         int input_count = isWeb ? 1 : 2;
 
-        if (nob_needs_rebuild(output, input_files, input_count)) {
+        if (nob_needs_rebuild(output, input_files, input_count) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
             nob_cmd_append(&cmd, "-o", output);
 
@@ -709,7 +723,7 @@ bool CompileFiles(bool isWeb) {
             const char *resource = BUILD_DIR "/resource.o";
             const char *inputs[] = { rc_input, manifest };
 
-            if (nob_needs_rebuild(resource, inputs, 2)) {
+            if (nob_needs_rebuild(resource, inputs, 2) != 0) {
                 nob_log(NOB_INFO, "--- Building %s file", rc_input);
                 cmd.count = 0;
                 nob_cmd_append(&cmd, "windres", "-i", rc_input, "-o", resource);
@@ -743,11 +757,7 @@ bool CompileDependencies(bool isWeb) {
     -march=native -DKXD_DEBUG -D_UNICODE -DUNICODE -DPLATFORM_DESKTOP -DGRAPHICS_API_OPENGL_33 ./lib/libraylib.a -lgdi32 -lwinmm -lcomdlg32
     -lole32 -DKXD_DEBUG*/
     if (isWeb) {
-        nob_cmd_append(&cmd, "cmd", "/c", );
-        nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
-        nob_cmd_append(&cmd, "&&");
-        nob_cmd_append(&cmd, EMSDK_ENV);
-        nob_cmd_append(&cmd, "&&");
+        EMS(&cmd);
         nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", WFLAGS);
     } else {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS);
@@ -755,7 +765,7 @@ bool CompileDependencies(bool isWeb) {
 
     nob_cmd_append(&cmd, INCLUDES);
 
-    size_t command_size = cmd.count;
+    const size_t command_size = cmd.count;
     for (size_t i = 0; i < NOB_ARRAY_LEN(dependencies); ++i) {
         if (isWeb) {
             if (strcmp(dependencies[i], "tinyfiledialogs") == 0 || strcmp(dependencies[i], "WindowsHeader") == 0)
@@ -799,7 +809,7 @@ bool CompileDependencies(bool isWeb) {
         // nob_log(NOB_INFO, "Input: %s", input);
         // nob_log(NOB_INFO, "Output: %s", output);
 
-        if (nob_needs_rebuild1(output, input)) {
+        if (nob_needs_rebuild1(output, input) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
             nob_cmd_append(&cmd, "-o", output, "-c", input);
             nob_da_append(&procs, nob_cmd_run_async(cmd));
@@ -828,13 +838,9 @@ bool CompileNobHeader(bool isWeb) {
     const size_t cnt = cmd.count;
 
     if (isWeb) {
-        if (nob_needs_rebuild1(wasmOutput, NOB_H_DIR)) {
+        if (nob_needs_rebuild1(wasmOutput, NOB_H_DIR) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", wasmOutput);
-            nob_cmd_append(&cmd, "cmd", "/c", );
-            nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
-            nob_cmd_append(&cmd, "&&");
-            nob_cmd_append(&cmd, EMSDK_ENV);
-            nob_cmd_append(&cmd, "&&");
+            EMS(&cmd);
             nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", WFLAGS);
             nob_cmd_append(&cmd, "-o", wasmOutput, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
         } else {
@@ -842,7 +848,7 @@ bool CompileNobHeader(bool isWeb) {
         }
         nob_da_append(&obj, strdup(wasmOutput));
     } else {
-        if (nob_needs_rebuild1(output, NOB_H_DIR)) {
+        if (nob_needs_rebuild1(output, NOB_H_DIR) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
             nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
         } else {
@@ -1015,13 +1021,13 @@ bool Bundler(const char *path) {
             // release memory allocated by FormatMessage()
             LocalFree(errorText);
             errorText = NULL;
+        }
 #else
         nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, strerror(errno), errno);
 #endif
-            return false;
-        }
-    noMSG:
+        return false;
 #ifdef _WIN32
+    noMSG:
         if (errorText) {
             LocalFree(errorText);
             errorText = NULL;
@@ -1188,12 +1194,7 @@ bool buildRayLib(bool isWeb) {
     Nob_String_Builder sb = { 0 };
 
     if (isWeb) {
-        nob_cmd_append(&cmd, "cmd", "/c", );
-        nob_cmd_append(&cmd, "set", "EMSDK_QUIET=1");
-
-        nob_cmd_append(&cmd, "&&");
-        nob_cmd_append(&cmd, EMSDK_ENV);
-        nob_cmd_append(&cmd, "&&");
+        EMS(&cmd);
 
         nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always");
         nob_cmd_append(&cmd, RAYLIB_WFLAGS);
@@ -1238,7 +1239,7 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_null(&sb);
 
     nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
         nob_log(NOB_INFO, "--- Generating rcore.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rcore.c");
@@ -1261,7 +1262,7 @@ bool buildRayLib(bool isWeb) {
         nob_sb_append_null(&sb);
 
         nob_da_append(&obj, strdup(sb.items));
-        if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+        if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
             nob_log(NOB_INFO, "--- Generating rglfw.o ---");
             nob_cmd_append(&cmd, "-o", sb.items);
             nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rglfw.c");
@@ -1286,7 +1287,7 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_null(&sb);
 
     nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
         nob_log(NOB_INFO, "--- Generating rshapes.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rshapes.c");
@@ -1311,7 +1312,7 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_null(&sb);
 
     nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
         nob_log(NOB_INFO, "--- Generating rtextures.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rtextures.c");
@@ -1335,7 +1336,7 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_null(&sb);
 
     nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
         nob_log(NOB_INFO, "--- Generating rtext.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rtext.c");
@@ -1358,7 +1359,7 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_null(&sb);
 
     nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
         nob_log(NOB_INFO, "--- Generating utils.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/utils.c");
@@ -1383,7 +1384,7 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_null(&sb);
 
     nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
         nob_log(NOB_INFO, "--- Generating rmodels.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/rmodels.c");
@@ -1406,7 +1407,7 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_null(&sb);
 
     nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
         nob_log(NOB_INFO, "--- Generating raudio.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "/raudio.c");
@@ -1430,7 +1431,7 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_null(&sb);
 
     nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count)) {
+    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
         nob_log(NOB_INFO, "--- Generating raygui.o ---");
         nob_cmd_append(&cmd, "-xc", "-o", sb.items);
         nob_cmd_append(&cmd, "-c", "include/raygui.h", "-DRAYGUI_IMPLEMENTATION");
@@ -1453,11 +1454,38 @@ bool buildRayLib(bool isWeb) {
 bool TestFile(void) {
     const char *input = "outTest.c";
     const char *output = "outTest.exe";
-    if (nob_needs_rebuild1(output, input)) {
+    if (nob_needs_rebuild1(output, input) != 0) {
         Nob_Cmd cmd = { 0 };
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-o", output, input, "-Wall", "-Wextra", "-O2");
         return nob_cmd_run_sync(cmd);
     }
     nob_log(NOB_INFO, "File \"%s\" is up to date", output);
     return true;
+}
+
+bool WebServer(void) {
+    Nob_Cmd cmd = { 0 };
+    bool result = true;
+
+    if (nob_file_exists(WASM_DIR) != 1) {
+        nob_log(NOB_ERROR, "Build wasm first");
+        nob_return_defer(false);
+    }
+
+    if (nob_needs_rebuild1(WASM_DIR "/index.html", WASM_DIR "/" PROGRAM_NAME ".html") != 0) {
+        if (!nob_copy_file(WASM_DIR "/" PROGRAM_NAME ".html", WASM_DIR "/index.html")) {
+            nob_return_defer(false);
+        };
+    }
+
+    nob_cmd_append(&cmd, PY_EXEC, "-m", "http.server", "-d", WASM_DIR);
+
+    result = nob_cmd_run_sync(cmd);
+
+    nob_log(NOB_INFO, "Closing Web Server...");
+defer:
+    if (cmd.items)
+        nob_cmd_free(cmd);
+
+    return result;
 }
