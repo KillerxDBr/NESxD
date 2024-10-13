@@ -59,7 +59,7 @@
 #define BOOLLOG(v)      ;
 #define BITFIELD8LOG(v) ;
 // clang-format on
-#endif
+#endif /* KXD_DEBUG */
 
 #ifndef NOB_ARRAY_LEN
 #define NOB_ARRAY_LEN(array) (sizeof(array) / sizeof(array[0]))

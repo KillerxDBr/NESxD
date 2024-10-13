@@ -11,7 +11,7 @@ bool InstructionTest(app_t *app, cpu_t *final) {
 
     assert(sb.count == (sizeof(cpu_t) * 2));
 
-#ifdef PLATFORM_WEB
+#if defined(PLATFORM_WEB) || !defined(_WIN32)
     memcpy(&app->nes.cpu, sb.items, sizeof(cpu_t));
     memcpy(final, &sb.items[sizeof(cpu_t)], sizeof(cpu_t));
 #else
@@ -20,7 +20,7 @@ bool InstructionTest(app_t *app, cpu_t *final) {
 
     if (memcpy_s(final, sizeof(cpu_t), &sb.items[sizeof(cpu_t)], sizeof(cpu_t)) != 0)
         nob_return_defer(false);
-#endif /* PLATFORM_WEB */
+#endif /* defined(PLATFORM_WEB) || !defined(_WIN32) */
 
     // LOG_INF("Inicial ------------------");
     // LOG_INF("Registers -> PC: 0x%04X(%u) | SP: 0x%02X | A: 0x%02X | X: 0x%02X | Y: 0x%02X", app->nes.cpu.PC, app->nes.cpu.PC,
@@ -47,6 +47,9 @@ bool InstructionTest(app_t *app, cpu_t *final) {
     // }
 
 defer:
+    if (errno > 0)
+        LOG_ERR("%s", strerror(errno));
+
     if (sb.items)
         nob_sb_free(sb);
 

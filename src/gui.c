@@ -31,7 +31,7 @@ void KxDGui(app_t *app) {
     if (app->menu.openFile) {
         if (GuiButton(CLITERAL(Rectangle){ 10, 10, 100, 20 }, "Press Me!!!")) {
             app->config.activeTheme = (app->config.activeTheme + 1) % NOB_ARRAY_LEN(themeNames);
-            LOG_INF("Theme changed to %s (%u)", themeNames[app->config.activeTheme], app->config.activeTheme + 1);
+            LOG_INF("Theme changed to \"%s\" (%u)", themeNames[app->config.activeTheme], app->config.activeTheme + 1);
             updateTheme(app);
         }
     }
@@ -51,14 +51,16 @@ void KxDGui(app_t *app) {
         .height = textSize.y + (spacing.y * 2),
     };
 
-    if (rect.x + rect.width >= app->screenW)
-        rect.x -= (rect.x + rect.width) - (app->screenW * 1.1f);
+    if ((rect.x + rect.width) >= (app->screenW * .9f))
+        rect.x -= ((rect.x + rect.width) - (app->screenW * .9f));
 
-    if (rect.y + rect.height >= app->screenH)
-        rect.y -= (rect.y + rect.height) - (app->screenH * 1.1f);
+    if ((rect.y + rect.height) >= (app->screenH * .9f))
+        rect.y -= ((rect.y + rect.height) - (app->screenH * .9f));
 
     DrawRectangleRec(rect, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-    DrawTextPro(font, themeText, V2(rect.x + spacing.x, rect.y + spacing.y), Vector2Zero(), 0, FontSize, textSpacing,
-                GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+    const Color textColor = GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL));
+    DrawRectangleLinesEx(rect, rect.height * .05f, textColor);
+
+    DrawTextPro(font, themeText, V2(rect.x + spacing.x, rect.y + spacing.y), Vector2Zero(), 0, FontSize, textSpacing, textColor);
 }

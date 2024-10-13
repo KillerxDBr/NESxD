@@ -590,6 +590,10 @@ static inline void mainLoop(void *app_ptr)
                       pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
                       GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
+        DrawRectangleLinesEx(CLITERAL(Rectangle){ (app->screenW * .5f) - (pauseSize.x * .6f) -1, (app->screenH * .5f) - (pauseSize.y * .6f),
+                                                  pauseSize.x + (pauseSize.x * .2f) +1, pauseSize.y + (pauseSize.y * .2f) },
+                             (pauseSize.y + (pauseSize.y * .2f) +1) * .05f, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+
         // DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW *
         // .1f,
         //          GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
