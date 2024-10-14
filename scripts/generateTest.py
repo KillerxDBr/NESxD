@@ -1,9 +1,6 @@
 import json
 from sys import argv
-# from pprint import pprint
-
-# from pprint import pprint
-import ctypes as ct
+import ctypes as c
 # import struct as s
 
 """
@@ -39,35 +36,35 @@ MASK_Z = 0b00000010
 MASK_I = 0b00000100
 MASK_D = 0b00001000
 MASK_B = 0b00010000
-#UNUSD = 0b00100000
+# UNUSED 0b00100000
 MASK_V = 0b01000000
 MASK_N = 0b10000000
 
 
-class cpu_t(ct.Structure):
+class cpu_t(c.Structure):
     _fields_ = [
         # ------------------------------
-        ("PC", ct.c_uint16),
-        ("SP", ct.c_uint8),
+        ("PC", c.c_uint16),
+        ("SP", c.c_uint8),
         #
-        ("A", ct.c_uint8),
-        ("X", ct.c_uint8),
-        ("Y", ct.c_uint8),
+        ("A", c.c_uint8),
+        ("X", c.c_uint8),
+        ("Y", c.c_uint8),
         #
-        ("C", ct.c_bool),  # 0
-        ("Z", ct.c_bool),  # 1
-        ("I", ct.c_bool),  # 2
-        ("D", ct.c_bool),  # 3
-        ("B", ct.c_bool),  # 4
-        #                    5
-        ("V", ct.c_bool),  # 6
-        ("N", ct.c_bool),  # 7
+        ("C", c.c_bool),  # 0
+        ("Z", c.c_bool),  # 1
+        ("I", c.c_bool),  # 2
+        ("D", c.c_bool),  # 3
+        ("B", c.c_bool),  # 4
+        #     UNUSED        5
+        ("V", c.c_bool),  # 6
+        ("N", c.c_bool),  # 7
         #
-        ("mem", ct.c_uint8 * MEMSIZE),
+        ("mem", c.c_uint8 * MEMSIZE),
     ]
 
 
-def printStruct(struct: ct.Structure):
+def printStruct(struct: c.Structure):
     for field_name, field_type in struct._fields_:
         ctype: str = str(field_type)
         if ctype == "<class 'ctypes.c_ushort'>":
@@ -80,16 +77,16 @@ def printStruct(struct: ct.Structure):
         #     ctype = f"uint8_t[{MEMSIZE}]"
 
         value = getattr(struct, field_name)
-        if isinstance(value, ct.Array):
+        if isinstance(value, c.Array):
             value = list(value)
             for i, m in enumerate(value):
-                if(m > 0):
+                if m > 0:
                     print(f"mem[0x{i:04X}] = 0x{m:02X}")
             continue
         print(f"{ctype} {field_name}: {value}")
         if field_name in ["SP", "Y", "N"]:
             print("#")
-    print('')
+    print("")
 
 
 if len(argv) <= 1:
@@ -102,7 +99,7 @@ with open(argv[1], "rt") as f:
 inicial = cpu_t()
 final = cpu_t()
 
-print(f"sizeof(cpu_t) = {ct.sizeof(cpu_t)}")
+print(f"{c.sizeof(cpu_t) = }")
 print(f'{"=" * 30}\n')
 
 
@@ -136,16 +133,16 @@ def createCPUState(cpu: cpu_t, jsonState: dict):
 # for x in range(MEMSIZE):
 #     inicial.mem[x] = 0xEA
 #     final.mem[x] = 0xEA
-print('initial ---------------')
+print("initial ---------------")
 createCPUState(inicial, jsonFile["initial"])
 #
-print('final -----------------')
-createCPUState(final,   jsonFile["final"])
+print("final -----------------")
+createCPUState(final, jsonFile["final"])
 # printStruct(inicial)
 # print('')
 
 TESTBIN = "./test.bin"
 rst = bytes(inicial) + bytes(final)
 
-with open(TESTBIN, 'wb') as f:
+with open(TESTBIN, "wb") as f:
     f.write(rst)
