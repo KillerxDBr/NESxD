@@ -24,11 +24,13 @@
 #include "tinyfiledialogs/tinyfiledialogs.h"
 #endif /* PLATFORM_WEB */
 
+#include "6502.h"
 #include "InsFlags.h"
 #include "config.h"
 #include "gui.h"
 #include "input.h"
 #include "kxdDebug.h"
+#include "kxdMem.h"
 #include "kxdTypes.h"
 
 #ifdef KXD_DEBUG
@@ -64,10 +66,7 @@
 
 #define CHECK_ROM_HEADER(rom) assert(rom[0] == 'N' && rom[1] == 'E' && rom[2] == 'S' && rom[3] == 0x1A)
 
-void processInstruction(cpu_t *cpu);
 void memDmp(cpu_t *cpu, size_t memSize);
-void addToMem(uint8_t *mem, size_t loc, uint64_t value);
-void addMultipleToMem(uint8_t *mem, size_t loc, uint8_t *values, size_t valuesSize);
 void loadRom(nes_t *nes, const char *fileName);
 void loadRomFromMem(nes_t *nes, const char *fileName);
 void unloadRom(nes_t *nes);

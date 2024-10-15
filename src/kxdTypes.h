@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "raylib.h"
+
 #define MB(n) (n * 1048576)
 #define KB(n) (n * 1024)
 // #define MEMSIZE (KB(2))

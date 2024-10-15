@@ -11,7 +11,7 @@ void processInstruction(cpu_t *cpu) {
         LOG_INF("BRK");
 
         cpu->B = true;
-        // incrementPC(cpu);
+        incrementPC(cpu);
         break;
 
     case INS_NOP:
@@ -466,4 +466,17 @@ void debugCPU(cpu_t *cpu) {
     LOG_INF("Memory==================");
     VARLOG(cpu->mem[cpu->PC], "0x%02X");
     LOG_INF("");
+}
+
+// void addToStack(cpu_t *cpu, uint8_t value) {}
+
+bool initCPU(cpu_t *cpu) {
+
+    // set Reset Vector
+    addToMem(cpu->mem, RESET_VECTOR, 0x1234);
+
+    cpu->PC = cpu->mem[RESET_VECTOR] + (cpu->mem[RESET_VECTOR + 1] << 8);
+    cpu->SP = 0xFF;
+    debugCPU(cpu);
+    exit(0);
 }

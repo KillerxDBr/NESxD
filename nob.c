@@ -125,14 +125,14 @@
 #define RL_INCLUDE_PATHS "-I" RAYLIB_SRC_PATH, "-I" RAYLIB_SRC_PATH "/external/glfw/include"
 
 const char *files[] = {
-    "main", "6502", "config", "gui", "input",
+    "main", "6502", "config", "gui", "input", "kxdMem",
 #ifndef RELEASE
     "test",
 #endif
 };
 
 const char *filesFlags[] = {
-    "-DKXD_MAIN_FILE", "-DKXD_6502_FILE", "-DKXD_CONFIG_FILE", "-DKXD_GUI_FILE", "-DKXD_INPUT_FILE",
+    "-DKXD_MAIN_FILE", "-DKXD_6502_FILE", "-DKXD_CONFIG_FILE", "-DKXD_GUI_FILE", "-DKXD_INPUT_FILE", "-DKXD_MEM_FILE",
 #ifndef RELEASE
     "-DKXD_TEST_FILE",
 #endif
@@ -242,6 +242,7 @@ int main(int argc, char **argv) {
             } else if (strcmp(command, "web") == 0 || strcmp(command, "w") == 0) {
                 if (!nob_mkdir_if_not_exists(BUILD_WASM_DIR))
                     return 1;
+                
                 isWeb = true;
                 if (argc > 0) {
                     command = nob_shift_args(&argc, &argv);
