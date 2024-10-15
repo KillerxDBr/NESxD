@@ -1,7 +1,10 @@
 #ifndef KXD_CONFIG_H
 #define KXD_CONFIG_H
 
+#include "nob.h"
+
 #include "kxdDebug.h"
+#include "kxdMem.h"
 #include "kxdTypes.h"
 
 #include "raylib.h"
@@ -12,8 +15,6 @@
 #define RINI_IMPLEMENTATION
 #endif
 #include "rini.h"
-
-#include "nob.h"
 
 #ifndef PLATFORM_WEB
 #include "WindowsHeader/WindowsHeader.h"

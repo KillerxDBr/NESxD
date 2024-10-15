@@ -65,15 +65,4 @@
 #define NOB_ARRAY_LEN(array) (sizeof(array) / sizeof(array[0]))
 #endif /* NOB_ARRAY_LEN */
 
-static inline void *callocWrapperFunc(size_t n, size_t sz, const char *fileName, const int lineNum) {
-    void *ptr = calloc(n, sz);
-    if (ptr == NULL) {
-        fprintf(stderr, "%s:%d: ERROR: Could not allocate memory (%zu bytes), exiting...\n\n", fileName, lineNum, n * sz);
-        exit(1);
-    }
-    return ptr;
-}
-// void *callocWrapper(size_t _NumOfElements, size_t _SizeOfElements)
-#define callocWrapper(n, sz) callocWrapperFunc((n), (sz), __FILE__, __LINE__)
-
 #endif /* KXD_DEBUG_H */
