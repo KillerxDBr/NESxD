@@ -4,7 +4,7 @@
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
-#include "src/kxdDebug.h"
+#include "src/kxdMem.h"
 
 #undef NOB_GO_REBUILD_URSELF
 #define NOB_GO_REBUILD_URSELF(argc, argv)                                                                                                  \

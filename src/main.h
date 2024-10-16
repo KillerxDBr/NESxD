@@ -66,7 +66,6 @@
 
 #define CHECK_ROM_HEADER(rom) assert(rom[0] == 'N' && rom[1] == 'E' && rom[2] == 'S' && rom[3] == 0x1A)
 
-void memDmp(cpu_t *cpu, size_t memSize);
 void loadRom(nes_t *nes, const char *fileName);
 void loadRomFromMem(nes_t *nes, const char *fileName);
 void unloadRom(nes_t *nes);

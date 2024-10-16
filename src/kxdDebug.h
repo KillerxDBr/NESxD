@@ -61,8 +61,8 @@
 // clang-format on
 #endif /* KXD_DEBUG */
 
-#ifndef NOB_ARRAY_LEN
-#define NOB_ARRAY_LEN(array) (sizeof(array) / sizeof(array[0]))
-#endif /* NOB_ARRAY_LEN */
+#ifndef KXD_ARRAY_LEN
+#define KXD_ARRAY_LEN(array) (sizeof(array) / sizeof(array[0]))
+#endif /* KXD_ARRAY_LEN */
 
 #endif /* KXD_DEBUG_H */

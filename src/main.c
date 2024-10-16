@@ -359,39 +359,7 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void memDmp(cpu_t *cpu, size_t memSize) {
-    const char *logPath = "memDmp.log";
-    FILE *log = fopen(logPath, "wt");
 
-    if (log == NULL) {
-        LOG_ERR("Could not open \'%s\': %s, Dumping log to STDOUT...", logPath, strerror(errno));
-        log = stdout;
-    }
-
-    fprintf(log, "Registers\nPC: 0x%04X | SP: 0x%02X | A: 0x%02X | X: 0x%02X | Y: 0x%02X\n", cpu->PC, cpu->SP, cpu->A, cpu->X, cpu->Y);
-    fprintf(log, "Status Registers:\n");
-    fprintf(log, "    NV1B DIZC\n");
-    fprintf(log, "    %d%d%d%d %d%d%d%d\n", cpu->N, cpu->V, 1, cpu->B, cpu->D, cpu->I, cpu->Z, cpu->C);
-
-    for (size_t i = 0; i < 85; i++) {
-        fputc('_', log);
-    }
-    fprintf(log, "\n");
-
-    fprintf(log, "XXXX  ");
-    for (int i = 0; i < 16; ++i) {
-        fprintf(log, "%04X ", i);
-    }
-    fprintf(log, "\n0000: ");
-    for (size_t i = 0; i < memSize; ++i) {
-        if (i > 0 && i % 16 == 0) {
-            fprintf(log, "\n%04zX: ", i);
-        }
-        fprintf(log, "0x%02X ", cpu->mem[i]);
-    }
-    fprintf(log, "\n");
-    fclose(log);
-}
 
 void loadRom(nes_t *nes, const char *fileName) {
     Nob_String_Builder sb = { 0 };
