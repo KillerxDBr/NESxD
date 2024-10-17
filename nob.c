@@ -193,10 +193,7 @@ bool Bundler(const char *path);
 bool GetIncludedHeaders(Objects *eh, const char *header);
 bool TestFile(void);
 bool WebServer(const char *pyExec);
-void PrintUsage(const char *program);
-#ifdef _WIN32
-char *log_windows_error(DWORD *err);
-#endif
+void errorTest(void);
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -219,7 +216,7 @@ int main(int argc, char **argv) {
 #ifdef _UCRT /* ucrtbase.dll Windows */
     setlocale(LC_ALL, ".UTF-8");
 #else        /* msvcrt.dll Windows */
-    setlocale(LC_ALL, "");
+    setlocale(LC_ALL, "C");
 #endif       /* _UCRT */
 
 #endif /* _WIN32 */
@@ -1024,13 +1021,12 @@ bool Bundler(const char *path) {
     dir = opendir(path);
     if (dir == NULL) {
 #ifdef _WIN32
-        DWORD err;
-        char *errMsg = log_windows_error(&err);
+        DWORD err = GetLastError();
+        char *errMsg = nob_log_windows_error(err);
         if (errMsg == NULL) {
-            nob_log(NOB_ERROR, "Could not open directory '%s'", path);
+            nob_log(NOB_ERROR, "Could not open directory '%s': (0x%08X)", path, err);
         } else {
             nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%08X)", path, errMsg, err);
-            free(errMsg);
         }
 
         // #if KXD_WIN_ERR_MSG_ALLOC
@@ -1587,26 +1583,14 @@ defer:
     return result;
 }
 
-#ifdef _WIN32
-char *log_windows_error(DWORD *err) {
-    char *errMsg = malloc(256);
-    if (errMsg == NULL)
-        return NULL;
-
-    *err = GetLastError();
-
-    DWORD errMsgSize
-        = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, *err, LANG_USER_DEFAULT, errMsg, 256, NULL);
-
-    if (errMsgSize <= 3) {
-        free(errMsg);
-        return NULL;
+#if 0
+void errorTest(void) {
+    char *errMsg;
+    for (DWORD i = 0; i < 500; ++i) {
+        errMsg = nob_log_windows_error(i);
+        if (errMsg == NULL)
+            continue;
+        nob_log(NOB_INFO, "Error %lu: \"%s\" (0x%X)", i, errMsg, i);
     }
-
-    // removing line breaks
-    //              \r\n\0
-    errMsg[errMsgSize - 2] = '\0';
-
-    return errMsg;
 }
-#endif // _WIN32
+#endif // 0

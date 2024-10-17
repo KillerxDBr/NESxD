@@ -441,24 +441,22 @@ static size_t nob_temp_size = 0;
 static char nob_temp[NOB_TEMP_CAPACITY] = {0};
 
 #ifdef _WIN32
+
+#define NOB_WIN32_ERR_MSG_SIZE (4 * 1024)
+static char win32ErrMsg[NOB_WIN32_ERR_MSG_SIZE] = { 0 };
+
 char *nob_log_windows_error(DWORD err) {
-    char *errMsg = malloc(256);
-    if (errMsg == NULL)
-        return NULL;
+    DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, win32ErrMsg,
+                                      NOB_WIN32_ERR_MSG_SIZE, NULL);
 
-    DWORD errMsgSize
-        = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, errMsg, 256, NULL);
-
-    if (errMsgSize <= 3) {
-        free(errMsg);
+    if (errMsgSize <= 3)
         return NULL;
-    }
 
     // removing line breaks
     //              \r\n\0
-    errMsg[errMsgSize - 2] = '\0';
+    win32ErrMsg[errMsgSize - 2] = '\0';
 
-    return errMsg;
+    return (char *)&win32ErrMsg;
 }
 #endif // _WIN32
 
@@ -487,7 +485,7 @@ bool nob_copy_file(const char *src_path, const char *dst_path)
     nob_log(NOB_INFO, "copying %s -> %s", src_path, dst_path);
 #ifdef _WIN32
     if (!CopyFile(src_path, dst_path, FALSE)) {
-        nob_log(NOB_ERROR, "Could not copy file: %lu", GetLastError());
+        nob_log(NOB_ERROR, "Could not copy file: %s", nob_log_windows_error(GetLastError()));
         return false;
     }
     return true;
@@ -599,7 +597,7 @@ Nob_Proc nob_cmd_run_async(Nob_Cmd cmd)
     nob_sb_free(sb);
 
     if (!bSuccess) {
-        nob_log(NOB_ERROR, "Could not create child process: %lu", GetLastError());
+        nob_log(NOB_ERROR, "Could not create child process: %s", nob_log_windows_error(GetLastError()));
         return NOB_INVALID_PROC;
     }
 
@@ -651,13 +649,13 @@ bool nob_proc_wait(Nob_Proc proc)
                    );
 
     if (result == WAIT_FAILED) {
-        nob_log(NOB_ERROR, "could not wait on child process: %lu", GetLastError());
+        nob_log(NOB_ERROR, "could not wait on child process: %s", nob_log_windows_error(GetLastError()));
         return false;
     }
 
     DWORD exit_status;
     if (!GetExitCodeProcess(proc, &exit_status)) {
-        nob_log(NOB_ERROR, "could not get process exit code: %lu", GetLastError());
+        nob_log(NOB_ERROR, "could not get process exit code: %s", nob_log_windows_error(GetLastError()));
         return false;
     }
 
@@ -743,7 +741,11 @@ bool nob_read_entire_dir(const char *parent, Nob_File_Paths *children)
 
     dir = opendir(parent);
     if (dir == NULL) {
+        #ifdef _WIN32
+        nob_log(NOB_ERROR, "Could not open directory %s: %s", parent, nob_log_windows_error(GetLastError()));
+        #else
         nob_log(NOB_ERROR, "Could not open directory %s: %s", parent, strerror(errno));
+        #endif // _WIN32
         nob_return_defer(false);
     }
 
@@ -755,7 +757,11 @@ bool nob_read_entire_dir(const char *parent, Nob_File_Paths *children)
     }
 
     if (errno != 0) {
-        nob_log(NOB_ERROR, "Could not read directory %s: %s", parent, strerror(errno));
+        #ifdef _WIN32
+        nob_log(NOB_ERROR, "Could not open directory %s: %s", parent, nob_log_windows_error(GetLastError()));
+        #else
+        nob_log(NOB_ERROR, "Could not open directory %s: %s", parent, strerror(errno));
+        #endif // _WIN32
         nob_return_defer(false);
     }
 
@@ -801,7 +807,7 @@ Nob_File_Type nob_get_file_type(const char *path)
 #ifdef _WIN32
     DWORD attr = GetFileAttributesA(path);
     if (attr == INVALID_FILE_ATTRIBUTES) {
-        nob_log(NOB_ERROR, "Could not get file attributes of %s: %lu", path, GetLastError());
+        nob_log(NOB_ERROR, "Could not get file attributes of %s: %s", path, nob_log_windows_error(GetLastError()));
         return -1;
     }
 
@@ -1039,7 +1045,7 @@ bool nob_rename(const char *old_path, const char *new_path)
     nob_log(NOB_INFO, "renaming %s -> %s", old_path, new_path);
 #ifdef _WIN32
     if (!MoveFileEx(old_path, new_path, MOVEFILE_REPLACE_EXISTING)) {
-        nob_log(NOB_ERROR, "could not rename %s to %s: %lu", old_path, new_path, GetLastError());
+        nob_log(NOB_ERROR, "could not rename %s to %s: %s", old_path, new_path, nob_log_windows_error(GetLastError()));
         return false;
     }
 #else
