@@ -194,6 +194,9 @@ bool GetIncludedHeaders(Objects *eh, const char *header);
 bool TestFile(void);
 bool WebServer(const char *pyExec);
 void PrintUsage(const char *program);
+#ifdef _WIN32
+char *log_windows_error(DWORD *err);
+#endif
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -1021,50 +1024,85 @@ bool Bundler(const char *path) {
     dir = opendir(path);
     if (dir == NULL) {
 #ifdef _WIN32
-        DWORD err = GetLastError();
-        LPTSTR errorText = NULL;
-
-        FormatMessageA(
-            // use system message tables to retrieve error text
-            FORMAT_MESSAGE_FROM_SYSTEM
-                // allocate buffer on local heap for error text
-                | FORMAT_MESSAGE_ALLOCATE_BUFFER
-                // Important! will fail otherwise, since we're not
-                // (and CANNOT) pass insertion parameters
-                | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, // unused with FORMAT_MESSAGE_FROM_SYSTEM
-            err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-            (LPTSTR)&errorText, // output
-            0,                  // minimum size for output buffer
-            NULL);              // arguments - see note
-
-        if (errorText != NULL) {
-            size_t errStringLen = strlen(errorText);
-
-            if (errStringLen <= 3)
-                goto noMSG;
-
-            //              \r\n\0
-            errorText[errStringLen - 2] = '\0';
-
-            nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, errorText, err);
-
-            // release memory allocated by FormatMessage()
-            LocalFree(errorText);
-            errorText = NULL;
+        DWORD err;
+        char *errMsg = log_windows_error(&err);
+        if (errMsg == NULL) {
+            nob_log(NOB_ERROR, "Could not open directory '%s'", path);
+        } else {
+            nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%08X)", path, errMsg, err);
+            free(errMsg);
         }
+
+        // #if KXD_WIN_ERR_MSG_ALLOC
+        //         DWORD err = GetLastError();
+        //         LPTSTR errorText = NULL;
+
+        //         DWORD errStringLen = FormatMessageA(
+        //             // use system message tables to retrieve error text
+        //             FORMAT_MESSAGE_FROM_SYSTEM
+        //                 // allocate buffer on local heap for error text
+        //                 | FORMAT_MESSAGE_ALLOCATE_BUFFER
+        //                 // Important! will fail otherwise, since we're not
+        //                 // (and CANNOT) pass insertion parameters
+        //                 | FORMAT_MESSAGE_IGNORE_INSERTS,
+        //             NULL, // unused with FORMAT_MESSAGE_FROM_SYSTEM
+        //             err, LANG_USER_DEFAULT,
+        //             (LPTSTR)&errorText, // output
+        //             0,                  // minimum size for output buffer
+        //             NULL);              // arguments - see note
+
+        //         if (errorText != NULL) {
+
+        //             if (errStringLen <= 3)
+        //                 goto noMSG;
+
+        //             //              \r\n\0
+        //             errorText[errStringLen - 2] = '\0';
+
+        //             nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, errorText, err);
+
+        //             // release memory allocated by FormatMessage()
+        //         noMSG:
+        //             if (errorText) {
+        //                 LocalFree(errorText);
+        //                 errorText = NULL;
+        //             }
+        //         }
+        // #else  // KXD_WIN_ERR_MSG_ALLOC
+        //         DWORD err = GetLastError();
+        //         char errorText[512] = { 0 };
+
+        //         DWORD errStringLen = FormatMessageA(
+        //             // use system message tables to retrieve error text
+        //             FORMAT_MESSAGE_FROM_SYSTEM
+        //                 // Important! will fail otherwise, since we're not
+        //                 // (and CANNOT) pass insertion parameters
+        //                 | FORMAT_MESSAGE_IGNORE_INSERTS,
+        //             NULL, // unused with FORMAT_MESSAGE_FROM_SYSTEM
+        //             err, LANG_USER_DEFAULT,
+        //             errorText, // output
+        //             512,       // minimum size for output buffer
+        //             NULL       // arguments - see note
+        //         );
+
+        //         if (errorText != NULL) {
+
+        //             // nob_log(NOB_INFO, "String Size: %d",errStringLen);
+        //             if (errStringLen <= 3)
+        //                 return false;
+
+        //             //              \r\n\0
+        //             errorText[errStringLen - 2] = '\0';
+
+        //             nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, errorText, err);
+        //         }
+        // #endif // KXD_WIN_ERR_MSG_ALLOC
+
 #else
         nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, strerror(errno), errno);
-#endif
-        return false;
-#ifdef _WIN32
-    noMSG:
-        if (errorText) {
-            LocalFree(errorText);
-            errorText = NULL;
-        }
-#endif
-        nob_log(NOB_ERROR, "Could not open directory '%s'", path);
+#endif // _WIN32
+
+        // nob_log(NOB_ERROR, "Could not open directory '%s'", path);
         return false;
     }
     closedir(dir);
@@ -1548,3 +1586,27 @@ defer:
 
     return result;
 }
+
+#ifdef _WIN32
+char *log_windows_error(DWORD *err) {
+    char *errMsg = malloc(256);
+    if (errMsg == NULL)
+        return NULL;
+
+    *err = GetLastError();
+
+    DWORD errMsgSize
+        = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, *err, LANG_USER_DEFAULT, errMsg, 256, NULL);
+
+    if (errMsgSize <= 3) {
+        free(errMsg);
+        return NULL;
+    }
+
+    // removing line breaks
+    //              \r\n\0
+    errMsg[errMsgSize - 2] = '\0';
+
+    return errMsg;
+}
+#endif // _WIN32

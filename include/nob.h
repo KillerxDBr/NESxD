@@ -440,6 +440,28 @@ static int closedir(DIR *dirp);
 static size_t nob_temp_size = 0;
 static char nob_temp[NOB_TEMP_CAPACITY] = {0};
 
+#ifdef _WIN32
+char *nob_log_windows_error(DWORD err) {
+    char *errMsg = malloc(256);
+    if (errMsg == NULL)
+        return NULL;
+
+    DWORD errMsgSize
+        = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, errMsg, 256, NULL);
+
+    if (errMsgSize <= 3) {
+        free(errMsg);
+        return NULL;
+    }
+
+    // removing line breaks
+    //              \r\n\0
+    errMsg[errMsgSize - 2] = '\0';
+
+    return errMsg;
+}
+#endif // _WIN32
+
 bool nob_mkdir_if_not_exists(const char *path)
 {
 #ifdef _WIN32
@@ -930,19 +952,26 @@ int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t 
 {
 #ifdef _WIN32
     BOOL bSuccess;
-
+    DWORD err;
+    char *errMsg;
     HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
     if (output_path_fd == INVALID_HANDLE_VALUE) {
         // NOTE: if output does not exist it 100% must be rebuilt
-        if (GetLastError() == ERROR_FILE_NOT_FOUND) return 1;
-        nob_log(NOB_ERROR, "Could not open file %s: %lu", output_path, GetLastError());
+        err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND) return 1;
+        errMsg = nob_log_windows_error(err);
+        nob_log(NOB_ERROR, "Could not open file %s: %s (0x%08X)", output_path, errMsg, err);
+        free(errMsg);
         return -1;
     }
     FILETIME output_path_time;
     bSuccess = GetFileTime(output_path_fd, NULL, NULL, &output_path_time);
     CloseHandle(output_path_fd);
     if (!bSuccess) {
-        nob_log(NOB_ERROR, "Could not get time of %s: %lu", output_path, GetLastError());
+        err = GetLastError();
+        errMsg = nob_log_windows_error(err);
+        nob_log(NOB_ERROR, "Could not get time of %s: %s (0x%08X)", output_path, errMsg, err);
+        free(errMsg);
         return -1;
     }
 
@@ -950,15 +979,21 @@ int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t 
         const char *input_path = input_paths[i];
         HANDLE input_path_fd = CreateFile(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
         if (input_path_fd == INVALID_HANDLE_VALUE) {
+            err = GetLastError();
+            errMsg = nob_log_windows_error(err);
             // NOTE: non-existing input is an error cause it is needed for building in the first place
-            nob_log(NOB_ERROR, "Could not open file %s: %lu", input_path, GetLastError());
+            nob_log(NOB_ERROR, "Could not open file %s: %s (0x%08X)", input_path, errMsg, err);
+            free(errMsg);
             return -1;
         }
         FILETIME input_path_time;
         bSuccess = GetFileTime(input_path_fd, NULL, NULL, &input_path_time);
         CloseHandle(input_path_fd);
         if (!bSuccess) {
-            nob_log(NOB_ERROR, "Could not get time of %s: %lu", input_path, GetLastError());
+            err = GetLastError();
+            errMsg = nob_log_windows_error(err);
+            nob_log(NOB_ERROR, "Could not get time of %s: %s (0x%08X)", input_path, errMsg, err);
+            free(errMsg);
             return -1;
         }
 
