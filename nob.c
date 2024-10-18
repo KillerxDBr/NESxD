@@ -369,7 +369,7 @@ int main(int argc, char **argv) {
         nob_return_defer(1);
     }
 
-    assert(0 && "UNREACHABLE!!!");
+    NOB_UNREACHABLE("Main");
 
 defer:
     if (obj.items)
