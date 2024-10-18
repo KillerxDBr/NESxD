@@ -117,11 +117,6 @@ typedef enum {
     NOB_NO_LOGS,
 } Nob_Log_Level;
 
-#ifdef NOB_IMPLEMENTATION
-// Any messages with the level below nob_minimal_log_level are going to be suppressed.
-Nob_Log_Level nob_minimal_log_level = NOB_INFO;
-#endif /* NOB_IMPLEMENTATION */
-
 void nob_log(Nob_Log_Level level, const char *fmt, ...);
 
 // It is an equivalent of shift command from bash. It basically pops an element from
@@ -436,6 +431,9 @@ static int closedir(DIR *dirp);
 #endif // NOB_H_
 
 #ifdef NOB_IMPLEMENTATION
+
+// Any messages with the level below nob_minimal_log_level are going to be suppressed.
+Nob_Log_Level nob_minimal_log_level = NOB_INFO;
 
 static size_t nob_temp_size = 0;
 static char nob_temp[NOB_TEMP_CAPACITY] = {0};
