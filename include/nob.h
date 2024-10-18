@@ -442,13 +442,13 @@ Nob_Log_Level nob_minimal_log_level = NOB_INFO;
 #ifdef _WIN32
 
 #define NOB_WIN32_ERR_MSG_SIZE (4 * 1024)
-static char win32ErrMsg[NOB_WIN32_ERR_MSG_SIZE] = { 0 };
+static char win32ErrMsg[NOB_WIN32_ERR_MSG_SIZE] = {0};
 
 char *nob_log_windows_error(DWORD err) {
     DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                                       NULL, err, LANG_USER_DEFAULT, win32ErrMsg, NOB_WIN32_ERR_MSG_SIZE, NULL);
 
-    // should probably check if last 2 chars are actualy CRLF
+    // TODO: check if last 2 chars are actualy CRLF
     // removing line breaks
     //              \r\n\0
     if (errMsgSize > 2)
@@ -759,9 +759,9 @@ bool nob_read_entire_dir(const char *parent, Nob_File_Paths *children)
 
     if (errno != 0) {
         #ifdef _WIN32
-        nob_log(NOB_ERROR, "Could not open directory %s: %s", parent, nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "Could not read directory %s: %s", parent, nob_log_windows_error(GetLastError()));
         #else
-        nob_log(NOB_ERROR, "Could not open directory %s: %s", parent, strerror(errno));
+        nob_log(NOB_ERROR, "Could not read directory %s: %s", parent, strerror(errno));
         #endif // _WIN32
         nob_return_defer(false);
     }
@@ -959,6 +959,7 @@ int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t 
 {
 #ifdef _WIN32
     BOOL bSuccess;
+
     HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
     if (output_path_fd == INVALID_HANDLE_VALUE) {
         // NOTE: if output does not exist it 100% must be rebuilt
