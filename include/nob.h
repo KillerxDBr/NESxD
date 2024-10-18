@@ -441,18 +441,34 @@ Nob_Log_Level nob_minimal_log_level = NOB_INFO;
 
 #ifdef _WIN32
 
+// im basing this in a github code snippet from .net sent in some Stack Overflow thread,
+// that allocate a buffer of 4096 wchars to use with FormatMessageW
+// TODO: find the thread link
 #define NOB_WIN32_ERR_MSG_SIZE (4 * 1024)
-static char win32ErrMsg[NOB_WIN32_ERR_MSG_SIZE] = {0};
+static char win32ErrMsg[NOB_WIN32_ERR_MSG_SIZE] = { 0 };
 
 char *nob_log_windows_error(DWORD err) {
-    DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                                      NULL, err, LANG_USER_DEFAULT, win32ErrMsg, NOB_WIN32_ERR_MSG_SIZE, NULL);
+    DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, win32ErrMsg,
+                                      NOB_WIN32_ERR_MSG_SIZE, NULL);
+
+    if (errMsgSize == 0) {
+        if (GetLastError() != ERROR_MR_MID_NOT_FOUND)
+            NOB_TODO("FormatMessageA Failed...");
+        else
+            return nob_temp_sprintf("%lu (0x%X) is not a valid Windows Error code", err, err);
+    }
+
+    DWORD bkpSize = errMsgSize;
 
     // TODO: check if last 2 chars are actualy CRLF
     // removing line breaks
     //              \r\n\0
-    if (errMsgSize > 2)
-        win32ErrMsg[errMsgSize - 2] = '\0';
+    while (win32ErrMsg[errMsgSize - 1] < ' ')
+        win32ErrMsg[--errMsgSize] = '\0';
+    // if (errMsgSize > 2)
+    //     win32ErrMsg[errMsgSize - 2] = '\0';
+
+    // nob_log(NOB_INFO, "Error: %lu -> Original size: %lu, New size: %lu (%d)", err, bkpSize, errMsgSize, errMsgSize - bkpSize);
 
     return (char *)&win32ErrMsg;
 }

@@ -13,7 +13,7 @@
 // #define RELEASE
 // #define USE_SDL
 #define STATIC
-#define ROM_PATH "rom"
+#define ROM_PATH "rom/"
 #define MEM_BIN_PATH "mem.bin"
 
 #if defined(_WIN32)
@@ -201,11 +201,12 @@ bool staticCompile = true;
 bool staticCompile = false;
 #endif
 
-void PrintUsage(const char *program) {
+void PrintUsage(void) {
     nob_log(NOB_ERROR, "Incorrect use of program");
-    fprintf(stderr, "    Usage: %s <[b]uild [[w]eb] [[c]lean/cls], [w]eb [python executable], bundler [dir], [c]lean/cls>",
-            strrchr(program, '\\') + 1);
+    nob_log(NOB_ERROR, "Usage: ./nob <[b]uild [[w]eb] [[c]lean/cls], [w]eb [python executable], bundler [dir], [c]lean/cls>");
 }
+
+// #define TEST_ERRORS
 
 int main(int argc, char **argv) {
 
@@ -229,6 +230,11 @@ int main(int argc, char **argv) {
     const char *program = nob_shift_args(&argc, &argv);
     // NOB_UNUSED(program);
     // nob_shift_args(&argc, &argv);
+
+#ifdef TEST_ERRORS
+    errorTest();
+    exit(0);
+#endif
 
     nob_log(NOB_INFO, "Using Compiler: \"%s\"", CC);
     nob_log(NOB_INFO, "Using WASM Compiler: \"%s\"", EMCC);
@@ -264,7 +270,8 @@ int main(int argc, char **argv) {
                     command = nob_shift_args(&argc, &argv);
                     if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
                         nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
-                        CleanupFiles();
+                        if (!CleanupFiles())
+                            nob_return_defer(1);
                     }
                 }
             }
@@ -340,13 +347,11 @@ int main(int argc, char **argv) {
         else
             bundlerPath = NULL;
 
-        if (!Bundler(bundlerPath))
-            nob_return_defer(1);
+        nob_return_defer(!Bundler(bundlerPath));
 
     } else if ((strcmp(command, "test") == 0) || (strcmp(command, "t") == 0)) {
         nob_log(NOB_INFO, "--- Building Test File ---");
-        if (!TestFile())
-            nob_return_defer(1);
+        nob_return_defer(!TestFile());
 
     } else if ((strcmp(command, "web") == 0) || (strcmp(command, "w") == 0)) {
         nob_log(NOB_INFO, "--- Starting WebServer ---");
@@ -356,15 +361,13 @@ int main(int argc, char **argv) {
         else
             command = PY_EXEC;
 
-        if (!WebServer(command))
-            nob_return_defer(1);
+        nob_return_defer(!WebServer(command));
     } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
         nob_log(NOB_INFO, "--- Cleaning Files ---");
-        CleanupFiles();
-        nob_return_defer(0);
+        nob_return_defer(!CleanupFiles());
 
     } else {
-        PrintUsage(program);
+        PrintUsage();
         // nob_log(NOB_INFO, "Unknown command \"%s\", expects: <[b]uild [[w]eb] [[c]lean/cls],  bundler [dir], [c]lean/cls>", command);
         nob_return_defer(1);
     }
@@ -1022,78 +1025,7 @@ bool Bundler(const char *path) {
     if (dir == NULL) {
 #ifdef _WIN32
         DWORD err = GetLastError();
-        char *errMsg = nob_log_windows_error(err);
-        if (errMsg == NULL) {
-            nob_log(NOB_ERROR, "Could not open directory '%s': (0x%08X)", path, err);
-        } else {
-            nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%08X)", path, errMsg, err);
-        }
-
-        // #if KXD_WIN_ERR_MSG_ALLOC
-        //         DWORD err = GetLastError();
-        //         LPTSTR errorText = NULL;
-
-        //         DWORD errStringLen = FormatMessageA(
-        //             // use system message tables to retrieve error text
-        //             FORMAT_MESSAGE_FROM_SYSTEM
-        //                 // allocate buffer on local heap for error text
-        //                 | FORMAT_MESSAGE_ALLOCATE_BUFFER
-        //                 // Important! will fail otherwise, since we're not
-        //                 // (and CANNOT) pass insertion parameters
-        //                 | FORMAT_MESSAGE_IGNORE_INSERTS,
-        //             NULL, // unused with FORMAT_MESSAGE_FROM_SYSTEM
-        //             err, LANG_USER_DEFAULT,
-        //             (LPTSTR)&errorText, // output
-        //             0,                  // minimum size for output buffer
-        //             NULL);              // arguments - see note
-
-        //         if (errorText != NULL) {
-
-        //             if (errStringLen <= 3)
-        //                 goto noMSG;
-
-        //             //              \r\n\0
-        //             errorText[errStringLen - 2] = '\0';
-
-        //             nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, errorText, err);
-
-        //             // release memory allocated by FormatMessage()
-        //         noMSG:
-        //             if (errorText) {
-        //                 LocalFree(errorText);
-        //                 errorText = NULL;
-        //             }
-        //         }
-        // #else  // KXD_WIN_ERR_MSG_ALLOC
-        //         DWORD err = GetLastError();
-        //         char errorText[512] = { 0 };
-
-        //         DWORD errStringLen = FormatMessageA(
-        //             // use system message tables to retrieve error text
-        //             FORMAT_MESSAGE_FROM_SYSTEM
-        //                 // Important! will fail otherwise, since we're not
-        //                 // (and CANNOT) pass insertion parameters
-        //                 | FORMAT_MESSAGE_IGNORE_INSERTS,
-        //             NULL, // unused with FORMAT_MESSAGE_FROM_SYSTEM
-        //             err, LANG_USER_DEFAULT,
-        //             errorText, // output
-        //             512,       // minimum size for output buffer
-        //             NULL       // arguments - see note
-        //         );
-
-        //         if (errorText != NULL) {
-
-        //             // nob_log(NOB_INFO, "String Size: %d",errStringLen);
-        //             if (errStringLen <= 3)
-        //                 return false;
-
-        //             //              \r\n\0
-        //             errorText[errStringLen - 2] = '\0';
-
-        //             nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, errorText, err);
-        //         }
-        // #endif // KXD_WIN_ERR_MSG_ALLOC
-
+        nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path, nob_log_windows_error(err), err);
 #else
         nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, strerror(errno), errno);
 #endif // _WIN32
@@ -1583,14 +1515,15 @@ defer:
     return result;
 }
 
-#if 0
+#ifdef TEST_ERRORS
 void errorTest(void) {
     char *errMsg;
-    for (DWORD i = 0; i < 500; ++i) {
+    for (DWORD i = 0; i < 16000; ++i) {
+        nob_log(NOB_INFO, "---------------------------------------------");
         errMsg = nob_log_windows_error(i);
         if (errMsg == NULL)
             continue;
         nob_log(NOB_INFO, "Error %lu: \"%s\" (0x%X)", i, errMsg, i);
     }
 }
-#endif // 0
+#endif // TEST_ERRORS
