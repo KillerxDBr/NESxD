@@ -426,6 +426,9 @@ typedef struct DIR DIR;
 static DIR *opendir(const char *dirpath);
 static struct dirent *readdir(DIR *dirp);
 static int closedir(DIR *dirp);
+
+char *nob_log_windows_error(DWORD err);
+
 #endif // _WIN32
 // minirent.h HEADER END ////////////////////////////////////////
 
@@ -436,28 +439,27 @@ static int closedir(DIR *dirp);
 // Any messages with the level below nob_minimal_log_level are going to be suppressed.
 Nob_Log_Level nob_minimal_log_level = NOB_INFO;
 
-static size_t nob_temp_size = 0;
-static char nob_temp[NOB_TEMP_CAPACITY] = {0};
-
 #ifdef _WIN32
 
 #define NOB_WIN32_ERR_MSG_SIZE (4 * 1024)
 static char win32ErrMsg[NOB_WIN32_ERR_MSG_SIZE] = { 0 };
 
 char *nob_log_windows_error(DWORD err) {
-    DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, win32ErrMsg,
-                                      NOB_WIN32_ERR_MSG_SIZE, NULL);
+    DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                      NULL, err, LANG_USER_DEFAULT, win32ErrMsg, NOB_WIN32_ERR_MSG_SIZE, NULL);
 
-    if (errMsgSize <= 3)
-        return NULL;
-
+    // should probably check if last 2 chars are actualy CRLF
     // removing line breaks
     //              \r\n\0
-    win32ErrMsg[errMsgSize - 2] = '\0';
+    if (errMsgSize > 2)
+        win32ErrMsg[errMsgSize - 2] = '\0';
 
     return (char *)&win32ErrMsg;
 }
 #endif // _WIN32
+
+static size_t nob_temp_size = 0;
+static char nob_temp[NOB_TEMP_CAPACITY] = {0};
 
 bool nob_mkdir_if_not_exists(const char *path)
 {
@@ -957,26 +959,18 @@ int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t 
 {
 #ifdef _WIN32
     BOOL bSuccess;
-    DWORD err;
-    char *errMsg;
     HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
     if (output_path_fd == INVALID_HANDLE_VALUE) {
         // NOTE: if output does not exist it 100% must be rebuilt
-        err = GetLastError();
-        if (err == ERROR_FILE_NOT_FOUND) return 1;
-        errMsg = nob_log_windows_error(err);
-        nob_log(NOB_ERROR, "Could not open file %s: %s (0x%08X)", output_path, errMsg, err);
-        free(errMsg);
+        if (GetLastError() == ERROR_FILE_NOT_FOUND) return 1;
+        nob_log(NOB_ERROR, "Could not open file %s: %s", output_path, nob_log_windows_error(GetLastError()));
         return -1;
     }
     FILETIME output_path_time;
     bSuccess = GetFileTime(output_path_fd, NULL, NULL, &output_path_time);
     CloseHandle(output_path_fd);
     if (!bSuccess) {
-        err = GetLastError();
-        errMsg = nob_log_windows_error(err);
-        nob_log(NOB_ERROR, "Could not get time of %s: %s (0x%08X)", output_path, errMsg, err);
-        free(errMsg);
+        nob_log(NOB_ERROR, "Could not get time of %s: %s", output_path, nob_log_windows_error(GetLastError()));
         return -1;
     }
 
@@ -984,21 +978,15 @@ int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t 
         const char *input_path = input_paths[i];
         HANDLE input_path_fd = CreateFile(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
         if (input_path_fd == INVALID_HANDLE_VALUE) {
-            err = GetLastError();
-            errMsg = nob_log_windows_error(err);
             // NOTE: non-existing input is an error cause it is needed for building in the first place
-            nob_log(NOB_ERROR, "Could not open file %s: %s (0x%08X)", input_path, errMsg, err);
-            free(errMsg);
+            nob_log(NOB_ERROR, "Could not open file %s: %s", input_path, nob_log_windows_error(GetLastError()));
             return -1;
         }
         FILETIME input_path_time;
         bSuccess = GetFileTime(input_path_fd, NULL, NULL, &input_path_time);
         CloseHandle(input_path_fd);
         if (!bSuccess) {
-            err = GetLastError();
-            errMsg = nob_log_windows_error(err);
-            nob_log(NOB_ERROR, "Could not get time of %s: %s (0x%08X)", input_path, errMsg, err);
-            free(errMsg);
+            nob_log(NOB_ERROR, "Could not get time of %s: %s", input_path, nob_log_windows_error(GetLastError()));
             return -1;
         }
 
