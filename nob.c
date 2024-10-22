@@ -870,7 +870,8 @@ bool CompileNobHeader(bool isWeb) {
         if (nob_needs_rebuild1(wasmOutput, NOB_H_DIR) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", wasmOutput);
             EMS(&cmd);
-            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", WFLAGS);
+            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", "-Os", "-Wall", "-Wextra", "-sFORCE_FILESYSTEM=1",
+                           "-sALLOW_MEMORY_GROWTH=1", "-sGL_ENABLE_GET_PROC_ADDRESS=1", "-sASSERTIONS=1");
             nob_cmd_append(&cmd, "-o", wasmOutput, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
         } else {
             nob_log(NOB_INFO, skippingMsg, wasmOutput);
@@ -1025,7 +1026,7 @@ bool Bundler(const char *path) {
     if (dir == NULL) {
 #ifdef _WIN32
         DWORD err = GetLastError();
-        nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path, nob_log_windows_error(err), err);
+        nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path, nob_log_win32_error(err), err);
 #else
         nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, strerror(errno), errno);
 #endif // _WIN32
@@ -1520,7 +1521,7 @@ void errorTest(void) {
     char *errMsg;
     for (DWORD i = 0; i < 16000; ++i) {
         nob_log(NOB_INFO, "---------------------------------------------");
-        errMsg = nob_log_windows_error(i);
+        errMsg = nob_log_win32_error(i);
         if (errMsg == NULL)
             continue;
         nob_log(NOB_INFO, "Error %lu: \"%s\" (0x%X)", i, errMsg, i);

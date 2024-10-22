@@ -1,4 +1,4 @@
-/* nob - v1.3.0 - Public Domain - https://github.com/tsoding/nob
+/* nob - v1.4.0 - Public Domain - https://github.com/tsoding/nob
 
    This library is the next generation of the [NoBuild](https://github.com/tsoding/nobuild) idea.
 
@@ -117,6 +117,9 @@ typedef enum {
     NOB_ERROR,
     NOB_NO_LOGS,
 } Nob_Log_Level;
+
+// Any messages with the level below nob_minimal_log_level are going to be suppressed.
+extern Nob_Log_Level nob_minimal_log_level;
 
 void nob_log(Nob_Log_Level level, const char *fmt, ...);
 
@@ -296,12 +299,12 @@ int nob_file_exists(const char *file_path);
 //
 //   How to use it:
 //     int main(int argc, char** argv) {
-//         GO_REBUILD_URSELF(argc, argv);
+//         NOB_GO_REBUILD_URSELF(argc, argv);
 //         // actual work
 //         return 0;
 //     }
 //
-//   After your added this macro every time you run ./nobuild it will detect
+//   After your added this macro every time you run ./nob it will detect
 //   that you modified its original source code and will try to rebuild itself
 //   before doing any actual work. So you only need to bootstrap your build system
 //   once.
@@ -309,42 +312,13 @@ int nob_file_exists(const char *file_path);
 //   The modification is detected by comparing the last modified times of the executable
 //   and its source code. The same way the make utility usually does it.
 //
-//   The rebuilding is done by using the REBUILD_URSELF macro which you can redefine
+//   The rebuilding is done by using the NOB_REBUILD_URSELF macro which you can redefine
 //   if you need a special way of bootstraping your build system. (which I personally
-//   do not recommend since the whole idea of nobuild is to keep the process of bootstrapping
-//   as simple as possible and doing all of the actual work inside of the nobuild)
+//   do not recommend since the whole idea of NoBuild is to keep the process of bootstrapping
+//   as simple as possible and doing all of the actual work inside of ./nob)
 //
-#define NOB_GO_REBUILD_URSELF(argc, argv)                                                    \
-    do {                                                                                     \
-        const char *source_path = __FILE__;                                                  \
-        assert(argc >= 1);                                                                   \
-        const char *binary_path = argv[0];                                                   \
-                                                                                             \
-        int rebuild_is_needed = nob_needs_rebuild(binary_path, &source_path, 1);             \
-        if (rebuild_is_needed < 0) exit(1);                                                  \
-        if (rebuild_is_needed) {                                                             \
-            Nob_String_Builder sb = {0};                                                     \
-            nob_sb_append_cstr(&sb, binary_path);                                            \
-            nob_sb_append_cstr(&sb, ".old");                                                 \
-            nob_sb_append_null(&sb);                                                         \
-                                                                                             \
-            if (!nob_rename(binary_path, sb.items)) exit(1);                                 \
-            Nob_Cmd rebuild = {0};                                                           \
-            nob_cmd_append(&rebuild, NOB_REBUILD_URSELF(binary_path, source_path));          \
-            bool rebuild_succeeded = nob_cmd_run_sync(rebuild);                              \
-            nob_cmd_free(rebuild);                                                           \
-            if (!rebuild_succeeded) {                                                        \
-                nob_rename(sb.items, binary_path);                                           \
-                exit(1);                                                                     \
-            }                                                                                \
-                                                                                             \
-            Nob_Cmd cmd = {0};                                                               \
-            nob_da_append_many(&cmd, argv, argc);                                            \
-            if (!nob_cmd_run_sync(cmd)) exit(1);                                             \
-            exit(0);                                                                         \
-        }                                                                                    \
-    } while(0)
-// The implementation idea is stolen from https://github.com/zhiayang/nabs
+void nob__go_rebuild_urself(const char *source_path, int argc, char **argv);
+#define NOB_GO_REBUILD_URSELF(argc, argv) nob__go_rebuild_urself(__FILE__, argc, argv)
 
 typedef struct {
     size_t count;
@@ -358,6 +332,7 @@ Nob_String_View nob_sv_trim(Nob_String_View sv);
 Nob_String_View nob_sv_trim_left(Nob_String_View sv);
 Nob_String_View nob_sv_trim_right(Nob_String_View sv);
 bool nob_sv_eq(Nob_String_View a, Nob_String_View b);
+bool nob_sv_end_with(Nob_String_View sv, const char *cstr);
 Nob_String_View nob_sv_from_cstr(const char *cstr);
 Nob_String_View nob_sv_from_parts(const char *data, size_t count);
 
@@ -427,10 +402,14 @@ static DIR *opendir(const char *dirpath);
 static struct dirent *readdir(DIR *dirp);
 static int closedir(DIR *dirp);
 
-char *nob_log_windows_error(DWORD err);
-
 #endif // _WIN32
 // minirent.h HEADER END ////////////////////////////////////////
+
+#ifdef _WIN32
+
+char *nob_log_win32_error(DWORD err);
+
+#endif // _WIN32
 
 #endif // NOB_H_
 
@@ -443,36 +422,75 @@ Nob_Log_Level nob_minimal_log_level = NOB_INFO;
 
 // im basing this in a github code snippet from .net sent in some Stack Overflow thread,
 // that allocate a buffer of 4096 wchars to use with FormatMessageW
-// TODO: find the thread link
+// https://stackoverflow.com/a/75644008
 #define NOB_WIN32_ERR_MSG_SIZE (4 * 1024)
-static char win32ErrMsg[NOB_WIN32_ERR_MSG_SIZE] = { 0 };
+static char win32ErrMsg[NOB_WIN32_ERR_MSG_SIZE] = {0};
 
-char *nob_log_windows_error(DWORD err) {
+char *nob_log_win32_error(DWORD err) {
     DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, win32ErrMsg,
                                       NOB_WIN32_ERR_MSG_SIZE, NULL);
 
     if (errMsgSize == 0) {
-        if (GetLastError() != ERROR_MR_MID_NOT_FOUND)
-            NOB_TODO("FormatMessageA Failed...");
-        else
-            return nob_temp_sprintf("%lu (0x%X) is not a valid Windows Error code", err, err);
+        if (GetLastError() != ERROR_MR_MID_NOT_FOUND) {
+            if (sprintf(win32ErrMsg, "Could not get error message for 0x%lX", err) > 0) {
+                return (char *)&win32ErrMsg;
+            } else {
+                return NULL;
+            }
+        } else {
+            if (sprintf(win32ErrMsg, "Invalid Windows Error code (0x%lX)", err) > 0) {
+                return (char *)&win32ErrMsg;
+            } else {
+                return NULL;
+            }
+        }
     }
 
-    DWORD bkpSize = errMsgSize;
+    // DWORD bkpSize = errMsgSize;
 
     // TODO: check if last 2 chars are actualy CRLF
     // removing line breaks
     //              \r\n\0
-    while (win32ErrMsg[errMsgSize - 1] < ' ')
+    while (errMsgSize > 1 && win32ErrMsg[errMsgSize - 1] < ' ')
         win32ErrMsg[--errMsgSize] = '\0';
-    // if (errMsgSize > 2)
-    //     win32ErrMsg[errMsgSize - 2] = '\0';
-
-    // nob_log(NOB_INFO, "Error: %lu -> Original size: %lu, New size: %lu (%d)", err, bkpSize, errMsgSize, errMsgSize - bkpSize);
 
     return (char *)&win32ErrMsg;
 }
+
 #endif // _WIN32
+
+// The implementation idea is stolen from https://github.com/zhiayang/nabs
+void nob__go_rebuild_urself(const char *source_path, int argc, char **argv)
+{
+    const char *binary_path = nob_shift(argv, argc);
+#ifdef _WIN32
+    // On Windows executables almost always invoked without extension, so
+    // it's ./nob, not ./nob.exe. For renaming the extension is a must.
+    if (!nob_sv_end_with(nob_sv_from_cstr(binary_path), ".exe")) {
+        binary_path = nob_temp_sprintf("%s.exe", binary_path);
+    }
+#endif
+
+    int rebuild_is_needed = nob_needs_rebuild1(binary_path, source_path);
+    if (rebuild_is_needed < 0) exit(1); // error
+    if (!rebuild_is_needed) return;     // no rebuild is needed
+
+    Nob_Cmd cmd = {0};
+
+    const char *old_binary_path = nob_temp_sprintf("%s.old", binary_path);
+
+    if (!nob_rename(binary_path, old_binary_path)) exit(1);
+    nob_cmd_append(&cmd, NOB_REBUILD_URSELF(binary_path, source_path));
+    if (!nob_cmd_run_sync_and_reset(&cmd)) {
+        nob_rename(old_binary_path, binary_path);
+        exit(1);
+    }
+
+    nob_cmd_append(&cmd, binary_path);
+    nob_da_append_many(&cmd, argv, argc);
+    if (!nob_cmd_run_sync_and_reset(&cmd)) exit(1);
+    exit(0);
+}
 
 static size_t nob_temp_size = 0;
 static char nob_temp[NOB_TEMP_CAPACITY] = {0};
@@ -502,7 +520,7 @@ bool nob_copy_file(const char *src_path, const char *dst_path)
     nob_log(NOB_INFO, "copying %s -> %s", src_path, dst_path);
 #ifdef _WIN32
     if (!CopyFile(src_path, dst_path, FALSE)) {
-        nob_log(NOB_ERROR, "Could not copy file: %s", nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "Could not copy file: %s", nob_log_win32_error(GetLastError()));
         return false;
     }
     return true;
@@ -614,7 +632,7 @@ Nob_Proc nob_cmd_run_async(Nob_Cmd cmd)
     nob_sb_free(sb);
 
     if (!bSuccess) {
-        nob_log(NOB_ERROR, "Could not create child process: %s", nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "Could not create child process: %s", nob_log_win32_error(GetLastError()));
         return NOB_INVALID_PROC;
     }
 
@@ -666,13 +684,13 @@ bool nob_proc_wait(Nob_Proc proc)
                    );
 
     if (result == WAIT_FAILED) {
-        nob_log(NOB_ERROR, "could not wait on child process: %s", nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "could not wait on child process: %s", nob_log_win32_error(GetLastError()));
         return false;
     }
 
     DWORD exit_status;
     if (!GetExitCodeProcess(proc, &exit_status)) {
-        nob_log(NOB_ERROR, "could not get process exit code: %s", nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "could not get process exit code: %s", nob_log_win32_error(GetLastError()));
         return false;
     }
 
@@ -740,6 +758,7 @@ void nob_log(Nob_Log_Level level, const char *fmt, ...)
     case NOB_ERROR:
         fprintf(stderr, "[ERROR] ");
         break;
+    case NOB_NO_LOGS: return;
     default:
         NOB_UNREACHABLE("nob_log");
     }
@@ -759,7 +778,7 @@ bool nob_read_entire_dir(const char *parent, Nob_File_Paths *children)
     dir = opendir(parent);
     if (dir == NULL) {
         #ifdef _WIN32
-        nob_log(NOB_ERROR, "Could not open directory %s: %s", parent, nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "Could not open directory %s: %s", parent, nob_log_win32_error(GetLastError()));
         #else
         nob_log(NOB_ERROR, "Could not open directory %s: %s", parent, strerror(errno));
         #endif // _WIN32
@@ -775,7 +794,7 @@ bool nob_read_entire_dir(const char *parent, Nob_File_Paths *children)
 
     if (errno != 0) {
         #ifdef _WIN32
-        nob_log(NOB_ERROR, "Could not read directory %s: %s", parent, nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "Could not read directory %s: %s", parent, nob_log_win32_error(GetLastError()));
         #else
         nob_log(NOB_ERROR, "Could not read directory %s: %s", parent, strerror(errno));
         #endif // _WIN32
@@ -824,7 +843,7 @@ Nob_File_Type nob_get_file_type(const char *path)
 #ifdef _WIN32
     DWORD attr = GetFileAttributesA(path);
     if (attr == INVALID_FILE_ATTRIBUTES) {
-        nob_log(NOB_ERROR, "Could not get file attributes of %s: %s", path, nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "Could not get file attributes of %s: %s", path, nob_log_win32_error(GetLastError()));
         return -1;
     }
 
@@ -980,14 +999,14 @@ int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t 
     if (output_path_fd == INVALID_HANDLE_VALUE) {
         // NOTE: if output does not exist it 100% must be rebuilt
         if (GetLastError() == ERROR_FILE_NOT_FOUND) return 1;
-        nob_log(NOB_ERROR, "Could not open file %s: %s", output_path, nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "Could not open file %s: %s", output_path, nob_log_win32_error(GetLastError()));
         return -1;
     }
     FILETIME output_path_time;
     bSuccess = GetFileTime(output_path_fd, NULL, NULL, &output_path_time);
     CloseHandle(output_path_fd);
     if (!bSuccess) {
-        nob_log(NOB_ERROR, "Could not get time of %s: %s", output_path, nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "Could not get time of %s: %s", output_path, nob_log_win32_error(GetLastError()));
         return -1;
     }
 
@@ -996,14 +1015,14 @@ int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t 
         HANDLE input_path_fd = CreateFile(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
         if (input_path_fd == INVALID_HANDLE_VALUE) {
             // NOTE: non-existing input is an error cause it is needed for building in the first place
-            nob_log(NOB_ERROR, "Could not open file %s: %s", input_path, nob_log_windows_error(GetLastError()));
+            nob_log(NOB_ERROR, "Could not open file %s: %s", input_path, nob_log_win32_error(GetLastError()));
             return -1;
         }
         FILETIME input_path_time;
         bSuccess = GetFileTime(input_path_fd, NULL, NULL, &input_path_time);
         CloseHandle(input_path_fd);
         if (!bSuccess) {
-            nob_log(NOB_ERROR, "Could not get time of %s: %s", input_path, nob_log_windows_error(GetLastError()));
+            nob_log(NOB_ERROR, "Could not get time of %s: %s", input_path, nob_log_win32_error(GetLastError()));
             return -1;
         }
 
@@ -1049,7 +1068,7 @@ bool nob_rename(const char *old_path, const char *new_path)
     nob_log(NOB_INFO, "renaming %s -> %s", old_path, new_path);
 #ifdef _WIN32
     if (!MoveFileEx(old_path, new_path, MOVEFILE_REPLACE_EXISTING)) {
-        nob_log(NOB_ERROR, "could not rename %s to %s: %s", old_path, new_path, nob_log_windows_error(GetLastError()));
+        nob_log(NOB_ERROR, "could not rename %s to %s: %s", old_path, new_path, nob_log_win32_error(GetLastError()));
         return false;
     }
 #else
@@ -1157,6 +1176,17 @@ bool nob_sv_eq(Nob_String_View a, Nob_String_View b)
     } else {
         return memcmp(a.data, b.data, a.count) == 0;
     }
+}
+
+bool nob_sv_end_with(Nob_String_View sv, const char *cstr)
+{
+    size_t cstr_count = strlen(cstr);
+    if (sv.count >= cstr_count) {
+        size_t ending_start = sv.count - cstr_count;
+        Nob_String_View sv_ending = nob_sv_from_parts(sv.data + ending_start, cstr_count);
+        return nob_sv_eq(sv_ending, nob_sv_from_cstr(cstr));
+    }
+    return false;
 }
 
 // RETURNS:
@@ -1343,6 +1373,7 @@ int closedir(DIR *dirp)
         #define sv_trim_left nob_sv_trim_left
         #define sv_trim_right nob_sv_trim_right
         #define sv_eq nob_sv_eq
+        #define sv_end_with nob_sv_end_with
         #define sv_from_cstr nob_sv_from_cstr
         #define sv_from_parts nob_sv_from_parts
     #endif // NOB_STRIP_PREFIX
@@ -1351,6 +1382,10 @@ int closedir(DIR *dirp)
 /*
    Revision history:
 
+      1.4.0 (2024-10-21) Fix UX issues with NOB_GO_REBUILD_URSELF on Windows when you call nob without the .exe extension (By @pgalkin)
+                         Add nob_sv_end_with (By @pgalkin)
+      1.3.2 (2024-10-21) Fix unreachable error in nob_log on passing NOB_NO_LOGS
+      1.3.1 (2024-10-21) Fix redeclaration error for minimal_log_level (By @KillerxDBr)
       1.3.0 (2024-10-17) Add NOB_UNREACHABLE
       1.2.2 (2024-10-16) Fix compilation of nob_cmd_run_sync_and_reset on Windows (By @KillerxDBr)
       1.2.1 (2024-10-16) Add a separate include guard for NOB_STRIP_PREFIX.
@@ -1378,6 +1413,13 @@ int closedir(DIR *dirp)
         and let them co-exist for a while.
       - MAJOR update should be just a periodic cleanup of the deprecated functions and types
         without really modifying any existing functionality.
+
+   Naming Conventions:
+
+      - All the user facing names should be prefixed with `nob_` or `NOB_` depending on the case.
+      - The prefixes of non-redefinable names should be strippable with NOB_STRIP_PREFIX (unless
+        explicitly stated otherwise like in case of nob_log).
+      - Internal functions should be prefixed with `nob__` (double underscore).
 */
 
 /*

@@ -2,6 +2,7 @@
 #define KXD_MEM_H
 
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 
