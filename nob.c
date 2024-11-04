@@ -29,24 +29,23 @@
     } while (0)
 #else
 #define EMS(cmd)
-#endif
+#endif // defined(_WIN32)
 
 #if defined(__GNUC__)
 #define CC "gcc"
 #elif defined(__clang__)
 #define CC "clang"
-#else
-#error No GCC or CLANG Found...
-/*
 #elif defined(_MSC_VER)
-#error MSVC UNSUPORTED
 #define CC "cl"
-#endif
 #else
 #define CC "cc"
-*/
+#endif // defined(__GNUC__)
 
-#endif /* defined(__GNUC__) */
+#if defined(_MSC_VER)
+#define NO_LINK_FLAG "/c"
+#else
+#define NO_LINK_FLAG "-c"
+#endif // defined(_MSC_VER)
 
 #define EMCC "emcc"
 
@@ -81,10 +80,10 @@
 #define INCLUDES "-I.", "-I" BUILD_DIR, "-Iinclude", "-I" SRC_DIR, "-Istyles", "-I" EXTERN_DIR
 
 #if defined(_WIN32)
-#define LIBS "-lgdi32", "-lwinmm", "-lcomdlg32", "-lole32"
+const char *libs[] = { "gdi32", "winmm", "comdlg32", "ole32" };
 #else
 #define LIBS "-lm"
-#endif
+#endif // defined(_WIN32)
 
 #define RAYLIB_SRC_PATH "extern/raylib/src/"
 
@@ -100,6 +99,7 @@
 
 // TODO: Test SDL Backend, why not?
 // clang-format off
+#ifndef RELEASE
 #define RAYLIB_CFLAGS "-Wall",                                             \
                       "-D_GNU_SOURCE",                                     \
                       PLATFORM,                                            \
@@ -110,6 +110,19 @@
                       "-O1",                                               \
                       "-std=c99",                                          \
                       "-Werror=implicit-function-declaration"
+#else
+#define RAYLIB_CFLAGS "-Wall",                                             \
+                      "-D_GNU_SOURCE",                                     \
+                      PLATFORM,                                            \
+                      "-DGRAPHICS_API_OPENGL_33",                          \
+                      "-Wno-missing-braces",                               \
+                      "-Werror=pointer-arith",                             \
+                      "-fno-strict-aliasing",                              \
+                      "-Og",                                               \
+                      "-ggdb3",                                            \
+                      "-std=c99",                                          \
+                      "-Werror=implicit-function-declaration"
+#endif //RELEASE
 
 #define RAYLIB_WFLAGS "-Wall",                                             \
                       "-D_GNU_SOURCE",                                     \
@@ -155,11 +168,7 @@ const char *libraries[] = {
 };
 #endif
 
-typedef struct {
-    const char **items;
-    size_t count;
-    size_t capacity;
-} Objects;
+typedef Nob_File_Paths Objects;
 
 typedef struct {
     const char *file_path;
@@ -201,6 +210,8 @@ bool staticCompile = true;
 bool staticCompile = false;
 #endif
 
+#include "build_src/nob_raylib.c"
+
 void PrintUsage(void) {
     nob_log(NOB_ERROR, "Incorrect use of program");
     nob_log(NOB_ERROR, "Usage: ./nob <[b]uild [[w]eb] [[c]lean/cls], [w]eb [python executable], bundler [dir], [c]lean/cls>");
@@ -228,7 +239,7 @@ int main(int argc, char **argv) {
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
     const char *program = nob_shift_args(&argc, &argv);
-    // NOB_UNUSED(program);
+    NOB_UNUSED(program);
     // nob_shift_args(&argc, &argv);
 
 #ifdef TEST_ERRORS
@@ -610,10 +621,37 @@ bool CompileExecutable(bool isWeb) {
         nob_sb_free(dest);
         nob_sb_free(sb);
 #endif /* STATIC */
+#if defined(_WIN32)
+        Nob_String_Builder sb_libs = { 0 };
+        for (size_t i = 0; i < NOB_ARRAY_LEN(libs); i++)
+#if defined(_MSC_VER)
+        {
+            sb_libs.count = 0;
+            nob_sb_append_cstr(&sb_libs, libs[i]);
+            nob_sb_append_cstr(&sb_libs, ".lib");
+            nob_sb_append_null(&sb_libs);
+            nob_cmd_append(&cmd, strdup(sb_libs.items));
+        }
+#else
+        {
+            sb_libs.count = 0;
+            nob_sb_append_cstr(&sb_libs, "-l");
+            nob_sb_append_cstr(&sb_libs, libs[i]);
+            nob_sb_append_null(&sb_libs);
+            nob_cmd_append(&cmd, strdup(sb_libs.items));
+        }
+#endif // defined(_MSC_VER)
+        nob_sb_free(sb_libs);
+#else
         nob_cmd_append(&cmd, CFLAGS, LIBS);
+#endif // defined(_WIN32)
 
 #ifdef USE_SDL
+#if defined(_MSC_VER)
+        nob_cmd_append(&cmd, "SDL2.lib");
+#else
         nob_cmd_append(&cmd, "-lSDL2");
+#endif // defined(_MSC_VER)
 #endif /* USE_SDL */
 
     } else {
@@ -733,7 +771,7 @@ bool CompileFiles(bool isWeb) {
             if (!isWeb)
                 nob_cmd_append(&cmd, "-include", pch);
 
-            nob_cmd_append(&cmd, "-c", input, filesFlags[i]);
+            nob_cmd_append(&cmd, NO_LINK_FLAG, input, filesFlags[i]);
             nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
@@ -840,7 +878,7 @@ bool CompileDependencies(bool isWeb) {
 
         if (nob_needs_rebuild1(output, input) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            nob_cmd_append(&cmd, "-o", output, "-c", input);
+            nob_cmd_append(&cmd, "-o", output, NO_LINK_FLAG, input);
             nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
@@ -872,7 +910,7 @@ bool CompileNobHeader(bool isWeb) {
             EMS(&cmd);
             nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", "-Os", "-Wall", "-Wextra", "-sFORCE_FILESYSTEM=1",
                            "-sALLOW_MEMORY_GROWTH=1", "-sGL_ENABLE_GET_PROC_ADDRESS=1", "-sASSERTIONS=1");
-            nob_cmd_append(&cmd, "-o", wasmOutput, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
+            nob_cmd_append(&cmd, "-o", wasmOutput, NO_LINK_FLAG, NOB_H_DIR, "-DNOB_IMPLEMENTATION");
         } else {
             nob_log(NOB_INFO, skippingMsg, wasmOutput);
         }
@@ -880,7 +918,7 @@ bool CompileNobHeader(bool isWeb) {
     } else {
         if (nob_needs_rebuild1(output, NOB_H_DIR) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
+            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, NO_LINK_FLAG, NOB_H_DIR, "-DNOB_IMPLEMENTATION");
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
@@ -1026,7 +1064,7 @@ bool Bundler(const char *path) {
     if (dir == NULL) {
 #ifdef _WIN32
         DWORD err = GetLastError();
-        nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path, nob_log_win32_error(err), err);
+        nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path, nob_win32_error_message(err), err);
 #else
         nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, strerror(errno), errno);
 #endif // _WIN32
@@ -1205,270 +1243,6 @@ defer:
 
     if (fHeader)
         fclose(fHeader);
-
-    return result;
-}
-
-bool buildRayLib(bool isWeb) {
-    Nob_Cmd cmd = { 0 };
-    Nob_Procs procs = { 0 };
-    Objects deps = { 0 };
-    Nob_String_Builder sb = { 0 };
-
-    if (isWeb) {
-        EMS(&cmd);
-
-        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always");
-        nob_cmd_append(&cmd, RAYLIB_WFLAGS);
-
-        nob_sb_append_cstr(&sb, BUILD_WASM_DIR);
-    } else {
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
-        nob_cmd_append(&cmd, RAYLIB_CFLAGS);
-
-#ifdef USE_SDL
-        nob_cmd_append(&cmd, "-I" SDL_PATH);
-#endif
-
-        nob_sb_append_cstr(&sb, BUILD_DIR);
-    }
-
-    nob_cmd_append(&cmd, RL_INCLUDE_PATHS);
-    // nob_cmd_append(&cmd, "-static-libgcc", "-lopengl32", "-lgdi32", "-lwinmm");
-
-    // extern/raylib-5.0/src/config.h
-    nob_da_append(&deps, RAYLIB_SRC_PATH "config.h");
-
-    const size_t cmdCount = cmd.count;
-    const size_t depsCount = deps.count;
-    const size_t sbCount = sb.count;
-
-    // rcore.o =======================================================
-    // rcore.c raylib.h rlgl.h utils.h raymath.h rcamera.h rgestures.h
-    cmd.count = cmdCount;
-    deps.count = depsCount;
-    sb.count = sbCount;
-
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rcore.c");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raylib.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rlgl.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "utils.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raymath.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rcamera.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rgestures.h");
-
-    nob_sb_append_cstr(&sb, "rcore.o");
-    nob_sb_append_null(&sb);
-
-    nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
-        nob_log(NOB_INFO, "--- Generating rcore.o ---");
-        nob_cmd_append(&cmd, "-o", sb.items);
-        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rcore.c");
-
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, sb.items);
-    }
-    if (!isWeb) {
-        // rglfw.o =======================================================
-        // rglfw.c
-
-        cmd.count = cmdCount;
-        deps.count = depsCount;
-        sb.count = sbCount;
-
-        nob_da_append(&deps, RAYLIB_SRC_PATH "rglfw.c");
-
-        nob_sb_append_cstr(&sb, "rglfw.o");
-        nob_sb_append_null(&sb);
-
-        nob_da_append(&obj, strdup(sb.items));
-        if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
-            nob_log(NOB_INFO, "--- Generating rglfw.o ---");
-            nob_cmd_append(&cmd, "-o", sb.items);
-            nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rglfw.c");
-
-            nob_da_append(&procs, nob_cmd_run_async(cmd));
-        } else {
-            nob_log(NOB_INFO, skippingMsg, sb.items);
-        }
-    }
-    // rshapes.o =====================================================
-    // rshapes.c raylib.h rlgl.h
-
-    cmd.count = cmdCount;
-    deps.count = depsCount;
-    sb.count = sbCount;
-
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rshapes.c");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raylib.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rlgl.h");
-
-    nob_sb_append_cstr(&sb, "rshapes.o");
-    nob_sb_append_null(&sb);
-
-    nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
-        nob_log(NOB_INFO, "--- Generating rshapes.o ---");
-        nob_cmd_append(&cmd, "-o", sb.items);
-        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rshapes.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, sb.items);
-    }
-
-    // rtextures.o ===================================================
-    // rtextures.c raylib.h rlgl.h utils.h
-
-    cmd.count = cmdCount;
-    deps.count = depsCount;
-    sb.count = sbCount;
-
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rtextures.c");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raylib.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rlgl.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "utils.h");
-
-    nob_sb_append_cstr(&sb, "rtextures.o");
-    nob_sb_append_null(&sb);
-
-    nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
-        nob_log(NOB_INFO, "--- Generating rtextures.o ---");
-        nob_cmd_append(&cmd, "-o", sb.items);
-        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rtextures.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, sb.items);
-    }
-
-    // rtext.o =======================================================
-    // rtext.c raylib.h utils.h
-
-    cmd.count = cmdCount;
-    deps.count = depsCount;
-    sb.count = sbCount;
-
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rtext.c");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raylib.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "utils.h");
-
-    nob_sb_append_cstr(&sb, "rtext.o");
-    nob_sb_append_null(&sb);
-
-    nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
-        nob_log(NOB_INFO, "--- Generating rtext.o ---");
-        nob_cmd_append(&cmd, "-o", sb.items);
-        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rtext.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, sb.items);
-    }
-
-    // utils.o =======================================================
-    // utils.c utils.h
-
-    cmd.count = cmdCount;
-    deps.count = depsCount;
-    sb.count = sbCount;
-
-    nob_da_append(&deps, RAYLIB_SRC_PATH "utils.c");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "utils.h");
-
-    nob_sb_append_cstr(&sb, "utils.o");
-    nob_sb_append_null(&sb);
-
-    nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
-        nob_log(NOB_INFO, "--- Generating utils.o ---");
-        nob_cmd_append(&cmd, "-o", sb.items);
-        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "utils.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, sb.items);
-    }
-
-    // rmodels.o =====================================================
-    // rmodels.c raylib.h rlgl.h raymath.h
-
-    cmd.count = cmdCount;
-    deps.count = depsCount;
-    sb.count = sbCount;
-
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rmodels.c");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raylib.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "rlgl.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raymath.h");
-
-    nob_sb_append_cstr(&sb, "rmodels.o");
-    nob_sb_append_null(&sb);
-
-    nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
-        nob_log(NOB_INFO, "--- Generating rmodels.o ---");
-        nob_cmd_append(&cmd, "-o", sb.items);
-        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rmodels.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, sb.items);
-    }
-
-    // raudio.o ======================================================
-    // raudio.c raylib.h
-
-    cmd.count = cmdCount;
-    deps.count = depsCount;
-    sb.count = sbCount;
-
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raudio.c");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raylib.h");
-
-    nob_sb_append_cstr(&sb, "raudio.o");
-    nob_sb_append_null(&sb);
-
-    nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
-        nob_log(NOB_INFO, "--- Generating raudio.o ---");
-        nob_cmd_append(&cmd, "-o", sb.items);
-        nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "raudio.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, sb.items);
-    }
-
-    // raygui.o ======================================================
-    // raygui.h
-
-    cmd.count = cmdCount;
-    deps.count = depsCount;
-    sb.count = sbCount;
-
-    // include/raygui.h
-    nob_da_append(&deps, "include/raygui.h");
-    nob_da_append(&deps, RAYLIB_SRC_PATH "raylib.h");
-
-    nob_sb_append_cstr(&sb, "raygui.o");
-    nob_sb_append_null(&sb);
-
-    nob_da_append(&obj, strdup(sb.items));
-    if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
-        nob_log(NOB_INFO, "--- Generating raygui.o ---");
-        nob_cmd_append(&cmd, "-xc", "-o", sb.items);
-        nob_cmd_append(&cmd, "-c", "include/raygui.h", "-DRAYGUI_IMPLEMENTATION");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
-    } else {
-        nob_log(NOB_INFO, skippingMsg, sb.items);
-    }
-    // nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
-
-    bool result = nob_procs_wait(procs);
-
-    nob_sb_free(sb);
-    nob_cmd_free(cmd);
-    nob_da_free(procs);
-    nob_da_free(deps);
 
     return result;
 }
