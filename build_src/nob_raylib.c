@@ -15,11 +15,10 @@
 #define EMCC "emcc"
 
 #if defined(_WIN32)
-#define EMSDK_ENV "D:/emsdk/emsdk_env.bat"
+#define EMSDK_ENV "C:/Users/antonioroberto/Desktop/w64devkit/emsdk/emsdk_env.bat"
 
 #define EMS(cmd)                                                                                                                           \
     do {                                                                                                                                   \
-        nob_cmd_append((cmd), "cmd", "/c", );                                                                                              \
         nob_cmd_append((cmd), "set", "EMSDK_QUIET=1");                                                                                     \
         nob_cmd_append((cmd), "&&");                                                                                                       \
         nob_cmd_append((cmd), EMSDK_ENV);                                                                                                  \
@@ -99,6 +98,7 @@ bool buildRayLib(bool isWeb) {
     Nob_Procs procs = { 0 };
     Objects deps = { 0 };
     Nob_String_Builder sb = { 0 };
+    Nob_String_Builder cmdRender = { 0 };
 
     if (isWeb) {
         EMS(&cmd);
@@ -145,11 +145,21 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_cstr(&sb, "rcore.o");
     nob_sb_append_null(&sb);
 
+    nob_log(NOB_ERROR, "TESTE");
+
     nob_da_append(&obj, strdup(sb.items));
     if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
         nob_log(NOB_INFO, "--- Generating rcore.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rcore.c");
+
+        // if (isWeb) {
+        //     cmdRender.count = 0;
+        //     nob_cmd_render(cmd, &cmdRender);
+        //     nob_sb_append_null(&cmdRender);
+        //     cmd.count = 0;
+        //     nob_cmd_append(&cmd, "cmd.exe", "/c", strdup(cmdRender.items));
+        // }
 
         nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {

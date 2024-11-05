@@ -33,6 +33,8 @@
 #include "kxdMem.h"
 #include "kxdTypes.h"
 
+#include "nob.h"
+
 #ifdef KXD_DEBUG
 #include "test.h"
 #endif

@@ -9,11 +9,17 @@ int main(int argc, char **argv) {
 #endif
     const char *program = nob_shift_args(&argc, &argv);
 
-#if defined(_UCRT)
-    setlocale(LC_ALL, ".UTF-8");
+#ifndef _WIN32 // Non Windows
+    setlocale(LC_ALL, "C.UTF-8");
 #else
-    setlocale(LC_ALL, "");
-#endif /* defined(_UCRT) */
+
+#ifdef _UCRT // ucrtbase.dll Windows
+    setlocale(LC_ALL, ".UTF-8");
+#else        // msvcrt.dll Windows
+    setlocale(LC_ALL, "C");
+#endif       // _UCRT
+
+#endif // _WIN32
 
     LOG_INF("Locale set to \"%s\"", setlocale(LC_ALL, NULL));
 
@@ -41,15 +47,19 @@ int main(int argc, char **argv) {
     app->config.fileName = callocWrapper(strlen(program) + sizeof(CONFIG_FILE), 1);
     strcpy(app->config.fileName, program);
 
-    char *slash = strrchr(app->config.fileName, '\\');
-    assert(slash != NULL);
+    const char *exeName = nob_path_name(app->config.fileName);
+    // char *slash = strrchr(app->config.fileName, '\\');
+    // assert(slash != NULL);
 
-    slash++;
+    // slash++;
 
-    memcpy(slash, CONFIG_FILE, sizeof(CONFIG_FILE));
-    app->config.fileName = realloc(app->config.fileName, strlen(app->config.fileName));
+    strcpy(exeName, CONFIG_FILE);
+    app->config.fileName = realloc(app->config.fileName, strlen(app->config.fileName) + 1);
+
+    nob_log(NOB_INFO, "app->config.fileName: '%s'", app->config.fileName);
+#else
+    NOB_UNUSED(program);
 #endif
-    (void)program;
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow((NES_W * FACTOR), (NES_H * FACTOR), "NES_xD");
 
@@ -359,8 +369,6 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-
-
 void loadRom(nes_t *nes, const char *fileName) {
     Nob_String_Builder sb = { 0 };
 
@@ -522,9 +530,10 @@ static inline void mainLoop(void *app_ptr)
                       pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
                       GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-        DrawRectangleLinesEx(CLITERAL(Rectangle){ (app->screenW * .5f) - (pauseSize.x * .6f) -1, (app->screenH * .5f) - (pauseSize.y * .6f),
-                                                  pauseSize.x + (pauseSize.x * .2f) +1, pauseSize.y + (pauseSize.y * .2f) },
-                             (pauseSize.y + (pauseSize.y * .2f) +1) * .05f, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+        DrawRectangleLinesEx(CLITERAL(Rectangle){ (app->screenW * .5f) - (pauseSize.x * .6f) - 1,
+                                                  (app->screenH * .5f) - (pauseSize.y * .6f), pauseSize.x + (pauseSize.x * .2f) + 1,
+                                                  pauseSize.y + (pauseSize.y * .2f) },
+                             (pauseSize.y + (pauseSize.y * .2f) + 1) * .05f, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
         // DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW *
         // .1f,

@@ -16,12 +16,12 @@
 #define ROM_PATH "rom/"
 #define MEM_BIN_PATH "mem.bin"
 
+/*
 #if defined(_WIN32)
 #define EMSDK_ENV "D:/emsdk/emsdk_env.bat"
 
 #define EMS(cmd)                                                                                                                           \
     do {                                                                                                                                   \
-        nob_cmd_append((cmd), "cmd", "/c", );                                                                                              \
         nob_cmd_append((cmd), "set", "EMSDK_QUIET=1");                                                                                     \
         nob_cmd_append((cmd), "&&");                                                                                                       \
         nob_cmd_append((cmd), EMSDK_ENV);                                                                                                  \
@@ -30,6 +30,7 @@
 #else
 #define EMS(cmd)
 #endif // defined(_WIN32)
+*/
 
 #if defined(__GNUC__)
 #define CC "gcc"
@@ -74,8 +75,6 @@
 
 #define PCH_SUFFIX "_pch.h"
 #define GCH_SUFFIX PCH_SUFFIX ".gch"
-
-#define NOB_H_DIR "include/nob.h"
 
 #define INCLUDES "-I.", "-I" BUILD_DIR, "-Iinclude", "-I" SRC_DIR, "-Istyles", "-I" EXTERN_DIR
 
@@ -287,7 +286,7 @@ int main(int argc, char **argv) {
                 }
             }
         }
-#if defined(_WIN32)
+#if defined(_WIN32) && 0
         if (isWeb) {
             if (nob_file_exists(EMSDK_ENV) != 1) {
                 nob_log(NOB_ERROR, "Could not find emsdk env builder \"" EMSDK_ENV "\", check if the path is correct and try again...");
@@ -899,26 +898,27 @@ defer:
 bool CompileNobHeader(bool isWeb) {
     Nob_Cmd cmd = { 0 };
 
+    const char *nob_header_dir = nob_header_location();
     const char *output = BUILD_DIR "nob.o";
     const char *wasmOutput = BUILD_WASM_DIR "nob.o";
 
     const size_t cnt = cmd.count;
 
     if (isWeb) {
-        if (nob_needs_rebuild1(wasmOutput, NOB_H_DIR) != 0) {
+        if (nob_needs_rebuild1(wasmOutput, nob_header_dir) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", wasmOutput);
             EMS(&cmd);
             nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", "-Os", "-Wall", "-Wextra", "-sFORCE_FILESYSTEM=1",
                            "-sALLOW_MEMORY_GROWTH=1", "-sGL_ENABLE_GET_PROC_ADDRESS=1", "-sASSERTIONS=1");
-            nob_cmd_append(&cmd, "-o", wasmOutput, NO_LINK_FLAG, NOB_H_DIR, "-DNOB_IMPLEMENTATION");
+            nob_cmd_append(&cmd, "-o", wasmOutput, NO_LINK_FLAG, nob_header_dir, "-DNOB_IMPLEMENTATION");
         } else {
             nob_log(NOB_INFO, skippingMsg, wasmOutput);
         }
         nob_da_append(&obj, strdup(wasmOutput));
     } else {
-        if (nob_needs_rebuild1(output, NOB_H_DIR) != 0) {
+        if (nob_needs_rebuild1(output, nob_header_dir) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, NO_LINK_FLAG, NOB_H_DIR, "-DNOB_IMPLEMENTATION");
+            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, NO_LINK_FLAG, nob_header_dir, "-DNOB_IMPLEMENTATION");
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }

@@ -478,5 +478,6 @@ bool initCPU(cpu_t *cpu) {
     cpu->PC = cpu->mem[RESET_VECTOR] + (cpu->mem[RESET_VECTOR + 1] << 8);
     cpu->SP = 0xFF;
     debugCPU(cpu);
-    exit(0);
+    // exit(0);
+    return true;
 }
