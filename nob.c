@@ -1,10 +1,3 @@
-#ifdef UNICODE
-#undef UNICODE
-#endif
-#ifdef _UNICODE
-#undef _UNICODE
-#endif
-
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
@@ -220,19 +213,20 @@ void PrintUsage(void) {
 
 int main(int argc, char **argv) {
 
+    nob_log(NOB_INFO, "Locale set to \"%s\"",
 #ifndef _WIN32 /* Non Windows */
-    setlocale(LC_ALL, "C.UTF-8");
+            setlocale(LC_ALL, "C.UTF-8")
 #else
 
 #ifdef _UCRT /* ucrtbase.dll Windows */
-    setlocale(LC_ALL, ".UTF-8");
+            setlocale(LC_ALL, ".UTF-8")
 #else        /* msvcrt.dll Windows */
-    setlocale(LC_ALL, "C");
+            setlocale(LC_ALL, "C")
 #endif       /* _UCRT */
 
 #endif /* _WIN32 */
-
-    nob_log(NOB_INFO, "Locale set to \"%s\"", setlocale(LC_ALL, NULL));
+    );
+    // nob_log(NOB_INFO, "Locale set to \"%s\"", setlocale(LC_ALL, NULL));
 
     NOB_GO_REBUILD_URSELF(argc, argv);
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
@@ -385,11 +379,9 @@ int main(int argc, char **argv) {
     NOB_UNREACHABLE("Main");
 
 defer:
-    if (obj.items)
-        free(obj.items);
+    free(obj.items);
 
-    if (resources.items)
-        free(resources.items);
+    free(resources.items);
 
     return result;
 }
@@ -400,6 +392,7 @@ defer:
 #define CFLAGS                                                                                          \
         "-Wall",                                                                                        \
         "-Wextra",                                                                                      \
+		"-Wswitch-enum",                                                                                \
         "-Og",                                                                                          \
         "-ggdb3",                                                                                       \
         "-march=native",                                                                                \
@@ -896,38 +889,63 @@ defer:
 }
 
 bool CompileNobHeader(bool isWeb) {
+    bool result = true;
+    const size_t checkpoint = nob_temp_save();
+
     Nob_Cmd cmd = { 0 };
 
-    const char *nob_header_dir = nob_header_location();
-    const char *output = BUILD_DIR "nob.o";
-    const char *wasmOutput = BUILD_WASM_DIR "nob.o";
+    const char *nob_header_dir = nob_header_path();
+    const char *output;
 
-    const size_t cnt = cmd.count;
+    if (isWeb)
+        output = BUILD_WASM_DIR "nob.o";
+    else
+        output = BUILD_DIR "nob.o";
 
     if (isWeb) {
-        if (nob_needs_rebuild1(wasmOutput, nob_header_dir) != 0) {
-            nob_log(NOB_INFO, "Rebuilding '%s' file", wasmOutput);
+        if (nob_needs_rebuild1(output, nob_header_dir) != 0) {
+            nob_log(NOB_INFO, "Rebuilding: '%s'", output);
             EMS(&cmd);
             nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", "-Os", "-Wall", "-Wextra", "-sFORCE_FILESYSTEM=1",
                            "-sALLOW_MEMORY_GROWTH=1", "-sGL_ENABLE_GET_PROC_ADDRESS=1", "-sASSERTIONS=1");
-            nob_cmd_append(&cmd, "-o", wasmOutput, NO_LINK_FLAG, nob_header_dir, "-DNOB_IMPLEMENTATION");
-        } else {
-            nob_log(NOB_INFO, skippingMsg, wasmOutput);
-        }
-        nob_da_append(&obj, strdup(wasmOutput));
-    } else {
-        if (nob_needs_rebuild1(output, nob_header_dir) != 0) {
-            nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, NO_LINK_FLAG, nob_header_dir, "-DNOB_IMPLEMENTATION");
+            nob_cmd_append(&cmd, "-o", output, NO_LINK_FLAG, nob_header_dir, "-DNOB_IMPLEMENTATION");
+
+            Nob_String_Builder cmdRender = { 0 };
+
+            nob_cmd_render(cmd, &cmdRender);
+            cmd.count = 0;
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&cmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+
+            // cmdRender.count = 0;
+            // nob_cmd_render(cmd, &cmdRender);
+            // nob_sb_append_null(&cmdRender);
+            // nob_log(NOB_INFO, "Command: %s", cmdRender.items);
+
+            nob_sb_free(cmdRender);
+            
+            if (!nob_cmd_run_sync(cmd))
+                nob_return_defer(false);
+            
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
-        nob_da_append(&obj, strdup(output));
+    } else {
+        if (nob_needs_rebuild1(output, nob_header_dir) != 0) {
+            nob_log(NOB_INFO, "Rebuilding: '%s'", output);
+            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, NO_LINK_FLAG, nob_header_dir,
+                           "-DNOB_IMPLEMENTATION");
+
+            if (!nob_cmd_run_sync(cmd))
+                nob_return_defer(false);
+        } else {
+            nob_log(NOB_INFO, skippingMsg, output);
+        }
     }
+    nob_da_append(&obj, strdup(output));
 
-    // nob_da_append(&obj, output);
-
-    bool result = cmd.count > cnt ? nob_cmd_run_sync(cmd) : true;
+defer:
+    nob_temp_rewind(checkpoint);
     nob_cmd_free(cmd);
     return result;
 }
@@ -999,8 +1017,8 @@ bool generate_resource_bundle(void) {
 defer:
     if (out)
         fclose(out);
-    free(content.items);
-    free(bundle.items);
+    nob_sb_free(content);
+    nob_sb_free(bundle);
     return result;
 }
 
@@ -1176,14 +1194,12 @@ bool CleanupFiles(void) {
     }
 
 defer:
-    if (sb.items)
-        nob_sb_free(sb);
+    nob_sb_free(sb);
 
     for (size_t i = 0; i < eb.count; i++)
         free(eb.items[i]);
 
-    if (eb.items)
-        free(eb.items);
+    free(eb.items);
 
     return result;
 }
@@ -1238,8 +1254,7 @@ bool GetIncludedHeaders(Objects *eh, const char *header) {
     }
 
 defer:
-    if (sb.items)
-        nob_sb_free(sb);
+    nob_sb_free(sb);
 
     if (fHeader)
         fclose(fHeader);
@@ -1284,8 +1299,7 @@ bool WebServer(const char *pyExec) {
     result = (p != NOB_INVALID_PROC);
 
 defer:
-    if (cmd.items)
-        nob_cmd_free(cmd);
+    nob_cmd_free(cmd);
 
     return result;
 }

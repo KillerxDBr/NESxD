@@ -23,7 +23,8 @@
                 "KXD_6502_FILE",
                 "KXD_CONFIG_FILE",
                 "KXD_GUI_FILE",
-                "KXD_INPUT_FILE"
+                "KXD_INPUT_FILE",
+                "NOB_IMPLEMENTATION"
             ],
             "windowsSdkVersion": "10.0.22621.0",
             "cStandard": "c11",

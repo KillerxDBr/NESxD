@@ -465,7 +465,7 @@ bool nob_set_current_dir(const char *path);
 void nob__go_rebuild_urself(const char *source_path, int argc, char **argv);
 #define NOB_GO_REBUILD_URSELF(argc, argv) nob__go_rebuild_urself(__FILE__, argc, argv)
 
-const char *nob_header_location(void);
+const char *nob_header_path(void);
 
 typedef struct {
     size_t count;
@@ -567,7 +567,7 @@ char *nob_win32_error_message(DWORD err);
 // Any messages with the level below nob_minimal_log_level are going to be suppressed.
 Nob_Log_Level nob_minimal_log_level = NOB_INFO;
 
-const char *nob_header_location(void){
+const char *nob_header_path(void){
     return __FILE__;
 }
 
@@ -623,7 +623,7 @@ void nob__go_rebuild_urself(const char *source_path, int argc, char **argv)
     }
 #endif
 
-    const char* inputs[] = {source_path, nob_header_location()};
+    const char* inputs[] = {source_path, nob_header_path()};
     int rebuild_is_needed = nob_needs_rebuild(binary_path, inputs, NOB_ARRAY_LEN(inputs));
     // int rebuild_is_needed = nob_needs_rebuild1(binary_path, source_path);
     if (rebuild_is_needed < 0) exit(1); // error

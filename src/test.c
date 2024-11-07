@@ -48,10 +48,9 @@ bool InstructionTest(app_t *app, cpu_t *final) {
 
 defer:
     if (errno > 0)
-        LOG_ERR("%s", strerror(errno));
+        LOG_ERR("%s (%d)", strerror(errno), errno);
 
-    if (sb.items)
-        nob_sb_free(sb);
+    nob_sb_free(sb);
 
     return result;
 }

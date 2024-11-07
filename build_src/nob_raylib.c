@@ -94,7 +94,9 @@ extern Objects obj;
 extern const char *skippingMsg;
 
 bool buildRayLib(bool isWeb) {
+    const size_t checkpoint = nob_temp_save();
     Nob_Cmd cmd = { 0 };
+    Nob_Cmd webCmd = { 0 };
     Nob_Procs procs = { 0 };
     Objects deps = { 0 };
     Nob_String_Builder sb = { 0 };
@@ -145,7 +147,7 @@ bool buildRayLib(bool isWeb) {
     nob_sb_append_cstr(&sb, "rcore.o");
     nob_sb_append_null(&sb);
 
-    nob_log(NOB_ERROR, "TESTE");
+    // nob_log(NOB_ERROR, "TESTE");
 
     nob_da_append(&obj, strdup(sb.items));
     if (nob_needs_rebuild(sb.items, deps.items, deps.count) != 0) {
@@ -153,15 +155,16 @@ bool buildRayLib(bool isWeb) {
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rcore.c");
 
-        // if (isWeb) {
-        //     cmdRender.count = 0;
-        //     nob_cmd_render(cmd, &cmdRender);
-        //     nob_sb_append_null(&cmdRender);
-        //     cmd.count = 0;
-        //     nob_cmd_append(&cmd, "cmd.exe", "/c", strdup(cmdRender.items));
-        // }
+        if (isWeb) {
+            webCmd.count = 0;
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+        } else
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
 
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
         nob_log(NOB_INFO, skippingMsg, sb.items);
     }
@@ -184,7 +187,15 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_append(&cmd, "-o", sb.items);
             nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rglfw.c");
 
-            nob_da_append(&procs, nob_cmd_run_async(cmd));
+            if (isWeb) {
+                webCmd.count = 0;
+                cmdRender.count = 0;
+                nob_cmd_render(cmd, &cmdRender);
+                nob_sb_append_null(&cmdRender);
+                nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+                nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            } else
+                nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, sb.items);
         }
@@ -208,7 +219,15 @@ bool buildRayLib(bool isWeb) {
         nob_log(NOB_INFO, "--- Generating rshapes.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rshapes.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
+        if (isWeb) {
+            webCmd.count = 0;
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+        } else
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
         nob_log(NOB_INFO, skippingMsg, sb.items);
     }
@@ -233,7 +252,15 @@ bool buildRayLib(bool isWeb) {
         nob_log(NOB_INFO, "--- Generating rtextures.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rtextures.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
+        if (isWeb) {
+            webCmd.count = 0;
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+        } else
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
         nob_log(NOB_INFO, skippingMsg, sb.items);
     }
@@ -257,7 +284,15 @@ bool buildRayLib(bool isWeb) {
         nob_log(NOB_INFO, "--- Generating rtext.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rtext.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
+        if (isWeb) {
+            webCmd.count = 0;
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+        } else
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
         nob_log(NOB_INFO, skippingMsg, sb.items);
     }
@@ -280,7 +315,15 @@ bool buildRayLib(bool isWeb) {
         nob_log(NOB_INFO, "--- Generating utils.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "utils.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
+        if (isWeb) {
+            webCmd.count = 0;
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+        } else
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
         nob_log(NOB_INFO, skippingMsg, sb.items);
     }
@@ -305,7 +348,15 @@ bool buildRayLib(bool isWeb) {
         nob_log(NOB_INFO, "--- Generating rmodels.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rmodels.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
+        if (isWeb) {
+            webCmd.count = 0;
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+        } else
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
         nob_log(NOB_INFO, skippingMsg, sb.items);
     }
@@ -328,7 +379,15 @@ bool buildRayLib(bool isWeb) {
         nob_log(NOB_INFO, "--- Generating raudio.o ---");
         nob_cmd_append(&cmd, "-o", sb.items);
         nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "raudio.c");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
+        if (isWeb) {
+            webCmd.count = 0;
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+        } else
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
         nob_log(NOB_INFO, skippingMsg, sb.items);
     }
@@ -352,7 +411,15 @@ bool buildRayLib(bool isWeb) {
         nob_log(NOB_INFO, "--- Generating raygui.o ---");
         nob_cmd_append(&cmd, "-xc", "-o", sb.items);
         nob_cmd_append(&cmd, "-c", "include/raygui.h", "-DRAYGUI_IMPLEMENTATION");
-        nob_da_append(&procs, nob_cmd_run_async(cmd));
+        if (isWeb) {
+            webCmd.count = 0;
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+        } else
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
         nob_log(NOB_INFO, skippingMsg, sb.items);
     }
@@ -361,9 +428,15 @@ bool buildRayLib(bool isWeb) {
     bool result = nob_procs_wait(procs);
 
     nob_sb_free(sb);
+    nob_sb_free(cmdRender);
+
     nob_cmd_free(cmd);
+    nob_cmd_free(webCmd);
+
     nob_da_free(procs);
     nob_da_free(deps);
+
+    nob_temp_rewind(checkpoint);
 
     return result;
 }

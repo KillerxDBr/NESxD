@@ -6,7 +6,7 @@ void processInstruction(cpu_t *cpu) {
 #ifdef KXD_DEBUG
     uint16_t oldPC = cpu->PC;
 #endif
-    switch (cpu->mem[cpu->PC]) {
+    switch ((KxD_Instructions)cpu->mem[cpu->PC]) { // casting for "-Wswitch-enum" Warnings
     case INS_BRK:
         LOG_INF("BRK");
 

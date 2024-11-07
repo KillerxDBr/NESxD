@@ -53,10 +53,10 @@ int main(int argc, char **argv) {
 
     // slash++;
 
-    strcpy(exeName, CONFIG_FILE);
+    strcpy((char *)exeName, CONFIG_FILE);
     app->config.fileName = realloc(app->config.fileName, strlen(app->config.fileName) + 1);
 
-    nob_log(NOB_INFO, "app->config.fileName: '%s'", app->config.fileName);
+    LOG_INF("app->config.fileName: '%s'", app->config.fileName);
 #else
     NOB_UNUSED(program);
 #endif
@@ -186,8 +186,8 @@ int main(int argc, char **argv) {
             // fclose(memBin);
 
             addMultipleToMem(app->nes.cpu.mem, 0, (uint8_t *)memory.items, memory.count);
-            nob_sb_free(memory);
         }
+        nob_sb_free(memory);
 #if defined(KXD_DEBUG)
     }
     const char *fileName = "./rom/smb.nes";
