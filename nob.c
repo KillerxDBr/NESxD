@@ -30,7 +30,16 @@
 #elif defined(__clang__)
 #define CC "clang"
 #elif defined(_MSC_VER)
+#error Cant Compile with MSVC yet...
 #define CC "cl"
+#define MSVC_ENV "D:/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat"
+
+#define MSVC(cmd)                                                                                                                          \
+    do {                                                                                                                                   \
+        nob_cmd_append((cmd), "cmd", "/c");                                                                                                \
+        nob_cmd_append((cmd), MSVC_ENV);                                                                                                   \
+        nob_cmd_append((cmd), "&&");                                                                                                       \
+    } while (0)
 #else
 #define CC "cc"
 #endif // defined(__GNUC__)
@@ -195,6 +204,7 @@ bool GetIncludedHeaders(Objects *eh, const char *header);
 bool TestFile(void);
 bool WebServer(const char *pyExec);
 void errorTest(void);
+bool TestCompiler(void);
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -258,6 +268,12 @@ int main(int argc, char **argv) {
 
         if (!nob_mkdir_if_not_exists(BUILD_DIR))
             nob_return_defer(1);
+
+        nob_log(NOB_INFO, "Testing Compiler: '" CC "'");
+        if (!TestCompiler()) {
+            nob_log(NOB_ERROR, "Could not find compiler '" CC "' in PATH");
+            nob_return_defer(1);
+        }
 
         if (argc > 0) {
             command = nob_shift_args(&argc, &argv);
@@ -923,10 +939,10 @@ bool CompileNobHeader(bool isWeb) {
             // nob_log(NOB_INFO, "Command: %s", cmdRender.items);
 
             nob_sb_free(cmdRender);
-            
+
             if (!nob_cmd_run_sync(cmd))
                 nob_return_defer(false);
-            
+
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
@@ -1316,3 +1332,38 @@ void errorTest(void) {
     }
 }
 #endif // TEST_ERRORS
+
+#ifdef _WIN32
+#define NULL_OUTPUT "NUL"
+#else
+#define NULL_OUTPUT "/dev/null"
+#endif
+
+bool TestCompiler(void) {
+    bool result = true;
+    Nob_Cmd cmd = { 0 };
+    Nob_Fd nullOutput = nob_fd_open_for_write(NULL_OUTPUT);
+    if (nullOutput == NOB_INVALID_FD) {
+        nob_log(NOB_ERROR, "Could not open \"" NULL_OUTPUT "\" for dumping output");
+        exit(1);
+    }
+
+#if defined(_MSC_VER)
+    if (nob_file_exists(MSVC_ENV) != 1) {
+        nob_log(NOB_ERROR, "Could not find MSVC env builder \"" MSVC_ENV "\", check if the path is correct and try again...");
+        nob_return_defer(false);
+    }
+    MSVC(&cmd);
+    nob_cmd_append(&cmd, CC);
+#else
+    nob_cmd_append(&cmd, CC, "-v");
+#endif // !defined(_MSC_VER)
+
+    if (!nob_cmd_run_sync_redirect(cmd, (Nob_Cmd_Redirect){ .fdout = &nullOutput, .fderr = &nullOutput }))
+        nob_return_defer(false);
+
+defer:
+    nob_cmd_free(cmd);
+    nob_fd_close(nullOutput);
+    return result;
+}

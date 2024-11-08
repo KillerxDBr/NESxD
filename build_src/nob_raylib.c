@@ -15,7 +15,8 @@
 #define EMCC "emcc"
 
 #if defined(_WIN32)
-#define EMSDK_ENV "C:/Users/antonioroberto/Desktop/w64devkit/emsdk/emsdk_env.bat"
+#define EMSDK_ENV "D:/emsdk/emsdk_env.bat"
+// #define EMSDK_ENV "C:/Users/antonioroberto/Desktop/w64devkit/emsdk/emsdk_env.bat"
 
 #define EMS(cmd)                                                                                                                           \
     do {                                                                                                                                   \
