@@ -11,8 +11,8 @@ void addToMem(uint8_t *mem, size_t loc, uint64_t value) {
         valueSize = sizeof(uint32_t);
     else
         valueSize = sizeof(uint64_t);
-    if (valueSize == 0)
-        return;
+    // if (valueSize == 0)
+    //     return;
     assert(loc + valueSize < MEMSIZE);
     for (size_t i = 0; i < valueSize; i++) {
         mem[loc + i] = (value & 0xFF);

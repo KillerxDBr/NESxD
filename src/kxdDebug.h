@@ -33,6 +33,10 @@
 #define VARLOG(v, fmt) TraceLog(LOG_INFO, "%s: " fmt, (#v), (v))
 #define BOOLLOG(v) TraceLog(LOG_INFO, "%s: %s", #v, v ? "True" : "False")
 
+#ifndef NOB_TODO
+#define NOB_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
+#endif // NOB_TODO
+
 // clang-format off
 #define BITFIELD8LOG(v)                                                         \
         TraceLog(                                                               \

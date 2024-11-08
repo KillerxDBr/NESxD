@@ -303,6 +303,7 @@ int main(int argc, char **argv) {
         //                 break;
         //         }
     }
+    #if 0
     if (TEST) {
         final.B = true; // Probable only necessary for this sample test
         printf("\n===========================\n");
@@ -354,6 +355,7 @@ int main(int argc, char **argv) {
         LOG_INF("final[%5u]: %3u", 20428, final.mem[20428]);
         printf("===========================\n\n");
     }
+    #endif
     memDmp(&app->nes.cpu, MEMSIZE);
     // memDmp(final, MEMSIZE);
 

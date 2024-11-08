@@ -296,7 +296,7 @@ int main(int argc, char **argv) {
                 }
             }
         }
-#if defined(_WIN32) && 0
+#if defined(_WIN32)
         if (isWeb) {
             if (nob_file_exists(EMSDK_ENV) != 1) {
                 nob_log(NOB_ERROR, "Could not find emsdk env builder \"" EMSDK_ENV "\", check if the path is correct and try again...");
@@ -456,9 +456,9 @@ bool PrecompileHeader(bool isWeb) {
 
     if (isWeb) {
         EMS(&cmd);
-        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc-header", WFLAGS);
+        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc-header", WFLAGS);
     } else {
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc-header", CFLAGS);
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc-header", CFLAGS);
     }
 
     nob_cmd_append(&cmd, INCLUDES);
@@ -556,6 +556,7 @@ defer:
 }
 
 bool CompileExecutable(bool isWeb) {
+    const size_t checkpoint = nob_temp_save();
     Nob_Cmd cmd = { 0 };
 
     // for (size_t i = 0; i < obj.count; i++) {
@@ -570,7 +571,7 @@ bool CompileExecutable(bool isWeb) {
         if (nob_needs_rebuild(WASM_OUTPUT, obj.items, obj.count) != 0) {
             EMS(&cmd);
 
-            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always");
+            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never");
 
             nob_cmd_append(&cmd, "-o", WASM_OUTPUT);
             nob_cmd_append(&cmd, WFLAGS);
@@ -587,9 +588,18 @@ bool CompileExecutable(bool isWeb) {
             nob_cmd_append(&cmd, "--shell-file", "extern/raylib-5.0/src/shell.html");
 
             nob_da_append_many(&cmd, obj.items, obj.count);
+
+            Nob_String_Builder cmdRender = { 0 };
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+
+            cmd.count = 0;
+            nob_cmd_append(&cmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+
+            nob_sb_free(cmdRender);
         }
     } else if (nob_needs_rebuild(EXE_OUTPUT, obj.items, obj.count) != 0) {
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never");
         nob_cmd_append(&cmd, "-o", EXE_OUTPUT);
         nob_da_append_many(&cmd, obj.items, obj.count);
 
@@ -666,21 +676,26 @@ bool CompileExecutable(bool isWeb) {
         nob_log(NOB_INFO, skippingMsg, EXE_OUTPUT);
     }
 
-    bool result = cmd.count > cnt ? nob_cmd_run_sync(cmd) : true;
+    bool result = nob_cmd_run_sync(cmd);
     nob_cmd_free(cmd);
 
+    nob_temp_rewind(checkpoint);
     return result;
 }
 
 bool CompileFiles(bool isWeb) {
+    const size_t checkpoint = nob_temp_save();
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
+    Nob_Cmd webCmd = { 0 };
+    Nob_String_Builder cmdRender = { 0 };
+    Nob_String_Builder sb = { 0 };
 
     if (isWeb) {
         EMS(&cmd);
-        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", WFLAGS);
+        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc", WFLAGS);
     } else {
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS);
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc", CFLAGS);
     }
 
     nob_cmd_append(&cmd, INCLUDES);
@@ -693,7 +708,6 @@ bool CompileFiles(bool isWeb) {
     -march=native -DKXD_DEBUG -D_UNICODE -DUNICODE -DPLATFORM_DESKTOP -DGRAPHICS_API_OPENGL_33 -DNES
     */
 
-    Nob_String_Builder sb = { 0 };
     for (size_t i = 0; i < NOB_ARRAY_LEN(files); i++) {
         cmd.count = command_size;
 
@@ -780,7 +794,17 @@ bool CompileFiles(bool isWeb) {
                 nob_cmd_append(&cmd, "-include", pch);
 
             nob_cmd_append(&cmd, NO_LINK_FLAG, input, filesFlags[i]);
-            nob_da_append(&procs, nob_cmd_run_async(cmd));
+
+            if (isWeb) {
+                webCmd.count = 0;
+                cmdRender.count = 0;
+                nob_cmd_render(cmd, &cmdRender);
+                nob_sb_append_null(&cmdRender);
+                nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+                nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            } else
+                nob_da_append(&procs, nob_cmd_run_async(cmd));
+
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
@@ -813,9 +837,17 @@ bool CompileFiles(bool isWeb) {
     }
 #endif
     bool result = nob_procs_wait(procs);
+
     nob_cmd_free(cmd);
+    nob_cmd_free(webCmd);
+
     nob_sb_free(sb);
+    nob_sb_free(cmdRender);
+
     NOB_FREE(procs.items);
+
+    nob_temp_rewind(checkpoint);
+
     return result;
 
 defer:
@@ -835,9 +867,9 @@ bool CompileDependencies(bool isWeb) {
     -lole32 -DKXD_DEBUG*/
     if (isWeb) {
         EMS(&cmd);
-        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", WFLAGS);
+        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc", WFLAGS);
     } else {
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", CFLAGS);
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc", CFLAGS);
     }
 
     nob_cmd_append(&cmd, INCLUDES);
@@ -894,7 +926,7 @@ bool CompileDependencies(bool isWeb) {
         nob_da_append(&obj, strdup(output));
     }
 
-    bool result = procs.count > 0 ? nob_procs_wait(procs) : true;
+    bool result = nob_procs_wait(procs);
     nob_cmd_free(cmd);
     NOB_FREE(procs.items);
     nob_sb_free(sb);
@@ -922,7 +954,7 @@ bool CompileNobHeader(bool isWeb) {
         if (nob_needs_rebuild1(output, nob_header_dir) != 0) {
             nob_log(NOB_INFO, "Rebuilding: '%s'", output);
             EMS(&cmd);
-            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always", "-xc", "-Os", "-Wall", "-Wextra", "-sFORCE_FILESYSTEM=1",
+            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc", "-Os", "-Wall", "-Wextra", "-sFORCE_FILESYSTEM=1",
                            "-sALLOW_MEMORY_GROWTH=1", "-sGL_ENABLE_GET_PROC_ADDRESS=1", "-sASSERTIONS=1");
             nob_cmd_append(&cmd, "-o", output, NO_LINK_FLAG, nob_header_dir, "-DNOB_IMPLEMENTATION");
 
@@ -949,7 +981,7 @@ bool CompileNobHeader(bool isWeb) {
     } else {
         if (nob_needs_rebuild1(output, nob_header_dir) != 0) {
             nob_log(NOB_INFO, "Rebuilding: '%s'", output);
-            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, NO_LINK_FLAG, nob_header_dir,
+            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc", "-o", output, NO_LINK_FLAG, nob_header_dir,
                            "-DNOB_IMPLEMENTATION");
 
             if (!nob_cmd_run_sync(cmd))
@@ -1283,7 +1315,7 @@ bool TestFile(void) {
     const char *output = "outTest.exe";
     if (nob_needs_rebuild1(output, input) != 0) {
         Nob_Cmd cmd = { 0 };
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-o", output, input, "-Wall", "-Wextra", "-O2");
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-o", output, input, "-Wall", "-Wextra", "-O2");
         return nob_cmd_run_sync(cmd);
     }
     nob_log(NOB_INFO, "File \"%s\" is up to date", output);
