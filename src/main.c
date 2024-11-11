@@ -6,6 +6,14 @@ int main(int argc, char **argv) {
 #if !defined(PLATFORM_WEB) && defined(_WIN32)
     if (!WinH_SetConsoleOutputCP(CP_UTF8))
         return 1;
+
+    // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
+    if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0)
+        return 1;
+
+    if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0)
+        return 1;
+
 #endif
     const char *program = nob_shift_args(&argc, &argv);
 
@@ -303,7 +311,7 @@ int main(int argc, char **argv) {
         //                 break;
         //         }
     }
-    #if 0
+#if 0
     if (TEST) {
         final.B = true; // Probable only necessary for this sample test
         printf("\n===========================\n");
@@ -355,7 +363,7 @@ int main(int argc, char **argv) {
         LOG_INF("final[%5u]: %3u", 20428, final.mem[20428]);
         printf("===========================\n\n");
     }
-    #endif
+#endif
     memDmp(&app->nes.cpu, MEMSIZE);
     // memDmp(final, MEMSIZE);
 
@@ -471,12 +479,7 @@ void processRomHeader(nes_t *nes) {
     nes->CHR = callocWrapper(1, nes->CHRSize);
 }
 
-#ifdef PLATFORM_WEB
-void mainLoop(void *app_ptr)
-#else
-static inline void mainLoop(void *app_ptr)
-#endif
-{
+void mainLoop(void *app_ptr) {
     app_t *app = app_ptr;
     // while (!WindowShouldClose() && !app->quit) {
     if (IsWindowResized()) {

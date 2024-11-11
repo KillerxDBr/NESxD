@@ -954,6 +954,8 @@ bool nob_procs_wait(Nob_Procs procs)
     bool success = true;
     for (size_t i = 0; i < procs.count; ++i) {
         success = nob_proc_wait(procs.items[i]) && success;
+        fflush(stdout);
+        fflush(stderr);
     }
     return success;
 }
@@ -1086,6 +1088,7 @@ void nob_log(Nob_Log_Level level, const char *fmt, ...)
     vfprintf(stderr, fmt, args);
     va_end(args);
     fprintf(stderr, "\n");
+    fflush(stderr);
 }
 
 bool nob_read_entire_dir(const char *parent, Nob_File_Paths *children)

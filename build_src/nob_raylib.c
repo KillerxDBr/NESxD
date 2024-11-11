@@ -109,12 +109,12 @@ bool buildRayLib(bool isWeb) {
 
         EMS(&cmd);
 
-        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=always");
+        nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never");
         nob_cmd_append(&cmd, RAYLIB_WFLAGS);
 
         nob_sb_append_cstr(&sb, BUILD_WASM_DIR);
     } else {
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always");
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never");
         nob_cmd_append(&cmd, RAYLIB_CFLAGS);
 
 #ifdef USE_SDL

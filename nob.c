@@ -222,6 +222,13 @@ void PrintUsage(void) {
 // #define TEST_ERRORS
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+    // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
+    if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0)
+        return 1;
+    if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0)
+        return 1;
+#endif // _WIN32
 
     nob_log(NOB_INFO, "Locale set to \"%s\"",
 #ifndef _WIN32 /* Non Windows */
@@ -247,7 +254,7 @@ int main(int argc, char **argv) {
 
 #ifdef TEST_ERRORS
     errorTest();
-    exit(0);
+    return 0;
 #endif
 
     nob_log(NOB_INFO, "Using Compiler: \"%s\"", CC);
@@ -557,6 +564,7 @@ defer:
 
 bool CompileExecutable(bool isWeb) {
     const size_t checkpoint = nob_temp_save();
+    bool result = true;
     Nob_Cmd cmd = { 0 };
 
     // for (size_t i = 0; i < obj.count; i++) {
@@ -597,6 +605,7 @@ bool CompileExecutable(bool isWeb) {
             nob_cmd_append(&cmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
 
             nob_sb_free(cmdRender);
+            result = nob_cmd_run_sync(cmd);
         }
     } else if (nob_needs_rebuild(EXE_OUTPUT, obj.items, obj.count) != 0) {
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never");
@@ -672,11 +681,12 @@ bool CompileExecutable(bool isWeb) {
 #endif // defined(_MSC_VER)
 #endif /* USE_SDL */
 
+        result = nob_cmd_run_sync(cmd);
+
     } else {
         nob_log(NOB_INFO, skippingMsg, EXE_OUTPUT);
     }
 
-    bool result = nob_cmd_run_sync(cmd);
     nob_cmd_free(cmd);
 
     nob_temp_rewind(checkpoint);
@@ -1249,6 +1259,8 @@ defer:
 
     free(eb.items);
 
+    fflush(stderr);
+
     return result;
 }
 
@@ -1341,7 +1353,8 @@ bool WebServer(const char *pyExec) {
 
     Nob_Proc p = nob_cmd_run_async(cmd);
 
-    getchar();
+    // TODO: Handle SIGINT 'ctrl+c'
+
     nob_log(NOB_INFO, "Closing Web Server...");
     TerminateProcess(p, 0);
     result = (p != NOB_INVALID_PROC);
@@ -1357,11 +1370,12 @@ void errorTest(void) {
     char *errMsg;
     for (DWORD i = 0; i < 16000; ++i) {
         nob_log(NOB_INFO, "---------------------------------------------");
-        errMsg = nob_log_win32_error(i);
+        errMsg = nob_win32_error_message(i);
         if (errMsg == NULL)
             continue;
         nob_log(NOB_INFO, "Error %lu: \"%s\" (0x%X)", i, errMsg, i);
     }
+    nob_log(NOB_INFO, "---------------------------------------------");
 }
 #endif // TEST_ERRORS
 
