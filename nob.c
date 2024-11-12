@@ -2,6 +2,7 @@
 #include "include/nob.h"
 
 #include <locale.h>
+#include <signal.h>
 
 // #define RELEASE
 // #define USE_SDL
@@ -24,6 +25,8 @@
 #define EMS(cmd)
 #endif // defined(_WIN32)
 */
+
+#define WS_PORT "8000"
 
 #if defined(__GNUC__)
 #define CC "gcc"
@@ -1334,11 +1337,19 @@ bool TestFile(void) {
     return true;
 }
 
+static volatile int pyWskeepRunning = 1;
+
+void pyWsHandler(int dummy) { pyWskeepRunning = 0; }
+
 bool WebServer(const char *pyExec) {
+#if !defined(_WIN32)
+    NOB_TODO("Webserver handling not implemented for this platform");
+    nob_return_defer(false);
+#else  // !defined(_WIN32)
     Nob_Cmd cmd = { 0 };
     bool result = true;
 
-    if (nob_file_exists(WASM_DIR) != 1) {
+    if (nob_file_exists(WASM_DIR) != 1 && (nob_file_exists(WASM_DIR PROGRAM_NAME ".html") != 1 || nob_file_exists(WASM_DIR "index.html") != 1)) {
         nob_log(NOB_ERROR, "Build wasm first");
         nob_return_defer(false);
     }
@@ -1349,20 +1360,32 @@ bool WebServer(const char *pyExec) {
         };
     }
 
-    nob_cmd_append(&cmd, pyExec, "-m", "http.server", "-d", WASM_DIR);
+    nob_cmd_append(&cmd, pyExec, "-m", "http.server", "-d", WASM_DIR, "-b", "localhost", WS_PORT);
 
     Nob_Proc p = nob_cmd_run_async(cmd);
+    if (p == NOB_INVALID_PROC)
+        nob_return_defer(false);
 
-    // TODO: Handle SIGINT 'ctrl+c'
+    // Handling CTRL+C to close python server only
+    signal(SIGINT, pyWsHandler);
+
+    nob_log(NOB_INFO, "Press 'CTRL+C' to close the Web Server");
+    while (pyWskeepRunning); // infinite loop to interrupt main process
 
     nob_log(NOB_INFO, "Closing Web Server...");
-    TerminateProcess(p, 0);
-    result = (p != NOB_INVALID_PROC);
+
+    if (!TerminateProcess(p, 0)) {
+        nob_log(NOB_ERROR, "Could not terminate process %s: %s", pyExec, nob_win32_error_message(GetLastError()));
+        nob_return_defer(false);
+    }
+    CloseHandle(p);
+    nob_log(NOB_INFO, "Web Server closed successfully");
 
 defer:
     nob_cmd_free(cmd);
 
     return result;
+#endif // _WIN32
 }
 
 #ifdef TEST_ERRORS
