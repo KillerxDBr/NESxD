@@ -67,13 +67,15 @@
 
 #define PROGRAM_NAME "nesxd"
 
-#if _WIN32
+#if defined(_WIN32)
+#include <VersionHelpers.h>
+
 #define PY_EXEC "py"
 #define EXE_NAME PROGRAM_NAME ".exe"
 #else
 #define PY_EXEC "python3"
 #define EXE_NAME PROGRAM_NAME
-#endif /* _WIN32 */
+#endif // defined(_WIN32)
 
 #define EXE_OUTPUT BIN_DIR EXE_NAME
 #define WASM_OUTPUT WASM_DIR PROGRAM_NAME ".html"
@@ -225,13 +227,19 @@ void PrintUsage(void) {
 int main(int argc, char **argv) {
     NOB_GO_REBUILD_URSELF(argc, argv);
 
-#ifdef _WIN32
-    // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
-    if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0)
-        return 1;
-    if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0)
-        return 1;
-#endif // _WIN32
+#if defined(_WIN32)
+    if (IsWindows10OrGreater()) {
+        // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
+        if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
+            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
+            return 1;
+        }
+        if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
+            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
+            return 1;
+        }
+    }
+#endif // defined(_WIN32)
 
     nob_log(NOB_INFO, "Locale set to \"%s\"",
 #ifndef _WIN32 /* Non Windows */
