@@ -222,9 +222,9 @@ void PrintUsage(void) {
     nob_log(NOB_ERROR, "Usage: ./nob <[b]uild [[w]eb] [[c]lean/cls], [w]eb [python executable], bundler [dir], [c]lean/cls>");
 }
 
-// #define TEST_ERRORS
-
 int main(int argc, char **argv) {
+    NOB_GO_REBUILD_URSELF(argc, argv);
+
 #ifdef _WIN32
     // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
     if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0)
@@ -248,17 +248,11 @@ int main(int argc, char **argv) {
     );
     // nob_log(NOB_INFO, "Locale set to \"%s\"", setlocale(LC_ALL, NULL));
 
-    NOB_GO_REBUILD_URSELF(argc, argv);
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
     const char *program = nob_shift_args(&argc, &argv);
     NOB_UNUSED(program);
     // nob_shift_args(&argc, &argv);
-
-#ifdef TEST_ERRORS
-    errorTest();
-    return 0;
-#endif
 
     nob_log(NOB_INFO, "Using Compiler: \"%s\"", CC);
     nob_log(NOB_INFO, "Using WASM Compiler: \"%s\"", EMCC);
@@ -405,6 +399,9 @@ int main(int argc, char **argv) {
     NOB_UNREACHABLE("Main");
 
 defer:
+    for (size_t i = 0; i < obj.count; ++i)
+        free((void *)obj.items[i]);
+
     free(obj.items);
 
     free(resources.items);
@@ -570,11 +567,6 @@ bool CompileExecutable(bool isWeb) {
     bool result = true;
     Nob_Cmd cmd = { 0 };
 
-    // for (size_t i = 0; i < obj.count; i++) {
-    //     nob_log(NOB_INFO, "%zu: %s", i + 1ULL, obj.items[i]);
-    // }
-    // exit(0);
-    const size_t cnt = cmd.count;
     // gcc -o bin/nesxd.exe build/6502.o build/config.o build/gui.o build/input.o build/main.o build/nob.o build/resource.o
     // build/tinyfiledialogs.o lib/libraylib.a -lgdi32 -lwinmm -lcomdlg32 -lole32
     if (isWeb) {
@@ -662,7 +654,7 @@ bool CompileExecutable(bool isWeb) {
             nob_sb_append_null(&sb_libs);
             nob_cmd_append(&cmd, strdup(sb_libs.items));
         }
-#else
+#else  // defined(_MSC_VER)
         {
             sb_libs.count = 0;
             nob_sb_append_cstr(&sb_libs, "-l");
@@ -672,7 +664,7 @@ bool CompileExecutable(bool isWeb) {
         }
 #endif // defined(_MSC_VER)
         nob_sb_free(sb_libs);
-#else
+#else  // defined(_WIN32)
         nob_cmd_append(&cmd, CFLAGS, LIBS);
 #endif // defined(_WIN32)
 
@@ -1339,7 +1331,10 @@ bool TestFile(void) {
 
 static volatile int pyWskeepRunning = 1;
 
-void pyWsHandler(int dummy) { pyWskeepRunning = 0; }
+void pyWsHandler(int dummy) {
+    NOB_UNUSED(dummy);
+    pyWskeepRunning = 0;
+}
 
 bool WebServer(const char *pyExec) {
 #if !defined(_WIN32)
@@ -1349,7 +1344,8 @@ bool WebServer(const char *pyExec) {
     Nob_Cmd cmd = { 0 };
     bool result = true;
 
-    if (nob_file_exists(WASM_DIR) != 1 && (nob_file_exists(WASM_DIR PROGRAM_NAME ".html") != 1 || nob_file_exists(WASM_DIR "index.html") != 1)) {
+    if (nob_file_exists(WASM_DIR) != 1
+        && (nob_file_exists(WASM_DIR PROGRAM_NAME ".html") != 1 || nob_file_exists(WASM_DIR "index.html") != 1)) {
         nob_log(NOB_ERROR, "Build wasm first");
         nob_return_defer(false);
     }
@@ -1369,16 +1365,22 @@ bool WebServer(const char *pyExec) {
     // Handling CTRL+C to close python server only
     signal(SIGINT, pyWsHandler);
 
-    nob_log(NOB_INFO, "Press 'CTRL+C' to close the Web Server");
-    while (pyWskeepRunning); // infinite loop to interrupt main process
+    nob_log(NOB_INFO, "Press 'CTRL+C' to close the Web Server...");
+    while (pyWskeepRunning) // infinite loop to interrupt main process
+        (void)0;
 
     nob_log(NOB_INFO, "Closing Web Server...");
 
     if (!TerminateProcess(p, 0)) {
-        nob_log(NOB_ERROR, "Could not terminate process %s: %s", pyExec, nob_win32_error_message(GetLastError()));
+        nob_log(NOB_ERROR, "Could not terminate process \"%s\": %s", pyExec, nob_win32_error_message(GetLastError()));
         nob_return_defer(false);
     }
-    CloseHandle(p);
+
+    if (!CloseHandle(p)) {
+        nob_log(NOB_ERROR, "Could not close handle to process \"%s\": %s", pyExec, nob_win32_error_message(GetLastError()));
+        nob_return_defer(false);
+    }
+
     nob_log(NOB_INFO, "Web Server closed successfully");
 
 defer:
@@ -1387,20 +1389,6 @@ defer:
     return result;
 #endif // _WIN32
 }
-
-#ifdef TEST_ERRORS
-void errorTest(void) {
-    char *errMsg;
-    for (DWORD i = 0; i < 16000; ++i) {
-        nob_log(NOB_INFO, "---------------------------------------------");
-        errMsg = nob_win32_error_message(i);
-        if (errMsg == NULL)
-            continue;
-        nob_log(NOB_INFO, "Error %lu: \"%s\" (0x%X)", i, errMsg, i);
-    }
-    nob_log(NOB_INFO, "---------------------------------------------");
-}
-#endif // TEST_ERRORS
 
 #ifdef _WIN32
 #define NULL_OUTPUT "NUL"
