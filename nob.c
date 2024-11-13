@@ -227,17 +227,17 @@ void PrintUsage(void) {
 int main(int argc, char **argv) {
     NOB_GO_REBUILD_URSELF(argc, argv);
 
-#if defined(_WIN32)
-    if (IsWindows10OrGreater()) {
-        // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
-        if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
-            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
-            return 1;
-        }
-        if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
-            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
-            return 1;
-        }
+#if defined(_WIN32) // Should be Win10+ only, but methods to detect windows versions are unreliable...
+    nob_log(NOB_INFO, "Enabling buffer on console std outputs");
+    // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
+    if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
+        nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
+        return 1;
+    }
+
+    if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
+        nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
+        return 1;
     }
 #endif // defined(_WIN32)
 

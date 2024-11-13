@@ -3,31 +3,42 @@
 const char *PausedText = "Paused...";
 
 int main(int argc, char **argv) {
-#if !defined(PLATFORM_WEB) && defined(_WIN32)
-    if (!WinH_SetConsoleOutputCP(CP_UTF8))
+#if defined(_WIN32)
+    if (!WinH_SetConsoleOutputCP(CP_UTF8)) {
+        LOG_ERR("Could not set console output to 'UTF-8'");
         return 1;
+    }
+
+    // Should be Win10+ only, but methods to detect windows versions are unreliable...
+    LOG_INF("Enabling buffer on console std outputs");
 
     // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
-    if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0)
+    if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
+        LOG_ERR("Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
         return 1;
+    }
 
-    if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0)
+    if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
+        LOG_ERR("Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
         return 1;
-
-#endif
-    const char *program = nob_shift_args(&argc, &argv);
-
-#ifndef _WIN32 // Non Windows
-    setlocale(LC_ALL, "C.UTF-8");
-#else
+    }
 
 #ifdef _UCRT // ucrtbase.dll Windows
     setlocale(LC_ALL, ".UTF-8");
-#else        // msvcrt.dll Windows
+#else  // msvcrt.dll Windows
     setlocale(LC_ALL, "C");
-#endif       // _UCRT
+#endif // _UCRT
 
-#endif // _WIN32
+#else // Non Windows
+#ifdef PLATFORM_WEB
+    setlocale(LC_ALL, ""); // Web version
+#else
+    setlocale(LC_ALL, "C.UTF-8");
+#endif // PLATFORM_WEB
+
+#endif // defined(_WIN32)
+
+    const char *program = nob_shift_args(&argc, &argv);
 
     LOG_INF("Locale set to \"%s\"", setlocale(LC_ALL, NULL));
 
