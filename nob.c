@@ -460,7 +460,7 @@ defer:
 
 // clang-format on
 
-#define STR_SIZE 128
+// #define STR_SIZE 128
 
 bool PrecompileHeader(bool isWeb) {
     if (isWeb)
@@ -487,11 +487,13 @@ bool PrecompileHeader(bool isWeb) {
     //-o build/6502precomp.h.gch src/6502.h
     Nob_String_Builder sb = { 0 };
     for (size_t i = 0; i < NOB_ARRAY_LEN(files); i++) {
+        size_t internalCheckpoint = nob_temp_save();
+
         cmd.count = command_size;
         extraHeaders.count = 0;
 
-        char input[STR_SIZE] = { 0 };
-        char output[STR_SIZE] = { 0 };
+        char *input;
+        char *output;
 
         // input file
         sb.count = 0;
@@ -500,11 +502,13 @@ bool PrecompileHeader(bool isWeb) {
         nob_sb_append_cstr(&sb, ".h");
         nob_sb_append_null(&sb);
 
-        if (sb.count > STR_SIZE) {
-            goto defer;
-        }
+        // if (sb.count > STR_SIZE) {
+        //     goto defer;
+        // }
 
-        strcpy(input, sb.items);
+        // strcpy(input, sb.items);
+
+        input = nob_temp_strdup(sb.items);
 
         // output
         sb.count = 0;
@@ -518,11 +522,13 @@ bool PrecompileHeader(bool isWeb) {
         nob_sb_append_cstr(&sb, GCH_SUFFIX);
         nob_sb_append_null(&sb);
 
-        if (sb.count > STR_SIZE) {
-            goto defer;
-        }
+        // if (sb.count > STR_SIZE) {
+        //     goto defer;
+        // }
 
-        strcpy(output, sb.items);
+        // strcpy(output, sb.items);
+
+        output = nob_temp_strdup(sb.items);
 
         if (GetIncludedHeaders(&extraHeaders, input)) {
             nob_da_append(&extraHeaders, input);
@@ -534,46 +540,43 @@ bool PrecompileHeader(bool isWeb) {
         // }
         // nob_log(NOB_INFO, "Number of extra headers: %zu", extraHeaders.count);
         // nob_log(NOB_INFO, "------------------------------------");
+
         if (nob_needs_rebuild(output, extraHeaders.items, extraHeaders.count) != 0) {
-            // DWORD err;
-            // if (err = GetLastError()) {
-            //     LPVOID ptr;
-            //     nob_log(NOB_ERROR, "Teste");
-
-            //     DWORD msg = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            //                                NULL, err, LANG_SYSTEM_DEFAULT, (LPTSTR)&ptr, 0, NULL);
-            //     nob_log(NOB_ERROR, "%s (%lu)", ptr, err);
-            //     exit(1);
-            // }
-
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
             nob_cmd_append(&cmd, "-o", output, input, filesFlags[i]);
-            // if(filesFlags[i][0])
-            //     nob_cmd_append(&cmd, filesFlags[i]);
+
             nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
 
-        // for (size_t i = 0; i < extraHeaders.count; i++) {
-        //     free(extraHeaders.items[i]);
-        // }
+        nob_temp_rewind(internalCheckpoint);
     }
     nob_cmd_free(cmd);
     nob_sb_free(sb);
+
     bool result = nob_procs_wait(procs);
-    NOB_FREE(procs.items);
+    nob_da_free(procs);
+
     return result;
 
-defer:
-    nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
-    return false;
+    // defer:
+    //     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
+    //     return false;
 }
 
 bool CompileExecutable(bool isWeb) {
     const size_t checkpoint = nob_temp_save();
     bool result = true;
     Nob_Cmd cmd = { 0 };
+
+    for (size_t i = 0; i < obj.count; ++i) {
+        if (nob_file_exists(obj.items[i]) != 1) {
+            nob_log(NOB_ERROR, "Could not find file '%s', cleaning all files and aborting compilation...", obj.items[i]);
+            CleanupFiles();
+            nob_return_defer(false);
+        }
+    }
 
     // gcc -o bin/nesxd.exe build/6502.o build/config.o build/gui.o build/input.o build/main.o build/nob.o build/resource.o
     // build/tinyfiledialogs.o lib/libraylib.a -lgdi32 -lwinmm -lcomdlg32 -lole32
@@ -690,6 +693,7 @@ bool CompileExecutable(bool isWeb) {
         nob_log(NOB_INFO, skippingMsg, EXE_OUTPUT);
     }
 
+defer:
     nob_cmd_free(cmd);
 
     nob_temp_rewind(checkpoint);
@@ -698,6 +702,7 @@ bool CompileExecutable(bool isWeb) {
 
 bool CompileFiles(bool isWeb) {
     const size_t checkpoint = nob_temp_save();
+
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
     Nob_Cmd webCmd = { 0 };
@@ -722,12 +727,13 @@ bool CompileFiles(bool isWeb) {
     */
 
     for (size_t i = 0; i < NOB_ARRAY_LEN(files); i++) {
+        size_t internalCheckpoint = nob_temp_save();
         cmd.count = command_size;
 
-        char input[STR_SIZE] = { 0 };
-        char pch[STR_SIZE] = { 0 };
-        char gch[STR_SIZE] = { 0 };
-        char output[STR_SIZE] = { 0 };
+        char *input;
+        char *pch;
+        char *gch;
+        char *output;
 
         // input
         sb.count = 0;
@@ -736,11 +742,13 @@ bool CompileFiles(bool isWeb) {
         nob_sb_append_cstr(&sb, ".c");
         nob_sb_append_null(&sb);
 
-        if (sb.count > STR_SIZE) {
-            goto defer;
-        }
+        // if (sb.count > STR_SIZE) {
+        //     goto defer;
+        // }
 
-        strcpy(input, sb.items);
+        // strcpy(input, sb.items);
+
+        input = nob_temp_strdup(sb.items);
 
         // if (!isWeb) {
         // pch
@@ -754,11 +762,13 @@ bool CompileFiles(bool isWeb) {
         nob_sb_append_cstr(&sb, PCH_SUFFIX);
         nob_sb_append_null(&sb);
 
-        if (sb.count > STR_SIZE) {
-            goto defer;
-        }
+        // if (sb.count > STR_SIZE) {
+        //     goto defer;
+        // }
 
-        strcpy(pch, sb.items);
+        // strcpy(pch, sb.items);
+
+        pch = nob_temp_strdup(sb.items);
 
         // gch
         sb.count = sb.count - sizeof(PCH_SUFFIX);
@@ -766,11 +776,14 @@ bool CompileFiles(bool isWeb) {
         nob_sb_append_cstr(&sb, GCH_SUFFIX);
         nob_sb_append_null(&sb);
 
-        if (sb.count > STR_SIZE) {
-            goto defer;
-        }
+        // if (sb.count > STR_SIZE) {
+        //     goto defer;
+        // }
 
-        strcpy(gch, sb.items);
+        // strcpy(gch, sb.items);
+
+        gch = nob_temp_strdup(sb.items);
+
         // }
         // output
         sb.count = 0;
@@ -783,11 +796,13 @@ bool CompileFiles(bool isWeb) {
         nob_sb_append_cstr(&sb, ".o");
         nob_sb_append_null(&sb);
 
-        if (sb.count > STR_SIZE) {
-            goto defer;
-        }
+        // if (sb.count > STR_SIZE) {
+        //     goto defer;
+        // }
 
-        strcpy(output, sb.items);
+        // strcpy(output, sb.items);
+
+        output = nob_temp_strdup(sb.items);
 
         // nob_log(NOB_INFO, "---------%s---------", files[i]);
         // nob_log(NOB_INFO, "gch: %s", gch);
@@ -825,6 +840,8 @@ bool CompileFiles(bool isWeb) {
         // strcpy(toObj, output);
         // nob_da_append(&obj, toObj);
         nob_da_append(&obj, strdup(output));
+
+        nob_temp_rewind(internalCheckpoint);
     }
     // nob_log(NOB_INFO, "------------------");
 
@@ -863,9 +880,9 @@ bool CompileFiles(bool isWeb) {
 
     return result;
 
-defer:
-    nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
-    return false;
+// defer:
+//     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
+//     return false;
 }
 
 bool CompileDependencies(bool isWeb) {
@@ -894,9 +911,11 @@ bool CompileDependencies(bool isWeb) {
                 continue;
         }
 
+        const size_t checkpoint = nob_temp_save();
+
         cmd.count = command_size;
-        char input[STR_SIZE] = { 0 };
-        char output[STR_SIZE] = { 0 };
+        char *input;
+        char *output;
 
         // input
         sb.count = 0;
@@ -907,11 +926,13 @@ bool CompileDependencies(bool isWeb) {
         nob_sb_append_cstr(&sb, ".c");
         nob_sb_append_null(&sb);
 
-        if (sb.count > STR_SIZE) {
-            goto defer;
-        }
+        // if (sb.count > STR_SIZE) {
+        //     goto defer;
+        // }
 
-        strcpy(input, sb.items);
+        // strcpy(input, sb.items);
+
+        input = nob_temp_strdup(sb.items);
 
         // pch
         sb.count = 0;
@@ -920,11 +941,13 @@ bool CompileDependencies(bool isWeb) {
         nob_sb_append_cstr(&sb, ".o");
         nob_sb_append_null(&sb);
 
-        if (sb.count > STR_SIZE) {
-            goto defer;
-        }
+        // if (sb.count > STR_SIZE) {
+        //     goto defer;
+        // }
 
-        strcpy(output, sb.items);
+        // strcpy(output, sb.items);
+
+        output = nob_temp_strdup(sb.items);
 
         // nob_log(NOB_INFO, "Input: %s", input);
         // nob_log(NOB_INFO, "Output: %s", output);
@@ -937,16 +960,20 @@ bool CompileDependencies(bool isWeb) {
             nob_log(NOB_INFO, skippingMsg, output);
         }
         nob_da_append(&obj, strdup(output));
+
+        nob_temp_rewind(checkpoint);
     }
 
     bool result = nob_procs_wait(procs);
+
     nob_cmd_free(cmd);
-    NOB_FREE(procs.items);
+    nob_da_free(procs);
     nob_sb_free(sb);
+    
     return CompileNobHeader(isWeb) & result;
-defer:
-    nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
-    return false;
+    // defer:
+    //     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
+    //     return false;
 }
 
 bool CompileNobHeader(bool isWeb) {

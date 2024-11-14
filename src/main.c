@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
 
 #endif // defined(_WIN32)
 
-    const char *program = nob_shift_args(&argc, &argv);
+    const char *program = nob_shift(argv, argc);
 
     LOG_INF("Locale set to \"%s\"", setlocale(LC_ALL, NULL));
 
@@ -165,57 +165,42 @@ int main(int argc, char **argv) {
         if (!InstructionTest(app, &final))
             return 1;
         LOG_INF("SUCCESS");
-        // return 0;
-#endif /* !defined(PLATFORM_WEB) */
+#endif // !defined(PLATFORM_WEB)
     } else {
-#endif /* defined(KXD_DEBUG) */
+#endif // defined(KXD_DEBUG)
         memset(app->nes.cpu.mem, INS_NOP, MEMSIZE);
 
         const char *memBinPath = "./mem.bin";
-        Nob_String_Builder memory = { 0 };
 
         if (!NOP) {
+            Nob_String_Builder memory = { 0 };
 
-            if (!nob_read_entire_file(memBinPath, &memory)) {
-                // LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
+            if (nob_read_entire_file(memBinPath, &memory)) {
+                LOG_INF("Reading %zu instructions from \"%s\"", memory.count, memBinPath);
+                addMultipleToMem(app->nes.cpu.mem, 0, (uint8_t *)memory.items, memory.count);
+            } else {
                 LOG_INF("Operating with \"INS_NOP\" only");
                 NOP = true;
             }
 
-            // memBin = fopen(memBinPath, "rb");
-
-            // if (memBin == NULL) {
-            //     LOG_ERR("Could not open \"%s\": %s", memBinPath, strerror(errno));
-            //     LOG_INF("Operating with \"INS_NOP\" only");
-            //     NOP = true;
-            //     // exit(0);
-            // }
+            nob_sb_free(memory);
+            memset(&memory, 0, sizeof(memory));
         }
-
-        if (!NOP) {
-            // if (insSize == 0) {
-            //     LOG_ERR("No bytes to read from \"%s\", exiting...", memBinPath);
-            //     exit(1);
-            // }
-
-            // uint8_t *instructions = callocWrapper(insSize, sizeof(uint8_t));
-
-            LOG_INF("Reading %zu instructions from \"%s\"", memory.count, memBinPath);
-            // fread(instructions, 1, insSize, memBin);
-            // fclose(memBin);
-
-            addMultipleToMem(app->nes.cpu.mem, 0, (uint8_t *)memory.items, memory.count);
-        }
-        nob_sb_free(memory);
 #if defined(KXD_DEBUG)
     }
+#endif // defined(KXD_DEBUG)
+
+#ifdef PLATFORM_WEB
+    LOG_INF("[TODO] Load ROM from user PC to WASM version");
+    LOG_INF("[TODO] Save config in cookies");
+#else
+    LOG_INF("[TODO] Move this part to a button action");
+
     const char *fileName = "./rom/smb.nes";
     loadRomFromMem(&app->nes, fileName);
-#endif /* defined(KXD_DEBUG) */
-
-#ifndef PLATFORM_WEB
+    
     loadConfig(app);
-#endif
+#endif // PLATFORM_WEB
 
     initGui(app);
 
@@ -374,7 +359,7 @@ int main(int argc, char **argv) {
         LOG_INF("final[%5u]: %3u", 20428, final.mem[20428]);
         printf("===========================\n\n");
     }
-#endif
+#endif // 0
     memDmp(&app->nes.cpu, MEMSIZE);
     // memDmp(final, MEMSIZE);
 
@@ -385,7 +370,7 @@ int main(int argc, char **argv) {
 #ifndef NOVID
     UnloadRenderTexture(app->screen);
     CloseWindow();
-#endif
+#endif // NOVID
     free(app);
     return 0;
 }
@@ -394,7 +379,7 @@ void loadRom(nes_t *nes, const char *fileName) {
     Nob_String_Builder sb = { 0 };
 
     if (!nob_read_entire_file(fileName, &sb))
-        goto defer;
+        goto errorLoadRom;
 
     nes->rom = (uint8_t *)sb.items;
     nes->romSize = sb.count;
@@ -404,7 +389,7 @@ void loadRom(nes_t *nes, const char *fileName) {
     processRomHeader(nes);
     return;
 
-defer:
+errorLoadRom:
     nob_sb_free(sb);
     exit(1);
 }

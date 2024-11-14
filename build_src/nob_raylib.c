@@ -2,6 +2,8 @@
 #include "../include/nob.h"
 #endif // NOB_H_
 
+#ifndef CC
+
 #if defined(__GNUC__)
 #define CC "gcc"
 #elif defined(__clang__)
@@ -12,12 +14,20 @@
 #define CC "cc"
 #endif // defined(__GNUC__)
 
+#endif // CC
+
+#ifndef EMCC
 #define EMCC "emcc"
+#endif // EMCC
 
 #if defined(_WIN32)
+
+#ifndef EMSDK_ENV
 // #define EMSDK_ENV "D:/emsdk/emsdk_env.bat"
 #define EMSDK_ENV "C:/Users/antonioroberto/Desktop/w64devkit/emsdk/emsdk_env.bat"
+#endif // EMSDK_ENV
 
+#ifndef EMS
 #define EMS(cmd)                                                                                                                           \
     do {                                                                                                                                   \
         nob_cmd_append((cmd), "set", "EMSDK_QUIET=1");                                                                                     \
@@ -25,23 +35,34 @@
         nob_cmd_append((cmd), EMSDK_ENV);                                                                                                  \
         nob_cmd_append((cmd), "&&");                                                                                                       \
     } while (0)
+#endif // EMS
+
 #else
 #define EMS(cmd)
 #endif // defined(_WIN32)
 
+#ifndef RAYLIB_SRC_PATH
 #define RAYLIB_SRC_PATH "extern/raylib/src/"
+#endif // RAYLIB_SRC_PATH
 
+#ifndef RL_MIN_SHELL
 #define RL_MIN_SHELL RAYLIB_SRC_PATH "minshell.html"
+#endif // RL_MIN_SHELL
 
+#ifndef SDL_PATH
 #define SDL_PATH "C:/msys64/ucrt64/include/SDL2"
+#endif // SDL_PATH
 
+#ifndef PLATFORM
 #ifdef USE_SDL
 #define PLATFORM "-DPLATFORM_DESKTOP_SDL"
 #else
 #define PLATFORM "-DPLATFORM_DESKTOP_GLFW"
 #endif /* USE_SDL */
+#endif // PLATFORM
 
 // TODO: Test SDL Backend, why not?
+#ifndef RAYLIB_CFLAGS
 // clang-format off
 #ifndef RELEASE
 #define RAYLIB_CFLAGS "-Wall",                                             \
@@ -66,8 +87,10 @@
                       "-ggdb3",                                            \
                       "-std=c99",                                          \
                       "-Werror=implicit-function-declaration"
-#endif //RELEASE
+#endif // RELEASE
+#endif // RAYLIB_CFLAGS
 
+#ifndef RAYLIB_WFLAGS
 #define RAYLIB_WFLAGS "-Wall",                                             \
                       "-D_GNU_SOURCE",                                     \
                       "-DPLATFORM_WEB",                                    \
@@ -77,17 +100,40 @@
                       "-fno-strict-aliasing",                              \
                       "-std=gnu99",                                        \
                       "-Os"
-
+#endif // RAYLIB_WFLAGS
 // clang-format on
+#ifndef RL_INCLUDE_PATHS
 #define RL_INCLUDE_PATHS "-I" RAYLIB_SRC_PATH, "-I" RAYLIB_SRC_PATH "external/glfw/include"
+#endif
 
+#ifndef BUILD_DIR
 #define BUILD_DIR "build/"
+#endif // BUILD_DIR
+
+#ifndef WASM_DIR
 #define WASM_DIR "wasm/"
+#endif // WASM_DIR
+
+#ifndef BUILD_WASM_DIR
 #define BUILD_WASM_DIR BUILD_DIR WASM_DIR
+#endif // BUILD_WASM_DIR
+
+#ifndef BIN_DIR
 #define BIN_DIR "bin/"
+#endif // BIN_DIR
+
+#ifndef SRC_DIR
 #define SRC_DIR "src/"
+#endif // SRC_DIR
+
+#ifndef LIB_DIR
 #define LIB_DIR "lib/"
+#endif // LIB_DIR
+
+#ifndef EXTERN_DIR
 #define EXTERN_DIR "extern/"
+#endif // EXTERN_DIR
+
 
 typedef Nob_File_Paths Objects;
 
@@ -95,6 +141,7 @@ extern Objects obj;
 extern const char *skippingMsg;
 
 bool buildRayLib(bool isWeb) {
+
     const size_t checkpoint = nob_temp_save();
     Nob_Cmd cmd = { 0 };
     Nob_Cmd webCmd = { 0 };
@@ -102,11 +149,9 @@ bool buildRayLib(bool isWeb) {
     Objects deps = { 0 };
     Nob_String_Builder sb = { 0 };
     Nob_String_Builder cmdRender = { 0 };
+    bool result = true;
 
     if (isWeb) {
-        // if (nob_file_exists(EMSDK_ENV) < 1)
-        //     NOB_UNREACHABLE("Could not find EMSDK_ENV: '"EMSDK_ENV"'");
-
         EMS(&cmd);
 
         nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never");
@@ -165,7 +210,8 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_render(cmd, &cmdRender);
             nob_sb_append_null(&cmdRender);
             nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
-            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            // nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            result = nob_cmd_run_sync_and_reset(&webCmd) && result;
         } else
             nob_da_append(&procs, nob_cmd_run_async(cmd));
 
@@ -191,15 +237,7 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_append(&cmd, "-o", sb.items);
             nob_cmd_append(&cmd, "-c", RAYLIB_SRC_PATH "rglfw.c");
 
-            if (isWeb) {
-                webCmd.count = 0;
-                cmdRender.count = 0;
-                nob_cmd_render(cmd, &cmdRender);
-                nob_sb_append_null(&cmdRender);
-                nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
-                nob_da_append(&procs, nob_cmd_run_async(webCmd));
-            } else
-                nob_da_append(&procs, nob_cmd_run_async(cmd));
+            nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, sb.items);
         }
@@ -229,7 +267,8 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_render(cmd, &cmdRender);
             nob_sb_append_null(&cmdRender);
             nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
-            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            // nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            result = nob_cmd_run_sync_and_reset(&webCmd) && result;
         } else
             nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
@@ -262,7 +301,8 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_render(cmd, &cmdRender);
             nob_sb_append_null(&cmdRender);
             nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
-            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            // nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            result = nob_cmd_run_sync_and_reset(&webCmd) && result;
         } else
             nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
@@ -294,7 +334,8 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_render(cmd, &cmdRender);
             nob_sb_append_null(&cmdRender);
             nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
-            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            // nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            result = nob_cmd_run_sync_and_reset(&webCmd) && result;
         } else
             nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
@@ -325,7 +366,8 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_render(cmd, &cmdRender);
             nob_sb_append_null(&cmdRender);
             nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
-            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            // nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            result = nob_cmd_run_sync_and_reset(&webCmd) && result;
         } else
             nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
@@ -358,7 +400,8 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_render(cmd, &cmdRender);
             nob_sb_append_null(&cmdRender);
             nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
-            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            // nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            result = nob_cmd_run_sync_and_reset(&webCmd) && result;
         } else
             nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
@@ -389,7 +432,8 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_render(cmd, &cmdRender);
             nob_sb_append_null(&cmdRender);
             nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
-            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            // nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            result = nob_cmd_run_sync_and_reset(&webCmd) && result;
         } else
             nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
@@ -421,7 +465,8 @@ bool buildRayLib(bool isWeb) {
             nob_cmd_render(cmd, &cmdRender);
             nob_sb_append_null(&cmdRender);
             nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
-            nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            // nob_da_append(&procs, nob_cmd_run_async(webCmd));
+            result = nob_cmd_run_sync_and_reset(&webCmd) && result;
         } else
             nob_da_append(&procs, nob_cmd_run_async(cmd));
     } else {
@@ -429,7 +474,8 @@ bool buildRayLib(bool isWeb) {
     }
     // nob_cmd_append(&cmd, CC, "-fdiagnostics-color=always", "-xc", "-o", output, "-c", NOB_H_DIR, "-DNOB_IMPLEMENTATION");
 
-    bool result = nob_procs_wait(procs);
+    if (isWeb)
+        result = nob_procs_wait(procs);
 
     nob_sb_free(sb);
     nob_sb_free(cmdRender);
