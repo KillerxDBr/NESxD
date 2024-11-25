@@ -367,10 +367,13 @@ int main(int argc, char **argv) {
 #endif /* PLATFORM_WEB */
 
     unloadRom(&app->nes);
+
 #ifndef NOVID
     UnloadRenderTexture(app->screen);
-    CloseWindow();
 #endif // NOVID
+
+    CloseWindow();
+
     free(app);
     return 0;
 }

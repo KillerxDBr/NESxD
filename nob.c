@@ -599,7 +599,7 @@ bool CompileExecutable(bool isWeb) {
                 // nob_copy_file(MEM_BIN_PATH, WASM_DIR MEM_BIN_PATH); // Copying dont work, file needs to be bundled
             }
 
-            nob_cmd_append(&cmd, "--shell-file", "extern/raylib-5.0/src/shell.html");
+            nob_cmd_append(&cmd, "--shell-file", RL_MIN_SHELL);
 
             nob_da_append_many(&cmd, obj.items, obj.count);
 
