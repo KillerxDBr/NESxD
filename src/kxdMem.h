@@ -22,7 +22,7 @@ static inline void *callocWrapperFunc(size_t n, size_t sz, const char *fileName,
     }
     return ptr;
 }
-// void *callocWrapper(size_t _NumOfElements, size_t _SizeOfElements)
-#define callocWrapper(n, sz) callocWrapperFunc((n), (sz), (__FILE__), (__LINE__))
+// void *callocWrapper(size_t _NumOfElements, Type)
+#define callocWrapper(n, T) ((T *)callocWrapperFunc((n), sizeof(T), (__FILE__), (__LINE__)))
 
 #endif /* KXD_MEM_H */

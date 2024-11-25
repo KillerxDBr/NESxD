@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     bool NOP = false;
     bool TEST = false;
 
-    app_t *app = callocWrapper(1, sizeof(app_t));
+    app_t *app = callocWrapper(1, app_t);
     initCPU(&app->nes.cpu);
 
 #ifndef PLATFORM_WEB
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 
 #ifndef PLATFORM_WEB
 
-    app->config.fileName = callocWrapper(strlen(program) + sizeof(CONFIG_FILE), 1);
+    app->config.fileName = callocWrapper(strlen(program) + sizeof(CONFIG_FILE), char);
     strcpy(app->config.fileName, program);
 
     const char *exeName = nob_path_name(app->config.fileName);
@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
 #if defined(KXD_DEBUG)
     if (TEST) {
 #if !defined(PLATFORM_WEB)
-        // final = callocWrapper(1, sizeof(cpu_t));
+        // final = callocWrapper(1, cpu_t);
         app->nes.isPaused = false;
         if (!InstructionTest(app, &final))
             return 1;
@@ -401,7 +401,7 @@ void loadRomFromMem(nes_t *nes, const char *fileName) {
             nes->romSize = resources[i].size;
             LOG_INF("File: \"%s\" (%zu bytes)", fileName, nes->romSize);
 
-            nes->rom = callocWrapper(nes->romSize, 1);
+            nes->rom = callocWrapper(nes->romSize, uint8_t);
             memcpy(nes->rom, &bundle[resources[i].offset], nes->romSize);
             CHECK_ROM_HEADER(nes->rom);
 
@@ -469,10 +469,10 @@ void processRomHeader(nes_t *nes) {
     // Allocating
 
     LOG_INF("Allocating %d bytes for PRG-ROM...", nes->PRGSize);
-    nes->PRG = callocWrapper(1, nes->PRGSize);
+    nes->PRG = callocWrapper(nes->PRGSize, uint8_t);
 
     LOG_INF("Allocating %d bytes for CHR-ROM...", nes->CHRSize);
-    nes->CHR = callocWrapper(1, nes->CHRSize);
+    nes->CHR = callocWrapper(nes->CHRSize, uint8_t);
 }
 
 void mainLoop(void *app_ptr) {

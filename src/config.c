@@ -110,7 +110,7 @@ void configControllerDefault(app_t *app) {
 void loadDefaultConfigs(app_t *app) {
     configControllerDefault(app);
     unsigned long size = 10;
-    char *result = callocWrapper(size, 1);
+    char *result = callocWrapper(size, char);
 
     bool darkTheme;
 #if defined(_WIN32) && !defined(PLATFORM_WEB)
