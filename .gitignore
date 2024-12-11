@@ -87,6 +87,7 @@ extern/raylib/*
 !extern/raylib/src
 extern/raylib/src/*
 !extern/raylib/src/config.h
+!extern/raylib/src/platforms/rcore_desktop_glfw.c
 
 # teste.c
 .gdb_history

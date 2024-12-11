@@ -2,6 +2,12 @@
 
 const char *PausedText = "Paused...";
 
+#ifdef _WIN32
+void KxD_Create_Tray(void *hWnd);
+void KxD_Handle_Tray(void);
+void KxD_Destroy_Tray(void);
+#endif
+
 int main(int argc, char **argv) {
 #if defined(_WIN32)
     if (!WinH_SetConsoleOutputCP(CP_UTF8)) {
@@ -91,6 +97,10 @@ int main(int argc, char **argv) {
     app->screenH = GetRenderHeight();
     LOG_INF("Screen Width:  %zu", app->screenW);
     LOG_INF("Screen Heigth: %zu", app->screenH);
+
+    #ifdef _WIN32
+    KxD_Create_Tray(GetWindowHandle());
+    #endif
 
     // GuiLoadStyleDefault();
 
@@ -372,6 +382,10 @@ int main(int argc, char **argv) {
     UnloadRenderTexture(app->screen);
 #endif // NOVID
 
+    #ifdef _WIN32
+    KxD_Destroy_Tray();
+    #endif
+
     CloseWindow();
 
     free(app);
@@ -481,6 +495,8 @@ void processRomHeader(nes_t *nes) {
 void mainLoop(void *app_ptr) {
     app_t *app = app_ptr;
     // while (!WindowShouldClose() && !app->quit) {
+    KxD_Handle_Tray();
+
     if (IsWindowResized()) {
         LOG_INF("Window Resized...");
 
