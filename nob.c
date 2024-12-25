@@ -83,12 +83,14 @@
 #define PCH_SUFFIX "_pch.h"
 #define GCH_SUFFIX PCH_SUFFIX ".gch"
 
-#define INCLUDES "-I.", "-I" BUILD_DIR, "-Iinclude", "-I" SRC_DIR, "-Istyles", "-I" EXTERN_DIR
+#define INCLUDES "-I.", "-I" BUILD_DIR, "-Iinclude", "-I" SRC_DIR, "-Istyles", "-I" EXTERN_DIR, "-ID:/Projetos/cimgui/imgui"
 
 #if defined(_WIN32)
-const char *libs[] = { "gdi32", "winmm", "comdlg32", "ole32" };
+const char *libs[] = {
+    "gdi32", "winmm", "comdlg32", "ole32", "shell32",
+};
 #else
-#define LIBS "-lm"
+#define LIBS "-lm", "-static", "-lstdc++"
 #endif // defined(_WIN32)
 
 #define RAYLIB_SRC_PATH "extern/raylib/src/"
@@ -144,14 +146,15 @@ const char *libs[] = { "gdi32", "winmm", "comdlg32", "ole32" };
 #define RL_INCLUDE_PATHS "-I" RAYLIB_SRC_PATH, "-I" RAYLIB_SRC_PATH "external/glfw/include"
 
 const char *files[] = {
-    "main", "6502", "config", "gui", "input", "kxdMem",
+    "main", "6502", "config", "gui", "input", "kxdMem", "iconTray",
 #ifndef RELEASE
     "test",
 #endif
 };
 
 const char *filesFlags[] = {
-    "-DKXD_MAIN_FILE", "-DKXD_6502_FILE", "-DKXD_CONFIG_FILE", "-DKXD_GUI_FILE", "-DKXD_INPUT_FILE", "-DKXD_MEM_FILE",
+    "-DKXD_MAIN_FILE",  "-DKXD_6502_FILE", "-DKXD_CONFIG_FILE",   "-DKXD_GUI_FILE",
+    "-DKXD_INPUT_FILE", "-DKXD_MEM_FILE",  "-DKXD_ICONTRAY_FILE",
 #ifndef RELEASE
     "-DKXD_TEST_FILE",
 #endif
@@ -217,6 +220,7 @@ bool staticCompile = true;
 bool staticCompile = false;
 #endif
 
+#include "build_src/nob_imgui.c"
 #include "build_src/nob_raylib.c"
 
 void PrintUsage(void) {
@@ -329,6 +333,9 @@ int main(int argc, char **argv) {
 
         nob_log(NOB_INFO, "--- Building Dependencies ---");
         if (!CompileDependencies(isWeb))
+            nob_return_defer(1);
+
+        if (!CompileRLImgui(isWeb))
             nob_return_defer(1);
 
         if (!isWeb) {
@@ -628,7 +635,8 @@ bool CompileExecutable(bool isWeb) {
             nob_sb_append_cstr(&sb, libraries[i]);
             nob_sb_append_null(&sb);
             nob_log(NOB_INFO, "Dynamic Lib: %s", sb.items);
-            nob_cmd_append(&cmd, strdup(sb.items));
+            char *s = strdup(sb.items);
+            nob_cmd_append(&cmd, s);
         }
         nob_log(NOB_INFO, "--- Copying .DLL files to executable folder ---");
         sb.count = 0;
@@ -655,6 +663,7 @@ bool CompileExecutable(bool isWeb) {
         nob_sb_free(sb);
 #endif /* STATIC */
 #if defined(_WIN32)
+        nob_cmd_append(&cmd, "-L" LIB_DIR);
         Nob_String_Builder sb_libs = { 0 };
         for (size_t i = 0; i < NOB_ARRAY_LEN(libs); i++)
 #if defined(_MSC_VER)
@@ -663,7 +672,8 @@ bool CompileExecutable(bool isWeb) {
             nob_sb_append_cstr(&sb_libs, libs[i]);
             nob_sb_append_cstr(&sb_libs, ".lib");
             nob_sb_append_null(&sb_libs);
-            nob_cmd_append(&cmd, strdup(sb_libs.items));
+            char *s = strdup(sb_libs.items);
+            nob_cmd_append(&cmd, s);
         }
 #else  // defined(_MSC_VER)
         {
@@ -671,7 +681,8 @@ bool CompileExecutable(bool isWeb) {
             nob_sb_append_cstr(&sb_libs, "-l");
             nob_sb_append_cstr(&sb_libs, libs[i]);
             nob_sb_append_null(&sb_libs);
-            nob_cmd_append(&cmd, strdup(sb_libs.items));
+            char *s = strdup(sb_libs.items);
+            nob_cmd_append(&cmd, s);
         }
 #endif // defined(_MSC_VER)
         nob_sb_free(sb_libs);
@@ -687,6 +698,7 @@ bool CompileExecutable(bool isWeb) {
 #endif // defined(_MSC_VER)
 #endif /* USE_SDL */
 
+        nob_cmd_append(&cmd, "-static", "-lstdc++");
         result = nob_cmd_run_sync(cmd);
 
     } else {
@@ -839,7 +851,8 @@ bool CompileFiles(bool isWeb) {
         // char *toObj = malloc(strlen(output) + 1);
         // strcpy(toObj, output);
         // nob_da_append(&obj, toObj);
-        nob_da_append(&obj, strdup(output));
+        char *s = strdup(output);
+        nob_da_append(&obj, s);
 
         nob_temp_rewind(internalCheckpoint);
     }
@@ -862,7 +875,8 @@ bool CompileFiles(bool isWeb) {
             } else {
                 nob_log(NOB_INFO, skippingMsg, resource);
             }
-            nob_da_append(&obj, strdup(resource));
+            char *s = strdup(resource);
+            nob_da_append(&obj, s);
         }
     }
 #endif
@@ -880,9 +894,9 @@ bool CompileFiles(bool isWeb) {
 
     return result;
 
-// defer:
-//     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
-//     return false;
+    // defer:
+    //     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
+    //     return false;
 }
 
 bool CompileDependencies(bool isWeb) {
@@ -959,7 +973,8 @@ bool CompileDependencies(bool isWeb) {
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
-        nob_da_append(&obj, strdup(output));
+        char *s = strdup(output);
+        nob_da_append(&obj, s);
 
         nob_temp_rewind(checkpoint);
     }
@@ -969,7 +984,7 @@ bool CompileDependencies(bool isWeb) {
     nob_cmd_free(cmd);
     nob_da_free(procs);
     nob_sb_free(sb);
-    
+
     return CompileNobHeader(isWeb) & result;
     // defer:
     //     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
@@ -1030,7 +1045,8 @@ bool CompileNobHeader(bool isWeb) {
             nob_log(NOB_INFO, skippingMsg, output);
         }
     }
-    nob_da_append(&obj, strdup(output));
+    char *s = strdup(output);
+    nob_da_append(&obj, s);
 
 defer:
     nob_temp_rewind(checkpoint);
@@ -1146,7 +1162,8 @@ void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
             break;
         case NOB_FILE_REGULAR:
             // printf("%s\n",sb->items);
-            nob_da_append(eb, strdup(sb->items));
+            char *s = strdup(sb->items);
+            nob_da_append(eb, s);
             // sb->count--;
             sb->count = dir_qtd;
             break;
@@ -1244,41 +1261,45 @@ bool CleanupFiles(void) {
     }
 
     for (size_t i = 0; i < eb.count; i++) {
-        nob_log(NOB_INFO, "Removing file: '%s' (%zu/%zu)", eb.items[i], i + 1, eb.count);
-        if (remove(eb.items[i]) != 0) {
-            nob_log(NOB_ERROR, "Could not remove file '%s': %s", eb.items[i], strerror(errno));
+        // nob_log(NOB_INFO, "Removing file: '%s' (%zu/%zu)", eb.items[i], i + 1, eb.count);
+        if (!nob_delete_file(eb.items[i])) {
+            // nob_log(NOB_ERROR, "Could not remove file '%s': %s", eb.items[i], strerror(errno));
             nob_return_defer(false);
         }
     }
 
-    int dirCount = 1;
+    // int dirCount = 1;
 
     if (binDir) {
-        nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BIN_DIR, dirCount, totalDirs);
-        if (rmdir(BIN_DIR) != 0)
-            nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BIN_DIR, strerror(errno));
-        dirCount++;
+        // nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BIN_DIR, dirCount, totalDirs);
+        nob_delete_dir(BIN_DIR);
+        // if (rmdir(BIN_DIR) != 0)
+        //     nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BIN_DIR, strerror(errno));
+        // dirCount++;
     }
 
     if (wasmDir) {
-        nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", WASM_DIR, dirCount, totalDirs);
-        if (rmdir(WASM_DIR) != 0)
-            nob_log(NOB_ERROR, "Could not remove directory '%s': %s", WASM_DIR, strerror(errno));
-        dirCount++;
+        // nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", WASM_DIR, dirCount, totalDirs);
+        nob_delete_dir(WASM_DIR);
+        // if (rmdir(WASM_DIR) != 0)
+        //     nob_log(NOB_ERROR, "Could not remove directory '%s': %s", WASM_DIR, strerror(errno));
+        // dirCount++;
     }
 
     if (buildWasmDir) {
-        nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BUILD_WASM_DIR, dirCount, totalDirs);
-        if (rmdir(BUILD_WASM_DIR) != 0)
-            nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BUILD_WASM_DIR, strerror(errno));
-        dirCount++;
+        // nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BUILD_WASM_DIR, dirCount, totalDirs);
+        nob_delete_dir(BUILD_WASM_DIR);
+        // if (rmdir(BUILD_WASM_DIR) != 0)
+        //     nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BUILD_WASM_DIR, strerror(errno));
+        // dirCount++;
     }
 
     if (buildDir) {
-        nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BUILD_DIR, dirCount, totalDirs);
-        if (rmdir(BUILD_DIR) != 0)
-            nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BUILD_DIR, strerror(errno));
-        dirCount++;
+        // nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BUILD_DIR, dirCount, totalDirs);
+        nob_delete_dir(BUILD_DIR);
+        // if (rmdir(BUILD_DIR) != 0)
+        //     nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BUILD_DIR, strerror(errno));
+        // dirCount++;
     }
 
 defer:
@@ -1330,7 +1351,8 @@ bool GetIncludedHeaders(Objects *eh, const char *header) {
 
                 if (nob_file_exists(sb.items) == 1) {
                     // nob_log(NOB_INFO, "  File Exists: %s", sb.items);
-                    nob_da_append(eh, strdup(sb.items));
+                    char *s = strdup(sb.items);
+                    nob_da_append(eh, s);
                 }
             }
         }

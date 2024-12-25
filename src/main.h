@@ -28,10 +28,18 @@
 #include "InsFlags.h"
 #include "config.h"
 #include "gui.h"
+#include "iconTray.h"
 #include "input.h"
 #include "kxdDebug.h"
 #include "kxdMem.h"
 #include "kxdTypes.h"
+
+#define CIMGUI_USE_GLFW
+#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
+#include "cimgui/cimgui.h"
+#include "cimgui/generator/output/cimgui_impl.h"
+
+#include "rlImGui/rlImGui.h"
 
 #include "nob.h"
 

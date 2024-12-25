@@ -249,6 +249,8 @@ bool nob_copy_directory_recursively(const char *src_path, const char *dst_path);
 bool nob_read_entire_dir(const char *parent, Nob_File_Paths *children);
 bool nob_write_entire_file(const char *path, const void *data, size_t size);
 Nob_File_Type nob_get_file_type(const char *path);
+bool nob_delete_file(const char *path);
+bool nob_delete_dir(const char *path);
 
 #define nob_return_defer(value) do { result = (value); goto defer; } while(0)
 
@@ -731,8 +733,15 @@ defer:
 #endif
 }
 
+#ifndef _WIN32
+#define SEP "\'"
+#else
+#define SEP "\""
+#endif
+
 void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render)
 {
+	size_t checkpoint = nob_temp_save();
     for (size_t i = 0; i < cmd.count; ++i) {
         const char *arg = cmd.items[i];
         if (arg == NULL) break;
@@ -740,12 +749,13 @@ void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render)
         if (!strchr(arg, ' ')) {
             nob_sb_append_cstr(render, arg);
         } else {
-            nob_da_append(render, '\'');
-            nob_sb_append_cstr(render, arg);
-            nob_da_append(render, '\'');
+            nob_sb_append_cstr(render, nob_temp_sprintf(SEP "%s" SEP, arg));
         }
     }
+	nob_temp_rewind(checkpoint);
 }
+
+#undef SEP
 
 Nob_Proc nob_cmd_run_async_redirect(Nob_Cmd cmd, Nob_Cmd_Redirect redirect)
 {
@@ -782,11 +792,11 @@ Nob_Proc nob_cmd_run_async_redirect(Nob_Cmd cmd, Nob_Cmd_Redirect redirect)
     // cmd_render is for logging primarily
     nob_cmd_render(cmd, &sb);
 
-    for (size_t i = 0; i < sb.count; ++i) {
-        if (sb.items[i] == '\'') {
-            sb.items[i] = '\"';
-        }
-    }
+    // for (size_t i = 0; i < sb.count; ++i) {
+    //     if (sb.items[i] == '\'') {
+    //         sb.items[i] = '\"';
+    //     }
+    // }
 
     nob_sb_append_null(&sb);
     BOOL bSuccess = CreateProcessA(NULL, sb.items, NULL, NULL, TRUE, 0, NULL, NULL, &siStartInfo, &piProcInfo);
@@ -1184,6 +1194,42 @@ Nob_File_Type nob_get_file_type(const char *path)
         case S_IFLNK:  return NOB_FILE_SYMLINK;
         default:       return NOB_FILE_OTHER;
     }
+#endif // _WIN32
+}
+
+bool nob_delete_file(const char *path)
+{
+    nob_log(NOB_INFO, "deleting %s", path);
+#ifdef _WIN32
+    if (!DeleteFileA(path)) {
+        nob_log(NOB_ERROR, "Could not delete file %s: %s", nob_win32_error_message(GetLastError()));
+        return false;
+    }
+    return true;
+#else
+    if (remove(path) < 0) {
+        nob_log(NOB_ERROR, "Could not delete file %s: %s", strerror(errno));
+        return false;
+    }
+    return true;
+#endif // _WIN32
+}
+
+bool nob_delete_dir(const char *path)
+{
+    nob_log(NOB_INFO, "deleting %s", path);
+#ifdef _WIN32
+    if (!RemoveDirectoryA(path)) {
+        nob_log(NOB_ERROR, "Could not delete directory %s: %s", nob_win32_error_message(GetLastError()));
+        return false;
+    }
+    return true;
+#else
+    if (rmdir(path) < 0) {
+        nob_log(NOB_ERROR, "Could not delete directory %s: %s", strerror(errno));
+        return false;
+    }
+    return true;
 #endif // _WIN32
 }
 
@@ -1712,6 +1758,8 @@ int closedir(DIR *dirp)
         #define read_entire_dir nob_read_entire_dir
         #define write_entire_file nob_write_entire_file
         #define get_file_type nob_get_file_type
+        #define delete_file nob_delete_file
+        #define delete_dir nob_delete_dir
         #define return_defer nob_return_defer
         #define da_append nob_da_append
         #define da_free nob_da_free

@@ -120,6 +120,7 @@ typedef struct {
     menu_t menu;
     
     // MISC
+    const char *program;
     bool quit;
 } app_t;
 

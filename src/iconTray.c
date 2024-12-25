@@ -1,49 +1,63 @@
-#include "resource.h"
 #include <stdio.h>
-
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <shellapi.h>
+
+#include "iconTray.h"
 
 NOTIFYICONDATAA nid = { 0 };
 
 void KxD_Handle_Tray(void) {
     MSG msg;
-    while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)) {
-        printf("msg.message: %u\n", msg.message);
-        if (msg.message == WM_APP) {
+    UINT i = 0;
+    while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+        i++;
+        printf("msg.message: 0x%04X\n", msg.message);
+        if (msg.message == KXD_ICONTRAY_MSG) {
             // Handle system tray icon events
-            printf("msg.lParam: %lld\n", msg.lParam);
-            switch (msg.lParam) {
-                case WM_LBUTTONDOWN: // Handle left mouse button click
-                    printf("WM_LBUTTONDOWN\n");
-                    break;
-                case WM_RBUTTONDOWN: // Handle right mouse button click
-                    printf("WM_RBUTTONDOWN\n");
-                    break;
+            printf("KXD_ICONTRAY_MSG----------------------------\n");
+            printf("msg.lParam: %lld (0x%04X)\n", msg.lParam, LOWORD(msg.lParam));
+            switch (LOWORD(msg.lParam)) {
+                // case WM_TRAYMESSAGE: break;
+            case WM_LBUTTONDOWN: // Handle left mouse button click
+                printf("WM_LBUTTONDOWN----------------------------\n");
+                break;
+            case WM_RBUTTONDOWN: // Handle right mouse button click
+                printf("WM_RBUTTONDOWN----------------------------\n");
+                break;
             }
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
         }
-        TranslateMessage(&msg);
-        DispatchMessageA(&msg);
+        if (i == 100) {
+            i = 0;
+            fflush(stdout);
+        }
     }
 }
+
+#define KXD_ICON_TEXT "KxD trayIcon"
 
 void KxD_Create_Tray(void *hWnd) {
     nid.cbSize = sizeof(NOTIFYICONDATAA);
 
     nid.uID = 1;
 
-    nid.hIcon = LoadIconA(NULL, IDI_APPLICATION);
+    nid.hIcon = LoadIconA(NULL, MAKEINTRESOURCEA(NESXDICO));
 
     nid.hWnd = hWnd;
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-    nid.uCallbackMessage = WM_APP;
-
-    lstrcpynA(nid.szTip, "raylib system tray icon", sizeof(nid.szTip));
+    // nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_SHOWTIP | NIF_INFO;
+    nid.uCallbackMessage = KXD_ICONTRAY_MSG;
+    // nid.dwInfoFlags = NIIF_INFO;
+    strcpy_s(nid.szTip, sizeof(KXD_ICON_TEXT), KXD_ICON_TEXT);
 
     Shell_NotifyIconA(NIM_ADD, &nid);
 }
 
 void KxD_Destroy_Tray(void) { //
+    DestroyIcon(nid.hIcon);
+
     Shell_NotifyIconA(NIM_DELETE, &nid);
+
+    memset(&nid, 0, sizeof(nid));
 }

@@ -134,14 +134,12 @@
 #define EXTERN_DIR "extern/"
 #endif // EXTERN_DIR
 
-
 typedef Nob_File_Paths Objects;
 
 extern Objects obj;
 extern const char *skippingMsg;
 
 bool buildRayLib(bool isWeb) {
-
     const size_t checkpoint = nob_temp_save();
     Nob_Cmd cmd = { 0 };
     Nob_Cmd webCmd = { 0 };
