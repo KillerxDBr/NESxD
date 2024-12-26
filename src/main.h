@@ -33,6 +33,7 @@
 #include "kxdDebug.h"
 #include "kxdMem.h"
 #include "kxdTypes.h"
+#include "lang.h"
 
 #define CIMGUI_USE_GLFW
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
@@ -59,6 +60,8 @@
 #define NOPPU
 // #define NOVID
 
+#define MENU_BAR_SIZE 20
+
 // resolution 256 x 224
 #define NES_W 256
 #define NES_H 224
@@ -81,6 +84,7 @@ void loadRomFromMem(nes_t *nes, const char *fileName);
 void unloadRom(nes_t *nes);
 void processRomHeader(nes_t *nes);
 void debugCPU(cpu_t *cpu);
+void calcScreenPos(app_t *app);
 
 #ifdef PLATFORM_WEB
 void mainLoop(void *app_ptr);

@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "raylib.h"
-
 #define HEX8 "0x%02X"
 #define HEX16 "0x%04X"
 
@@ -34,7 +32,7 @@
 #define BOOLLOG(v) TraceLog(LOG_INFO, "%s: %s", #v, v ? "True" : "False")
 
 #ifndef NOB_TODO
-#define NOB_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
+#define KXD_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while (0)
 #endif // NOB_TODO
 
 // clang-format off

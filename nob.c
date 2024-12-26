@@ -146,7 +146,7 @@ const char *libs[] = {
 #define RL_INCLUDE_PATHS "-I" RAYLIB_SRC_PATH, "-I" RAYLIB_SRC_PATH "external/glfw/include"
 
 const char *files[] = {
-    "main", "6502", "config", "gui", "input", "kxdMem", "iconTray",
+    "main", "6502", "config", "gui", "input", "kxdMem", "iconTray", "lang",
 #ifndef RELEASE
     "test",
 #endif
@@ -154,7 +154,7 @@ const char *files[] = {
 
 const char *filesFlags[] = {
     "-DKXD_MAIN_FILE",  "-DKXD_6502_FILE", "-DKXD_CONFIG_FILE",   "-DKXD_GUI_FILE",
-    "-DKXD_INPUT_FILE", "-DKXD_MEM_FILE",  "-DKXD_ICONTRAY_FILE",
+    "-DKXD_INPUT_FILE", "-DKXD_MEM_FILE",  "-DKXD_ICONTRAY_FILE", "-DKXD_LANG_FILE",
 #ifndef RELEASE
     "-DKXD_TEST_FILE",
 #endif

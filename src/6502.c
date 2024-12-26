@@ -126,14 +126,14 @@ void processInstruction(cpu_t *cpu) {
         break;
 
         // case INS_ADC_INX:
-        // NOB_TODO("INS_ADC_INX");
+        // KXD_TODO("INS_ADC_INX");
         // oldValue = cpu->A;
         // ADC_FLAGS(cpu->A, oldValue, value8);
         // incrementPC(cpu);
         // break;
 
         // case INS_ADC_INY:
-        // NOB_TODO("INS_ADC_INY");
+        // KXD_TODO("INS_ADC_INY");
         // oldValue = cpu->A;
         // ADC_FLAGS(cpu->A, oldValue, value8);
         // incrementPC(cpu);
@@ -272,7 +272,7 @@ void processInstruction(cpu_t *cpu) {
         break;
 
         // case INS_STX_A:
-        //     NOB_TODO("INS_STX_A");
+        //     KXD_TODO("INS_STX_A");
         //     incrementPC(cpu);
         //     break;
 
@@ -481,12 +481,12 @@ void debugCPU(cpu_t *cpu) {
 
 void pushToStack(cpu_t *cpu) {
     (void)cpu;
-    NOB_TODO("pushToStack");
+    KXD_TODO("pushToStack");
 }
 
 void popFromStack(cpu_t *cpu) {
     (void)cpu;
-    NOB_TODO("popFromStack");
+    KXD_TODO("popFromStack");
 }
 
 bool initCPU(cpu_t *cpu) {

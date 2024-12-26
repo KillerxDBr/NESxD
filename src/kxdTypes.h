@@ -94,6 +94,16 @@ typedef struct {
 } nes_t;
 
 typedef struct {
+    char code[6];
+    const char *name;
+    const char *author;
+    const char *text_paused;
+    const char *menu_file;
+    const char *menu_file_open;
+    const char *menu_file_quit;
+} lang_t;
+
+typedef struct {
     char *fileName;
     bool hasConfig;
 
@@ -118,9 +128,10 @@ typedef struct {
     nes_t nes;
     config_t config;
     menu_t menu;
-    
+
     // MISC
     const char *program;
+    lang_t lang;
     bool quit;
 } app_t;
 

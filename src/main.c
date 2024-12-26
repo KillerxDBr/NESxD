@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     NOB_UNUSED(program);
 #endif
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow((NES_W * FACTOR), (NES_H * FACTOR), "NES_xD");
+    InitWindow((NES_W * FACTOR), (NES_H * FACTOR) + MENU_BAR_SIZE, "NES_xD");
 
 #ifndef PLATFORM_WEB
     SetWindowMinSize(NES_W, NES_H);
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
     app->screen = LoadRenderTexture(NES_W, NES_H);
 
     app->sourceRec = CLITERAL(Rectangle){ 0.0f, 0.0f, (float)app->screen.texture.width, -(float)app->screen.texture.height };
-    app->destRec = CLITERAL(Rectangle){ 0.0f, 0.0f, (float)app->screenW, (float)app->screenH };
+    app->destRec = CLITERAL(Rectangle){ 0.0f, MENU_BAR_SIZE, app->screenW, app->screenH - MENU_BAR_SIZE };
 
     /*
     if (app->screenW >= app->screenH * NES_AR) {
@@ -206,10 +206,12 @@ int main(int argc, char **argv) {
     loadConfig(app);
 #endif // PLATFORM_WEB
 
+    loadDefaultLang(&app->lang);
     initGui(app);
     rlImGuiSetup(true);
 
     ImGuiIO *io = igGetIO();
+    // io->ConfigFlags
     io->IniFilename = NULL;
 
 #ifdef PLATFORM_WEB
@@ -405,26 +407,7 @@ void mainLoop(void *app_ptr) {
         app->screenW = GetRenderWidth();
         app->screenH = GetRenderHeight();
         LOG_INF("New Size: " V2_CFMT("%zu"), app->screenW, app->screenH);
-        if (app->screenW >= app->screenH * NES_AR) {
-            app->destRec.width = app->screenH * NES_AR;
-            app->destRec.height = app->destRec.width * (1 / NES_AR);
-
-            app->destRec.x = (app->screenW * .5f) - (app->destRec.width * .5f);
-            app->destRec.y = 0;
-            if (app->destRec.x < 0) {
-                app->destRec.x = 0;
-            }
-        } else {
-            app->destRec.height = app->screenW * (1 / NES_AR);
-            app->destRec.width = app->destRec.height * NES_AR;
-
-            app->destRec.x = 0;
-            app->destRec.y = (app->screenH * .5f) - (app->destRec.height * .5f);
-            if (app->destRec.y < 0) {
-                app->destRec.y = 0;
-            }
-        }
-
+        calcScreenPos(app);
         LOG_INF("app->destRec: " RECT_FMT, RECT_ARGS(app->destRec));
     }
 
@@ -441,8 +424,8 @@ void mainLoop(void *app_ptr) {
     DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);
     DrawLine((app->screenW / 2), 0, (app->screenW / 2), app->screenH, GREEN);
 
-    DrawRectangle(4, 4, 75, 20, KXD_BG);
-    DrawFPS(5, 5);
+    DrawRectangle(4, 4 + MENU_BAR_SIZE, 75, 20, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+    DrawFPS(5, 5 + MENU_BAR_SIZE);
 
     if (app->nes.isPaused) {
         const Font font = GuiGetFont();
@@ -491,6 +474,18 @@ void mainLoop(void *app_ptr) {
 #endif
     rlImGuiBegin();
     {
+        static bool opt_open = true;
+        static bool opt_quit = false;
+
+        if (igBeginMainMenuBar()) {
+            if (igBeginMenu(app->lang.menu_file, true)) {
+                igMenuItemEx(app->lang.menu_file_open, NULL, "Ctrl+O", opt_open, true);
+                igMenuItem_BoolPtr(app->lang.menu_file_quit, "Alt+F4", &opt_quit, true);
+                igEndMenu();
+            }
+            igEndMainMenuBar();
+        }
+
         static bool show_demo_window = true;
 
         if (show_demo_window)
@@ -503,20 +498,21 @@ void mainLoop(void *app_ptr) {
         igBegin("Hello, world!", NULL, 0);
 
         igSliderFloat("float", &f, 0.0f, 1.0f, NULL, 0); // Edit 1 float using a slider from 0.0f to 1.0f
-        
+
         if (igSmallButton("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
             counter++;
-        
+
         igSameLine(0, 5);
         igText("counter = %d", counter);
 
-        if (igSmallButton("show_another_window")) show_another_window = true;
+        if (igSmallButton("show_another_window"))
+            show_another_window = true;
 
         igEnd();
 
-        if (show_another_window)
-        {
-            igBegin("Another Window", &show_another_window, 0);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+        if (show_another_window) {
+            igBegin("Another Window", &show_another_window,
+                    0); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
             igText("Hello from another window!");
             if (igSmallButton("Close Me"))
                 show_another_window = false;
@@ -536,4 +532,24 @@ void mainLoop(void *app_ptr) {
             return;
     }
     // }
+}
+
+void calcScreenPos(app_t *app) {
+    if (app->screenW >= ((app->screenH - MENU_BAR_SIZE) * NES_AR)) {
+        app->destRec.width = (app->screenH - MENU_BAR_SIZE) * NES_AR;
+        app->destRec.height = app->destRec.width * (1 / NES_AR);
+        app->destRec.x = (app->screenW * .5f) - (app->destRec.width * .5f);
+        app->destRec.y = MENU_BAR_SIZE;
+        if (app->destRec.x < 0) {
+            app->destRec.x = 0;
+        }
+    } else {
+        app->destRec.height = app->screenW * (1 / NES_AR);
+        app->destRec.width = app->destRec.height * NES_AR;
+        app->destRec.x = 0;
+        app->destRec.y = (app->screenH * .5f) - (app->destRec.height * .5f) + (MENU_BAR_SIZE * .5f);
+        if (app->destRec.y < 0) {
+            app->destRec.y = 0;
+        }
+    }
 }
