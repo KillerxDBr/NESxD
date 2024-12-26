@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
     InitWindow((NES_W * FACTOR), (NES_H * FACTOR) + MENU_BAR_SIZE, "NES_xD");
 
 #ifndef PLATFORM_WEB
-    SetWindowMinSize(NES_W, NES_H);
+    SetWindowMinSize(NES_W, NES_H + MENU_BAR_SIZE);
     SetTargetFPS(60);
 #endif /* PLATFORM_WEB */
 

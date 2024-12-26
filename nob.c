@@ -127,7 +127,7 @@ const char *libs[] = {
                       "-Werror=pointer-arith",                             \
                       "-fno-strict-aliasing",                              \
                       "-Og",                                               \
-                      "-ggdb3",                                            \
+                      "-ggdb",                                            \
                       "-std=c99",                                          \
                       "-Werror=implicit-function-declaration"
 #endif //RELEASE
@@ -282,9 +282,6 @@ int main(int argc, char **argv) {
 
         bool isWeb = false;
 
-        if (!nob_mkdir_if_not_exists(BUILD_DIR))
-            nob_return_defer(1);
-
         nob_log(NOB_INFO, "Testing Compiler: '" CC "'");
         if (!TestCompiler()) {
             nob_log(NOB_ERROR, "Could not find compiler '" CC "' in PATH");
@@ -320,6 +317,9 @@ int main(int argc, char **argv) {
             }
         }
 #endif
+
+        if (!nob_mkdir_if_not_exists(BUILD_DIR))
+            nob_return_defer(1);
 
         const size_t bkpCount = obj.count;
         nob_log(NOB_INFO, "--- Building Raylib ---");
@@ -432,7 +432,7 @@ defer:
         "-Wextra",                                                                                      \
 		"-Wswitch-enum",                                                                                \
         "-Og",                                                                                          \
-        "-ggdb3",                                                                                       \
+        "-ggdb",                                                                                       \
         "-march=native",                                                                                \
         "-DKXD_DEBUG",                                                                                  \
         "-DPLATFORM_DESKTOP",                                                                           \
@@ -1268,40 +1268,6 @@ bool CleanupFiles(void) {
         }
     }
 
-    // int dirCount = 1;
-
-    if (binDir) {
-        // nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BIN_DIR, dirCount, totalDirs);
-        nob_delete_dir(BIN_DIR);
-        // if (rmdir(BIN_DIR) != 0)
-        //     nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BIN_DIR, strerror(errno));
-        // dirCount++;
-    }
-
-    if (wasmDir) {
-        // nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", WASM_DIR, dirCount, totalDirs);
-        nob_delete_dir(WASM_DIR);
-        // if (rmdir(WASM_DIR) != 0)
-        //     nob_log(NOB_ERROR, "Could not remove directory '%s': %s", WASM_DIR, strerror(errno));
-        // dirCount++;
-    }
-
-    if (buildWasmDir) {
-        // nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BUILD_WASM_DIR, dirCount, totalDirs);
-        nob_delete_dir(BUILD_WASM_DIR);
-        // if (rmdir(BUILD_WASM_DIR) != 0)
-        //     nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BUILD_WASM_DIR, strerror(errno));
-        // dirCount++;
-    }
-
-    if (buildDir) {
-        // nob_log(NOB_INFO, "Removing directory: '%s' (%d/%d)", BUILD_DIR, dirCount, totalDirs);
-        nob_delete_dir(BUILD_DIR);
-        // if (rmdir(BUILD_DIR) != 0)
-        //     nob_log(NOB_ERROR, "Could not remove directory '%s': %s", BUILD_DIR, strerror(errno));
-        // dirCount++;
-    }
-
 defer:
     nob_sb_free(sb);
 
@@ -1437,6 +1403,9 @@ bool WebServer(const char *pyExec) {
         nob_log(NOB_ERROR, "Could not close handle to process \"%s\": %s", pyExec, nob_win32_error_message(GetLastError()));
         nob_return_defer(false);
     }
+
+    // Giving CTRL+C back to system
+    signal(SIGINT, SIG_DFL);
 
     nob_log(NOB_INFO, "Web Server closed successfully");
 
