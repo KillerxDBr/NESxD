@@ -213,6 +213,7 @@ bool TestFile(void);
 bool WebServer(const char *pyExec);
 void errorTest(void);
 bool TestCompiler(void);
+bool C3Compile(bool isWeb);
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -347,6 +348,11 @@ int main(int argc, char **argv) {
         nob_log(NOB_INFO, "--- Generating Object Files ---");
         if (!CompileFiles(isWeb))
             nob_return_defer(1);
+
+        nob_log(NOB_INFO, "--- Compiling C3 Module ---");
+        if (!C3Compile(isWeb)) {
+            nob_return_defer(1);
+        }
 
         nob_log(NOB_INFO, "--- Compiling Executable ---");
 
@@ -577,12 +583,17 @@ bool CompileExecutable(bool isWeb) {
     bool result = true;
     Nob_Cmd cmd = { 0 };
 
+    bool missingFile = false;
     for (size_t i = 0; i < obj.count; ++i) {
         if (nob_file_exists(obj.items[i]) != 1) {
-            nob_log(NOB_ERROR, "Could not find file '%s', cleaning all files and aborting compilation...", obj.items[i]);
-            CleanupFiles();
-            nob_return_defer(false);
+            nob_log(NOB_ERROR, "Could not find file '%s'", obj.items[i]);
+            missingFile = true;
         }
+    }
+
+    if (missingFile) {
+        nob_log(NOB_ERROR, "Missing Files Found, aborting...");
+        nob_return_defer(false);
     }
 
     // gcc -o bin/nesxd.exe build/6502.o build/config.o build/gui.o build/input.o build/main.o build/nob.o build/resource.o
@@ -1448,5 +1459,46 @@ bool TestCompiler(void) {
 defer:
     nob_cmd_free(cmd);
     nob_fd_close(nullOutput);
+    return result;
+}
+
+#ifdef _WIN32
+#define STATIC_DLL_EXT ".lib"
+#else
+#define STATIC_DLL_EXT ".so"
+#endif
+
+bool C3Compile(bool isWeb) {
+    if (isWeb)
+        return true;
+
+    const size_t temp_cp = nob_temp_save();
+    bool result = true;
+
+    const char *input = SRC_DIR "c3/c3teste.c3";
+    const char *output = strdup(BUILD_DIR "c3teste"); // no extention, c3 compiler add automaticaly, Win32 = .lib, Linux = .so, etc...
+    const char *tmpOutput = nob_temp_sprintf("%s" STATIC_DLL_EXT, output);
+
+    Nob_Cmd cmd = { 0 };
+    if (nob_needs_rebuild1(tmpOutput, input)) {
+        // c3c.exe static-lib .\c3teste.c3 --target mingw-x64
+        nob_cmd_append(&cmd, "c3c.exe", "static-lib", input, "-o", output, "--target", "mingw-x64", "-O3");
+
+        if (!nob_cmd_run_sync(cmd)) {
+            nob_return_defer(false);
+        }
+    } else {
+        nob_log(NOB_INFO, skippingMsg, output);
+    }
+    output = realloc(output, strlen(tmpOutput) + 1);
+    strcpy(output, tmpOutput);
+    nob_temp_rewind(temp_cp);
+
+    // nob_log(NOB_INFO, "Output: '%s'", output);
+    // exit(0);
+defer:
+    nob_da_append(&obj, output);
+    nob_cmd_free(cmd);
+
     return result;
 }

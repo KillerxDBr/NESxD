@@ -2,6 +2,10 @@
 
 const char *PausedText = "Paused...";
 
+#ifdef C3_EXPORT
+extern void c3_teste(void);
+#endif // C3_EXPORT
+
 int main(int argc, char **argv) {
 #if defined(_WIN32)
     if (!WinH_SetConsoleOutputCP(CP_UTF8)) {
@@ -205,6 +209,10 @@ int main(int argc, char **argv) {
 
     loadConfig(app);
 #endif // PLATFORM_WEB
+
+#ifdef C3_EXPORT
+    c3_teste(); // c3c.exe static-lib .\libc3teste.c3 --target mingw-x64
+#endif          // C3_EXPORT
 
     loadDefaultLang(&app->lang);
     initGui(app);
@@ -479,8 +487,12 @@ void mainLoop(void *app_ptr) {
 
         if (igBeginMainMenuBar()) {
             if (igBeginMenu(app->lang.menu_file, true)) {
-                igMenuItemEx(app->lang.menu_file_open, NULL, "Ctrl+O", opt_open, true);
-                igMenuItem_BoolPtr(app->lang.menu_file_quit, "Alt+F4", &opt_quit, true);
+                if (igMenuItemEx(app->lang.menu_file_open, NULL, "Ctrl+O", NULL, true)) {
+                    LOG_INF("Clicked: %s", app->lang.menu_file_open);
+                }
+                if (igMenuItem_BoolPtr(app->lang.menu_file_quit, "Alt+F4", NULL, true)) {
+                    LOG_INF("Clicked: %s", app->lang.menu_file_quit);
+                }
                 igEndMenu();
             }
             igEndMainMenuBar();
