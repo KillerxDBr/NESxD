@@ -1,0 +1,6 @@
+[submodule "extern/cimgui"]
+	path = extern/cimgui
+	url = https://github.com/cimgui/cimgui.git
+[submodule "extern/rlImGui"]
+	path = extern/rlImGui
+	url = https://github.com/raylib-extras/rlImGui.git
