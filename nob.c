@@ -230,7 +230,7 @@ void PrintUsage(void) {
 }
 
 int main(int argc, char **argv) {
-    // NOB_GO_REBUILD_URSELF(argc, argv);
+    NOB_GO_REBUILD_URSELF(argc, argv); // Needs to be commented out to DEBUG
 
 #if defined(_WIN32) // Should be Win10+ only, but methods to detect windows versions are unreliable...
     nob_log(NOB_INFO, "Enabling buffer on console std outputs");
