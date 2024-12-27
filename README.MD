@@ -1,8 +1,8 @@
 # NESxD
 
 ## Build
-
-    gcc -o nob.exe nob.c && .\nob.exe
+    git --recursive clone https://github.com/KillerxDBr/NESxD.git
+    gcc -o nob.exe nob.c && ./nob.exe
 
 ## Dependencies
 - [RayLib]
@@ -10,6 +10,8 @@
 - [RINI]
 - [Tiny File Dialogs]
 - [NOB]
+- [cImGui]
+- [rlImGui]
 
 ## References
 - https://skilldrick.github.io/easy6502/
@@ -24,3 +26,5 @@
 [Tiny File Dialogs]: <https://sourceforge.net/projects/tinyfiledialogs/>
 [RINI]: <https://github.com/raysan5/rini>
 [NOB]: <https://github.com/tsoding/nob.h>
+[cImGui]: <https://github.com/cimgui/cimgui>
+[rlImGui]: <https://github.com/raylib-extras/rlImGui>
