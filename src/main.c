@@ -2,8 +2,9 @@
 
 const char *PausedText = "Paused...";
 
+#define C3_EXPORT
 #ifdef C3_EXPORT
-extern void c3_teste(void);
+extern void c3_teste(lang_t *lang);
 #endif // C3_EXPORT
 
 int main(int argc, char **argv) {
@@ -80,8 +81,6 @@ int main(int argc, char **argv) {
     app->config.fileName = realloc(app->config.fileName, strlen(app->config.fileName) + 1);
 
     LOG_INF("app->config.fileName: '%s'", app->config.fileName);
-#else
-    NOB_UNUSED(program);
 #endif
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow((NES_W * FACTOR), (NES_H * FACTOR) + MENU_BAR_SIZE, "NES_xD");
@@ -210,10 +209,6 @@ int main(int argc, char **argv) {
     loadConfig(app);
 #endif // PLATFORM_WEB
 
-#ifdef C3_EXPORT
-    c3_teste(); // c3c.exe static-lib .\libc3teste.c3 --target mingw-x64
-#endif          // C3_EXPORT
-
     loadDefaultLang(&app->lang);
     initGui(app);
     rlImGuiSetup(true);
@@ -221,6 +216,10 @@ int main(int argc, char **argv) {
     ImGuiIO *io = igGetIO();
     // io->ConfigFlags
     io->IniFilename = NULL;
+
+#ifdef C3_EXPORT
+    c3_teste(&app->lang); // c3c.exe static-lib .\libc3teste.c3 --target mingw-x64
+#endif                    // C3_EXPORT
 
 #ifdef PLATFORM_WEB
     emscripten_set_main_loop_arg(mainLoop, app, 60, 1);

@@ -2,6 +2,8 @@
 #include "../include/nob.h"
 #endif // NOB_H_
 
+#include "nob_wasm.h"
+
 #ifndef CC
 
 #if defined(__GNUC__)
@@ -16,34 +18,6 @@
 
 #endif // CC
 
-#ifndef BUILD_DIR
-#define BUILD_DIR "build/"
-#endif // BUILD_DIR
-
-#ifndef WASM_DIR
-#define WASM_DIR "wasm/"
-#endif // WASM_DIR
-
-#ifndef BUILD_WASM_DIR
-#define BUILD_WASM_DIR BUILD_DIR WASM_DIR
-#endif // BUILD_WASM_DIR
-
-#ifndef BIN_DIR
-#define BIN_DIR "bin/"
-#endif // BIN_DIR
-
-#ifndef SRC_DIR
-#define SRC_DIR "src/"
-#endif // SRC_DIR
-
-#ifndef LIB_DIR
-#define LIB_DIR "lib/"
-#endif // LIB_DIR
-
-#ifndef EXTERN_DIR
-#define EXTERN_DIR "extern/"
-#endif // EXTERN_DIR
-
 #ifdef RELEASE
 #define IG_CFLAGS "-O3", "-Wall", "-Wextra"
 #else
@@ -56,89 +30,171 @@ extern Objects obj;
 extern const char *skippingMsg;
 
 bool CompileRLImgui(bool isWeb) {
-    if (isWeb)
-        return true;
-
     bool result = true;
+    const char *compiler = isWeb ? ("em++") : ("g++");
+    const size_t temp_cp = nob_temp_save();
+
     Nob_Cmd cmd = { 0 };
-    Nob_Procs procs = { 0 };
+    Nob_Cmd webCmd = { 0 };
+    Nob_String_Builder cmdRender = { 0 };
 
-    size_t startObj = obj.count;
-
-    char *output = strdup(BUILD_DIR "cimgui.o");
+    char *output = isWeb ? strdup(BUILD_WASM_DIR "cimgui.o") : strdup(BUILD_DIR "cimgui.o");
     if (nob_needs_rebuild1(output, "extern/cimgui/cimgui.cpp") > 0) {
-        nob_cmd_append(&cmd, "g++", "-o", output, "-c", "extern/cimgui/cimgui.cpp", IG_CFLAGS);
-        if (!nob_cmd_run_sync_and_reset(&cmd))
-            nob_return_defer(1);
+        if (isWeb)
+            EMS(&cmd);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, "-c", "extern/cimgui/cimgui.cpp", IG_CFLAGS);
+        if (isWeb) {
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            if (!nob_cmd_run_sync_and_reset(&webCmd)) {
+                nob_return_defer(false);
+            }
+            cmd.count = 0;
+        } else if (!nob_cmd_run_sync_and_reset(&cmd))
+            nob_return_defer(false);
     } else {
         nob_log(NOB_INFO, skippingMsg, output);
     }
     nob_da_append(&obj, output);
 
-    output = strdup(BUILD_DIR "imgui.o");
+    output = isWeb ? strdup(BUILD_WASM_DIR "imgui.o") : strdup(BUILD_DIR "imgui.o");
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui.cpp") > 0) {
-        nob_cmd_append(&cmd, "g++", "-o", output, "-c", "extern/cimgui/imgui/imgui.cpp", IG_CFLAGS);
-        if (!nob_cmd_run_sync_and_reset(&cmd))
-            nob_return_defer(1);
+        if (isWeb)
+            EMS(&cmd);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, "-c", "extern/cimgui/imgui/imgui.cpp", IG_CFLAGS);
+        if (isWeb) {
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            if (!nob_cmd_run_sync_and_reset(&webCmd)) {
+                nob_return_defer(false);
+            }
+            cmd.count = 0;
+        } else if (!nob_cmd_run_sync_and_reset(&cmd))
+            nob_return_defer(false);
     } else {
         nob_log(NOB_INFO, skippingMsg, output);
     }
     nob_da_append(&obj, output);
 
-    output = strdup(BUILD_DIR "imgui_demo.o");
+    output = isWeb ? strdup(BUILD_WASM_DIR "imgui_demo.o") : strdup(BUILD_DIR "imgui_demo.o");
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui_demo.cpp") > 0) {
-        nob_cmd_append(&cmd, "g++", "-o", output, "-c", "extern/cimgui/imgui/imgui_demo.cpp", IG_CFLAGS);
-        if (!nob_cmd_run_sync_and_reset(&cmd))
-            nob_return_defer(1);
+        if (isWeb)
+            EMS(&cmd);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, "-c", "extern/cimgui/imgui/imgui_demo.cpp", IG_CFLAGS);
+        if (isWeb) {
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            if (!nob_cmd_run_sync_and_reset(&webCmd)) {
+                nob_return_defer(false);
+            }
+            cmd.count = 0;
+        } else if (!nob_cmd_run_sync_and_reset(&cmd))
+            nob_return_defer(false);
     } else {
         nob_log(NOB_INFO, skippingMsg, output);
     }
     nob_da_append(&obj, output);
 
-    output = strdup(BUILD_DIR "imgui_draw.o");
+    output = isWeb ? strdup(BUILD_WASM_DIR "imgui_draw.o") : strdup(BUILD_DIR "imgui_draw.o");
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui_draw.cpp") > 0) {
-        nob_cmd_append(&cmd, "g++", "-o", output, "-c", "extern/cimgui/imgui/imgui_draw.cpp", IG_CFLAGS);
-        if (!nob_cmd_run_sync_and_reset(&cmd))
-            nob_return_defer(1);
+        if (isWeb)
+            EMS(&cmd);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, "-c", "extern/cimgui/imgui/imgui_draw.cpp", IG_CFLAGS);
+        if (isWeb) {
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            if (!nob_cmd_run_sync_and_reset(&webCmd)) {
+                nob_return_defer(false);
+            }
+            cmd.count = 0;
+        } else if (!nob_cmd_run_sync_and_reset(&cmd))
+            nob_return_defer(false);
     } else {
         nob_log(NOB_INFO, skippingMsg, output);
     }
     nob_da_append(&obj, output);
 
-    output = strdup(BUILD_DIR "imgui_tables.o");
+    output = isWeb ? strdup(BUILD_WASM_DIR "imgui_tables.o") : strdup(BUILD_DIR "imgui_tables.o");
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui_tables.cpp") > 0) {
-        nob_cmd_append(&cmd, "g++", "-o", output, "-c", "extern/cimgui/imgui/imgui_tables.cpp", IG_CFLAGS);
-        if (!nob_cmd_run_sync_and_reset(&cmd))
-            nob_return_defer(1);
+        if (isWeb)
+            EMS(&cmd);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, "-c", "extern/cimgui/imgui/imgui_tables.cpp", IG_CFLAGS);
+        if (isWeb) {
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            if (!nob_cmd_run_sync_and_reset(&webCmd)) {
+                nob_return_defer(false);
+            }
+            cmd.count = 0;
+        } else if (!nob_cmd_run_sync_and_reset(&cmd))
+            nob_return_defer(false);
     } else {
         nob_log(NOB_INFO, skippingMsg, output);
     }
     nob_da_append(&obj, output);
 
-    output = strdup(BUILD_DIR "imgui_widgets.o");
+    output = isWeb ? strdup(BUILD_WASM_DIR "imgui_widgets.o") : strdup(BUILD_DIR "imgui_widgets.o");
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui_widgets.cpp") > 0) {
-        nob_cmd_append(&cmd, "g++", "-o", output, "-c", "extern/cimgui/imgui/imgui_widgets.cpp", IG_CFLAGS);
-        if (!nob_cmd_run_sync_and_reset(&cmd))
-            nob_return_defer(1);
+        if (isWeb)
+            EMS(&cmd);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, "-c", "extern/cimgui/imgui/imgui_widgets.cpp", IG_CFLAGS);
+        if (isWeb) {
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            if (!nob_cmd_run_sync_and_reset(&webCmd)) {
+                nob_return_defer(false);
+            }
+            cmd.count = 0;
+        } else if (!nob_cmd_run_sync_and_reset(&cmd))
+            nob_return_defer(false);
     } else {
         nob_log(NOB_INFO, skippingMsg, output);
     }
     nob_da_append(&obj, output);
 
-    output = strdup(BUILD_DIR "rlImGui.o");
+    output = isWeb ? strdup(BUILD_WASM_DIR "rlImGui.o") : strdup(BUILD_DIR "rlImGui.o");
     if (nob_needs_rebuild1(output, "extern/rlImGui/rlImGui.cpp") > 0) {
-        nob_cmd_append(&cmd, "g++", "-Iinclude/", "-Iextern/cimgui/imgui/", "-o", output, "-c", "extern/rlImGui/rlImGui.cpp", IG_CFLAGS);
-        if (!nob_cmd_run_sync_and_reset(&cmd))
-            nob_return_defer(1);
+        if (isWeb)
+            EMS(&cmd);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-Iinclude/", "-Iextern/cimgui/imgui/", "-o", output, "-c",
+                       "extern/rlImGui/rlImGui.cpp", IG_CFLAGS);
+        if (isWeb) {
+            cmdRender.count = 0;
+            nob_cmd_render(cmd, &cmdRender);
+            nob_sb_append_null(&cmdRender);
+            nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
+            if (!nob_cmd_run_sync_and_reset(&webCmd)) {
+                nob_return_defer(false);
+            }
+            cmd.count = 0;
+        } else if (!nob_cmd_run_sync_and_reset(&cmd))
+            nob_return_defer(false);
     } else {
         nob_log(NOB_INFO, skippingMsg, output);
     }
     nob_da_append(&obj, output);
 
     // for (size_t i = startObj; i < obj.count; i++)
-    //     printf("obj[%zu]: '%s'\n", i - startObj + 1, obj.items[i]);
+    // printf("obj[%zu]: '%s'\n", i - startObj + 1, obj.items[i]);
 
 defer:
+    nob_temp_rewind(temp_cp);
+
+    nob_sb_free(cmdRender);
     nob_cmd_free(cmd);
+    nob_cmd_free(webCmd);
+
     return result;
 }

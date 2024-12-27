@@ -1,3 +1,5 @@
+#if !defined(PLATFORM_WEB)
+
 #include <stdio.h>
 #include <windows.h>
 
@@ -35,8 +37,6 @@ void KxD_Handle_Tray(void) {
     }
 }
 
-#define KXD_ICON_TEXT "KxD trayIcon"
-
 void KxD_Create_Tray(void *hWnd) {
     nid.cbSize = sizeof(NOTIFYICONDATAA);
 
@@ -54,10 +54,15 @@ void KxD_Create_Tray(void *hWnd) {
     Shell_NotifyIconA(NIM_ADD, &nid);
 }
 
-void KxD_Destroy_Tray(void) { //
+void KxD_Destroy_Tray(void) {
     DestroyIcon(nid.hIcon);
 
     Shell_NotifyIconA(NIM_DELETE, &nid);
 
     memset(&nid, 0, sizeof(nid));
 }
+#else
+void KxD_Create_Tray(void *hWnd) { (void)(hWnd); }
+void KxD_Handle_Tray(void) {}
+void KxD_Destroy_Tray(void) {}
+#endif // PLATFORM_WEB

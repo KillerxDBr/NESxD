@@ -4,6 +4,8 @@
 #include <locale.h>
 #include <signal.h>
 
+#include "build_src/nob_wasm.h"
+
 // #define RELEASE
 // #define USE_SDL
 #define STATIC
@@ -68,8 +70,6 @@
 #define PROGRAM_NAME "nesxd"
 
 #if defined(_WIN32)
-#include <VersionHelpers.h>
-
 #define PY_EXEC "py"
 #define EXE_NAME PROGRAM_NAME ".exe"
 #else
@@ -87,7 +87,7 @@
 
 #if defined(_WIN32)
 const char *libs[] = {
-    "gdi32", "winmm", "comdlg32", "ole32", "shell32",
+    "gdi32", "winmm", "comdlg32", "ole32", "shell32", "Dbghelp",
 };
 #else
 #define LIBS "-lm", "-static", "-lstdc++"
@@ -230,7 +230,7 @@ void PrintUsage(void) {
 }
 
 int main(int argc, char **argv) {
-    NOB_GO_REBUILD_URSELF(argc, argv);
+    // NOB_GO_REBUILD_URSELF(argc, argv);
 
 #if defined(_WIN32) // Should be Win10+ only, but methods to detect windows versions are unreliable...
     nob_log(NOB_INFO, "Enabling buffer on console std outputs");
@@ -469,6 +469,7 @@ defer:
                 "-sFORCE_FILESYSTEM=1",                                                  \
                 "-sALLOW_MEMORY_GROWTH=1",                                               \
                 "-sGL_ENABLE_GET_PROC_ADDRESS=1",                                        \
+                "-sSTACK_SIZE=82000",                                                    \
                 "-sASSERTIONS=1"
 
 // clang-format on
@@ -1463,32 +1464,44 @@ defer:
 }
 
 #ifdef _WIN32
-#define STATIC_DLL_EXT ".lib"
+#define C3_TARGET "--target", "mingw-x64"
 #else
-#define STATIC_DLL_EXT ".so"
+#define C3_TARGET ""
+#endif
+
+#define C3_TARGET_WEB "--target", "wasm32"
+
+#ifdef RELEASE
+#define C3_OPT "-O3", "-g0"
+#else
+#define C3_OPT "-O1", "-g"
 #endif
 
 bool C3Compile(bool isWeb) {
-    if (isWeb)
-        return true;
-
     const size_t temp_cp = nob_temp_save();
     bool result = true;
 
     const char *input = SRC_DIR "c3/c3teste.c3";
-    const char *output = strdup(BUILD_DIR "c3teste"); // no extention, c3 compiler add automaticaly, Win32 = .lib, Linux = .so, etc...
-    const char *tmpOutput = nob_temp_sprintf("%s" STATIC_DLL_EXT, output);
+
+    // no extention, c3 compiler add automaticaly, Win32 = .obj, Linux = .o, etc...
+    char *output = isWeb ? strdup(BUILD_WASM_DIR "c3teste") : strdup(BUILD_DIR "c3teste");
+
+    const char *tmpOutput = isWeb ? nob_temp_sprintf("%s.o", output) : nob_temp_sprintf("%s.obj", output);
 
     Nob_Cmd cmd = { 0 };
     if (nob_needs_rebuild1(tmpOutput, input)) {
-        // c3c.exe static-lib .\c3teste.c3 --target mingw-x64
-        nob_cmd_append(&cmd, "c3c.exe", "static-lib", input, "-o", output, "--target", "mingw-x64", "-O3");
+        // c3c.exe compile-only src/c3/c3teste.c3 -o build/c3teste --target mingw-x64 --single-module=yes -O1
+        nob_cmd_append(&cmd, "c3c.exe", "compile-only", input, "-o", output, "--single-module=yes", C3_OPT);
+        if (isWeb)
+            nob_cmd_append(&cmd, C3_TARGET_WEB);
+        else
+            nob_cmd_append(&cmd, C3_TARGET);
 
-        if (!nob_cmd_run_sync(cmd)) {
+        if (!nob_cmd_run_sync(cmd))
             nob_return_defer(false);
-        }
+
     } else {
-        nob_log(NOB_INFO, skippingMsg, output);
+        nob_log(NOB_INFO, skippingMsg, tmpOutput);
     }
     output = realloc(output, strlen(tmpOutput) + 1);
     strcpy(output, tmpOutput);
