@@ -1166,6 +1166,7 @@ void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
         nob_sb_append_null(sb);
         Nob_File_Type rst = nob_get_file_type(sb->items);
         // printf("File: %s | Type '%d'\n", sb->items, rst);
+        char *s;
         switch (rst) {
         case NOB_FILE_DIRECTORY:
             sb->count--;
@@ -1174,7 +1175,7 @@ void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
             break;
         case NOB_FILE_REGULAR:
             // printf("%s\n",sb->items);
-            char *s = strdup(sb->items);
+            s = strdup(sb->items);
             nob_da_append(eb, s);
             // sb->count--;
             sb->count = dir_qtd;
