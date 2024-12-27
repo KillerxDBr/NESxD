@@ -283,9 +283,8 @@ int main(int argc, char **argv) {
 
         bool isWeb = false;
 
-        nob_log(NOB_INFO, "Testing Compiler: '" CC "'");
+        nob_log(NOB_INFO, "Testing Compiler: '" CC "', 'c3c'");
         if (!TestCompiler()) {
-            nob_log(NOB_ERROR, "Could not find compiler '" CC "' in PATH");
             nob_return_defer(1);
         }
 
@@ -1443,6 +1442,10 @@ bool TestCompiler(void) {
         nob_log(NOB_ERROR, "Could not open \"" NULL_OUTPUT "\" for dumping output");
         exit(1);
     }
+    Nob_Cmd_Redirect cr = {
+        .fdout = &nullOutput,
+        .fderr = &nullOutput,
+    };
 
 #if defined(_MSC_VER)
     if (nob_file_exists(MSVC_ENV) != 1) {
@@ -1455,8 +1458,21 @@ bool TestCompiler(void) {
     nob_cmd_append(&cmd, CC, "-v");
 #endif // !defined(_MSC_VER)
 
-    if (!nob_cmd_run_sync_redirect(cmd, (Nob_Cmd_Redirect){ .fdout = &nullOutput, .fderr = &nullOutput }))
+    const char *missingCompiler = "'%s' Compiler not found, aborting...";
+    const char *foundCompiler = "Compiler '%s' Found";
+
+    if (!nob_cmd_run_sync_redirect_and_reset(&cmd, cr)) {
+        nob_log(NOB_ERROR, missingCompiler, CC);
         nob_return_defer(false);
+    }
+    nob_log(NOB_INFO, foundCompiler, CC);
+
+    nob_cmd_append(&cmd, "c3c", "-V");
+    if (!nob_cmd_run_sync_redirect_and_reset(&cmd, cr)) {
+        nob_log(NOB_ERROR, missingCompiler, "c3c");
+        nob_return_defer(false);
+    }
+    nob_log(NOB_INFO, foundCompiler, "c3c");
 
 defer:
     nob_cmd_free(cmd);
