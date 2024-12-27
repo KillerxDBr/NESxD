@@ -27,13 +27,10 @@ void updateTheme(app_t *app) {
 }
 
 void KxDGui(app_t *app) {
-    app->menu.openFile = true;
-    if (app->menu.openFile) {
-        if (GuiButton(CLITERAL(Rectangle){ 10, 10, 100, 20 }, "Press Me!!!")) {
-            app->config.activeTheme = (app->config.activeTheme + 1) % KXD_ARRAY_LEN(themeNames);
-            LOG_INF("Theme changed to \"%s\" (%u)", themeNames[app->config.activeTheme], app->config.activeTheme + 1);
-            updateTheme(app);
-        }
+    if (GuiButton(CLITERAL(Rectangle){ 10, 10 + MENU_BAR_SIZE, 100, 20 }, "Press Me!!!")) {
+        app->config.activeTheme = (app->config.activeTheme + 1) % KXD_ARRAY_LEN(themeNames);
+        LOG_INF("Theme changed to \"%s\" (%u)", themeNames[app->config.activeTheme], app->config.activeTheme + 1);
+        updateTheme(app);
     }
 
     const Vector2 spacing = V2(app->screenW * .01f, app->screenH * .01f);

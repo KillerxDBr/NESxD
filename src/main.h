@@ -60,18 +60,6 @@
 #define NOPPU
 // #define NOVID
 
-#define MENU_BAR_SIZE 20
-
-// resolution 256 x 224
-#define NES_W 256
-#define NES_H 224
-#define FACTOR 2
-
-#define NES_AR ((float)NES_W / (float)NES_H)
-
-#define NOP_CMD "-NOP"
-#define TEST_CMD "-T"
-
 #define KXD_BG (CLITERAL(Color){ 0x38, 0x38, 0x38, 0xFF })
 
 // index = y * W + x

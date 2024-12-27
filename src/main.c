@@ -1,8 +1,12 @@
 #include "main.h"
 
-const char *PausedText = "Paused...";
+#if defined(_WIN32)
+static int windowsVersion(void);
+static int powershellPresent(void);
+#endif // defined(_WIN32)
 
 #define C3_EXPORT
+
 #ifdef C3_EXPORT
 extern void c3_teste(lang_t *lang);
 #endif // C3_EXPORT
@@ -14,18 +18,20 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Should be Win10+ only, but methods to detect windows versions are unreliable...
-    LOG_INF("Enabling buffer on console std outputs");
+    if (windowsVersion() >= 10) {
+        // Should be Win10+ only, but methods to detect windows versions are unreliable...
+        LOG_INF("Enabling buffer on console std outputs");
 
-    // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
-    if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
-        LOG_ERR("Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
-        return 1;
-    }
+        // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
+        if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
+            LOG_ERR("Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
+            return 1;
+        }
 
-    if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
-        LOG_ERR("Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
-        return 1;
+        if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
+            LOG_ERR("Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
+            return 1;
+        }
     }
 
 #ifdef _UCRT // ucrtbase.dll Windows
@@ -224,9 +230,9 @@ int main(int argc, char **argv) {
 #ifdef PLATFORM_WEB
     emscripten_set_main_loop_arg(mainLoop, app, 60, 1);
 #else
-    while (!WindowShouldClose() && !app->quit) {
-        mainLoop(app);
-    }
+    // while (!WindowShouldClose() && !app->quit)
+    mainLoop(app);
+
 #if 0
     if (TEST) {
         final.B = true; // Probable only necessary for this sample test
@@ -405,144 +411,150 @@ void processRomHeader(nes_t *nes) {
 
 void mainLoop(void *app_ptr) {
     app_t *app = app_ptr;
-    // while (!WindowShouldClose() && !app->quit) {
-    KxD_Handle_Tray();
+#ifndef PLATFORM_WEB
+    while (!WindowShouldClose() && !app->quit) {
+#endif // PLATFORM_WEB
+        KxD_Handle_Tray();
 
-    if (IsWindowResized()) {
-        LOG_INF("Window Resized...");
+        if (IsWindowResized()) {
+            LOG_INF("Window Resized...");
 
-        app->screenW = GetRenderWidth();
-        app->screenH = GetRenderHeight();
-        LOG_INF("New Size: " V2_CFMT("%zu"), app->screenW, app->screenH);
-        calcScreenPos(app);
-        LOG_INF("app->destRec: " RECT_FMT, RECT_ARGS(app->destRec));
-    }
+            app->screenW = GetRenderWidth();
+            app->screenH = GetRenderHeight();
+            LOG_INF("New Size: " V2_CFMT("%zu"), app->screenW, app->screenH);
+            calcScreenPos(app);
+            LOG_INF("app->destRec: " RECT_FMT, RECT_ARGS(app->destRec));
+        }
 
-    // registerInput(&app->nes);
+        // registerInput(&app->nes);
+        if (IsKeyPressed(app->config.pauseKey)) {
+            app->nes.isPaused = !app->nes.isPaused;
+        }
 
-    BeginDrawing();
+        if (!app->nes.isPaused) {
+            processInstruction(&app->nes.cpu);
+            if (app->nes.cpu.B)
+                return;
+        }
 
-    ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        BeginDrawing();
+
+        ClearBackground(GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
 #ifndef NOVID
-    DrawTexturePro(app->screen.texture, app->sourceRec, app->destRec, Vector2Zero(), 0, WHITE);
+        DrawTexturePro(app->screen.texture, app->sourceRec, app->destRec, Vector2Zero(), 0, WHITE);
 #endif
 
-    DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);
-    DrawLine((app->screenW / 2), 0, (app->screenW / 2), app->screenH, GREEN);
+        DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);
+        DrawLine((app->screenW / 2), 0, (app->screenW / 2), app->screenH, GREEN);
 
-    DrawRectangle(4, 4 + MENU_BAR_SIZE, 75, 20, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
-    DrawFPS(5, 5 + MENU_BAR_SIZE);
+        DrawRectangle(4, 4 + MENU_BAR_SIZE, 75, 20, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        DrawFPS(5, 5 + MENU_BAR_SIZE);
 
-    if (app->nes.isPaused) {
-        const Font font = GuiGetFont();
-        const Vector2 pauseSize = MeasureTextEx(font, PausedText, app->screenW * .1f, font.baseSize);
+        if (app->nes.isPaused) {
+            const Font font = GuiGetFont();
+            const Vector2 pauseSize = MeasureTextEx(font, app->lang.text_paused, app->screenW * .1f, font.baseSize);
 
-        DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f), (app->screenH * .5f) - (pauseSize.y * .6f),
-                      pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
-                      GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f), (app->screenH * .5f) - (pauseSize.y * .6f),
+                          pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
+                          GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-        DrawRectangleLinesEx(CLITERAL(Rectangle){ (app->screenW * .5f) - (pauseSize.x * .6f) - 1,
-                                                  (app->screenH * .5f) - (pauseSize.y * .6f), pauseSize.x + (pauseSize.x * .2f) + 1,
-                                                  pauseSize.y + (pauseSize.y * .2f) },
-                             (pauseSize.y + (pauseSize.y * .2f) + 1) * .05f, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+            DrawRectangleLinesEx(CLITERAL(Rectangle){ (app->screenW * .5f) - (pauseSize.x * .6f) - 1,
+                                                      (app->screenH * .5f) - (pauseSize.y * .6f), pauseSize.x + (pauseSize.x * .2f) + 1,
+                                                      pauseSize.y + (pauseSize.y * .2f) },
+                                 (pauseSize.y + (pauseSize.y * .2f) + 1) * .05f, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
-        // DrawText(PausedText, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW *
-        // .1f,
-        //          GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+            // DrawText(app->lang.text_paused, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f),
+            // app->screenW * .1f,
+            //          GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
-        DrawTextPro(font, PausedText, V2((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f)),
-                    Vector2Zero(), 0, app->screenW * .1f, font.baseSize, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
-    }
+            DrawTextPro(font, app->lang.text_paused,
+                        V2((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f)), Vector2Zero(), 0,
+                        app->screenW * .1f, font.baseSize, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+        }
 
 #ifdef KXD_DEBUG
-    if (IsKeyPressed(KEY_J)) {
-        app->menu.openMenu = !app->menu.openMenu;
-    }
-    // app->menu.openFile = true;
+        if (IsKeyPressed(KEY_J)) {
+            app->menu.openMenu = !app->menu.openMenu;
+        }
+        // app->menu.openFile = true;
 
-    // if (app->menu.openMenu) {
-    //     // char *selectedFile = NULL;
+        if (app->menu.openMenu) {
+            app->menu.openFile = IsKeyPressed(KEY_O);
+            if (app->menu.openFile) {
+                char *selectedFile = NULL;
 
-    //     // const char *filters[1] = { "*.nes" };
+                const char *filters[1] = { "*.nes" };
 
-    //     // selectedFile = tinyfd_openFileDialog("Open...", ".\\", 1, filters, "NES ROM File (*.nes)", false);
+                selectedFile = tinyfd_openFileDialog("Open...", ".\\", 1, filters, "NES ROM File (*.nes)", false);
 
-    //     // if (selectedFile) {
-    //     //     tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
-    //     // // tinyfd_notifyPopupW(L"Selected File...", tinyfd_utf8to16(selectedFile), L"info");
-    //     // }
-    //     // else {
-    //     //     tinyfd_messageBox("Error...", "No File Selected", "ok", "error", 0);
-    //     // }
-    //     // app->menu.openFile = false;
-    //     KxDGui(app);
-    // }
-#endif
-    rlImGuiBegin();
-    {
-        static bool opt_open = true;
-        static bool opt_quit = false;
+                if (selectedFile)
+                    tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
+                else
+                    tinyfd_messageBox("Error...", "No File Selected", "ok", "error", 0);
 
-        if (igBeginMainMenuBar()) {
-            if (igBeginMenu(app->lang.menu_file, true)) {
-                if (igMenuItemEx(app->lang.menu_file_open, NULL, "Ctrl+O", NULL, true)) {
-                    LOG_INF("Clicked: %s", app->lang.menu_file_open);
-                }
-                if (igMenuItem_BoolPtr(app->lang.menu_file_quit, "Alt+F4", NULL, true)) {
-                    LOG_INF("Clicked: %s", app->lang.menu_file_quit);
-                }
-                igEndMenu();
+                app->menu.openFile = false;
             }
-            igEndMainMenuBar();
+            KxDGui(app);
         }
+#endif // KXD_DEBUG
+        rlImGuiBegin();
+        {
+            static bool opt_open = true;
+            static bool opt_quit = false;
 
-        static bool show_demo_window = true;
+            if (igBeginMainMenuBar()) {
+                if (igBeginMenu(app->lang.menu_file, true)) {
+                    if (igMenuItemEx(app->lang.menu_file_open, NULL, "Ctrl+O", NULL, true)) {
+                        LOG_INF("Clicked: %s", app->lang.menu_file_open);
+                    }
+                    if (igMenuItem_BoolPtr(app->lang.menu_file_quit, "Alt+F4", NULL, true)) {
+                        LOG_INF("Clicked: %s", app->lang.menu_file_quit);
+                    }
+                    igEndMenu();
+                }
+                igEndMainMenuBar();
+            }
 
-        if (show_demo_window)
-            igShowDemoWindow(&show_demo_window);
+            static bool show_demo_window = true;
 
-        static bool show_another_window = true;
-        static float f = 0.0f;
-        static int counter = 0;
+            if (show_demo_window)
+                igShowDemoWindow(&show_demo_window);
 
-        igBegin("Hello, world!", NULL, 0);
+            static bool show_another_window = true;
+            static float f = 0.0f;
+            static int counter = 0;
 
-        igSliderFloat("float", &f, 0.0f, 1.0f, NULL, 0); // Edit 1 float using a slider from 0.0f to 1.0f
+            igBegin("Hello, world!", NULL, 0);
 
-        if (igSmallButton("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
-            counter++;
+            igSliderFloat("float", &f, 0.0f, 1.0f, NULL, 0); // Edit 1 float using a slider from 0.0f to 1.0f
 
-        igSameLine(0, 5);
-        igText("counter = %d", counter);
+            if (igSmallButton("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
+                counter++;
 
-        if (igSmallButton("show_another_window"))
-            show_another_window = true;
+            igSameLine(0, 5);
+            igText("counter = %d", counter);
 
-        igEnd();
+            if (igSmallButton("show_another_window"))
+                show_another_window = true;
 
-        if (show_another_window) {
-            igBegin("Another Window", &show_another_window,
-                    0); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            igText("Hello from another window!");
-            if (igSmallButton("Close Me"))
-                show_another_window = false;
             igEnd();
+
+            if (show_another_window) {
+                // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+                igBegin("Another Window", &show_another_window, 0);
+                igText("Hello from another window!");
+                if (igSmallButton("Close Me"))
+                    show_another_window = false;
+                igEnd();
+            }
         }
-    }
 
-    rlImGuiEnd();
-    EndDrawing();
-    if (IsKeyPressed(app->config.pauseKey)) {
-        app->nes.isPaused = !app->nes.isPaused;
+        rlImGuiEnd();
+        EndDrawing();
+#ifndef PLATFORM_WEB
     }
-
-    if (!app->nes.isPaused) {
-        processInstruction(&app->nes.cpu);
-        if (app->nes.cpu.B)
-            return;
-    }
-    // }
+#endif // PLATFORM_WEB
 }
 
 void calcScreenPos(app_t *app) {
@@ -564,3 +576,56 @@ void calcScreenPos(app_t *app) {
         }
     }
 }
+
+// Stolen from tinyfiledialogs.c
+#ifdef _WIN32
+static int powershellPresent(void) { /*only on vista and above (or installed on xp)*/
+    static int lPowershellPresent = -1;
+    char lBuff[1024];
+    FILE *lIn;
+    char const *lString = "powershell.exe";
+
+    if (lPowershellPresent < 0) {
+        if (!(lIn = _popen("where powershell.exe", "r"))) {
+            lPowershellPresent = 0;
+            return 0;
+        }
+        while (fgets(lBuff, sizeof(lBuff), lIn) != NULL) {
+        }
+        _pclose(lIn);
+        if (lBuff[strlen(lBuff) - 1] == '\n') {
+            lBuff[strlen(lBuff) - 1] = '\0';
+        }
+        if (strcmp(lBuff + strlen(lBuff) - strlen(lString), lString)) {
+            lPowershellPresent = 0;
+        } else {
+            lPowershellPresent = 1;
+        }
+    }
+    return lPowershellPresent;
+}
+
+static int windowsVersion(void) {
+#if !defined(__MINGW32__) || defined(__MINGW64_VERSION_MAJOR)
+    typedef LONG NTSTATUS;
+    typedef NTSTATUS(WINAPI * RtlGetVersionPtr)(PRTL_OSVERSIONINFOW);
+    HMODULE hMod;
+    RtlGetVersionPtr lFxPtr;
+    RTL_OSVERSIONINFOW lRovi = { 0 };
+
+    hMod = GetModuleHandleW(L"ntdll.dll");
+    if (hMod) {
+        lFxPtr = (RtlGetVersionPtr)GetProcAddress(hMod, "RtlGetVersion");
+        if (lFxPtr) {
+            lRovi.dwOSVersionInfoSize = sizeof(lRovi);
+            if (!lFxPtr(&lRovi)) {
+                return lRovi.dwMajorVersion;
+            }
+        }
+    }
+#endif // !defined(__MINGW32__) || defined(__MINGW64_VERSION_MAJOR)
+    if (powershellPresent())
+        return 6; /*minimum is vista or installed on xp*/
+    return 0;
+}
+#endif // _WIN32

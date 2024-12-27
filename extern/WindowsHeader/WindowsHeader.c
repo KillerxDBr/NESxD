@@ -126,20 +126,3 @@ long WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, ui
 
     return RegGetValueW(key, subKey, value, flags, valueType, regValue, regValueSize);
 }
-
-#define KXD_WIN32_ERR_MSG_SIZE (4 * 1024)
-static char KxDwin32ErrMsg[KXD_WIN32_ERR_MSG_SIZE] = { 0 };
-
-char *KxD_log_windows_error(unsigned long err) {
-    DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT,
-                                      KxDwin32ErrMsg, KXD_WIN32_ERR_MSG_SIZE, NULL);
-
-    if (errMsgSize <= 3)
-        return NULL;
-
-    // removing line breaks
-    //              \r\n\0
-    KxDwin32ErrMsg[errMsgSize - 2] = '\0';
-
-    return (char *)&KxDwin32ErrMsg;
-}

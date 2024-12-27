@@ -6,6 +6,18 @@
 
 #include "raylib.h"
 
+// resolution 256 x 224
+#define NES_W 256
+#define NES_H 224
+#define FACTOR 2
+
+#define NES_AR ((float)NES_W / (float)NES_H)
+
+#define NOP_CMD "-NOP"
+#define TEST_CMD "-T"
+
+#define MENU_BAR_SIZE 20
+
 #define MB(n) (n * 1048576)
 #define KB(n) (n * 1024)
 // #define MEMSIZE (KB(2))

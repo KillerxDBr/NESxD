@@ -37,5 +37,4 @@ long WinH_RegGetValueA(int hKey, const char *subKey, const char *value, uint32_t
                        unsigned long *regValueSize);
 long WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, uint32_t flags, unsigned long *valueType, wchar_t *regValue,
                        unsigned long *regValueSize);
-char *KxD_log_windows_error(unsigned long err);
 #endif /* KXD_WIN_H_ISOLATION */
