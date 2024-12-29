@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_INS_FLAGS_H
 #define KXD_INS_FLAGS_H
 

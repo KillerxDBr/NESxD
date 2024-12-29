@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_LANG_H
 #define KXD_LANG_H
 

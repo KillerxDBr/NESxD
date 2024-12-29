@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_6502_H
 #define KXD_6502_H
 

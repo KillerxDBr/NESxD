@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_GUI_H
 #define KXD_GUI_H
 

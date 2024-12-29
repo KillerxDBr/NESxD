@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_ICONTRAY_H
 #define KXD_ICONTRAY_H
 

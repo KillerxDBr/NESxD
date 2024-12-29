@@ -1,3 +1,4 @@
+#pragma once
 #ifndef BUNDLE_H_ // nob.c:55
 #define BUNDLE_H_ // nob.c:56
 #include <stdlib.h> // nob.c:57

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_DEBUG_H
 #define KXD_DEBUG_H
 

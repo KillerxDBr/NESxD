@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_WIN_H_ISOLATION
 #define KXD_WIN_H_ISOLATION
 

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_MAIN_H
 #define KXD_MAIN_H
 

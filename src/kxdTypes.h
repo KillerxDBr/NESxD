@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_TYPES_H
 #define KXD_TYPES_H
 
@@ -106,7 +107,9 @@ typedef struct {
 } nes_t;
 
 typedef struct {
-    char code[6];
+    const char *base;
+    char code[2];
+    char country[2];
     const char *name;
     const char *author;
     const char *text_paused;

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef KXD_INPUT_H
 #define KXD_INPUT_H
 
