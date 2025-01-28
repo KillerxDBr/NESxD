@@ -13,6 +13,8 @@ void loadConfig(app_t *app) {
         rini_config cfg = rini_load_config(app->config.fileName);
 
         // clang-format off
+        app->config.lang = rini_get_config_value_text_fallback(cfg, NESxD_LANG, app->config.lang);
+
         app->config.activeTheme    = rini_get_config_value_fallback(cfg, NESxD_SELECTED_THEME, app->config.activeTheme);
         app->config.fastForwardKey = rini_get_config_value_fallback(cfg, NESxD_FAST_FORWARD,   app->config.fastForwardKey);
         app->config.pauseKey       = rini_get_config_value_fallback(cfg, NESxD_PAUSE,          app->config.pauseKey);
@@ -68,6 +70,8 @@ void saveConfig(app_t *app) {
     rini_config cfg = rini_load_config(NULL);
 
     // clang-format off
+    rini_set_config_value_text(&cfg, NESxD_LANG, app->config.lang, "Language");
+
     rini_set_config_value(&cfg, NESxD_SELECTED_THEME, app->config.activeTheme,    "GUI Theme");
     rini_set_config_value(&cfg, NESxD_FAST_FORWARD,   app->config.fastForwardKey, "Fast Forward Button");
     rini_set_config_value(&cfg, NESxD_PAUSE,          app->config.pauseKey,       "Pause Button");
@@ -125,6 +129,7 @@ void loadDefaultConfigs(app_t *app) {
 #endif /* defined(_WIN32) && !defined(PLATFORM_WEB) */
 
     // clang-format off
+    app->config.lang           = "en-us";
     app->config.activeTheme    = darkTheme ? 6 : 0;
     app->config.fastForwardKey = KEY_SPACE;
     app->config.pauseKey       = KEY_P;

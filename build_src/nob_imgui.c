@@ -20,8 +20,10 @@
 
 #ifdef RELEASE
 #define IG_CFLAGS "-O3", "-Wall", "-Wextra"
+#define IG_WFLAGS "-Os", "-Wall", "-Wextra"
 #else
-#define IG_CFLAGS "-Og", "-ggdb", "-Wall", "-Wextra"
+#define IG_CFLAGS "-Og", "-g", "-ggdb", "-Wall", "-Wextra"
+#define IG_WFLAGS "-Og", "-g", "-Wall", "-Wextra"
 #endif // RELEASE
 
 typedef Nob_File_Paths Objects;
@@ -42,8 +44,9 @@ bool CompileRLImgui(bool isWeb) {
     if (nob_needs_rebuild1(output, "extern/cimgui/cimgui.cpp") > 0) {
         if (isWeb)
             EMS(&cmd);
-        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, "-c", "extern/cimgui/cimgui.cpp", IG_CFLAGS);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, "-c", "extern/cimgui/cimgui.cpp");
         if (isWeb) {
+            nob_cmd_append(&cmd, IG_WFLAGS);
             cmdRender.count = 0;
             nob_cmd_render(cmd, &cmdRender);
             nob_sb_append_null(&cmdRender);
@@ -52,8 +55,11 @@ bool CompileRLImgui(bool isWeb) {
                 nob_return_defer(false);
             }
             cmd.count = 0;
-        } else if (!nob_cmd_run_sync_and_reset(&cmd))
-            nob_return_defer(false);
+        } else {
+            nob_cmd_append(&cmd, IG_CFLAGS);
+            if (!nob_cmd_run_sync_and_reset(&cmd))
+                nob_return_defer(false);
+        }
     } else {
         nob_log(NOB_INFO, skippingMsg, output);
     }

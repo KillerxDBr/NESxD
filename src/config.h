@@ -44,6 +44,7 @@ void saveConfig(app_t *app);
 */
 
 // clang-format off
+#define NESxD_LANG           "NESxD.lang"
 #define NESxD_SELECTED_THEME "NESxD.selectedTheme"
 #define NESxD_FAST_FORWARD   "NESxD.fastForwardKey"
 #define NESxD_PAUSE          "NESxD.pauseKey"

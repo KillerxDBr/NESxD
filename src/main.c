@@ -481,12 +481,12 @@ void mainLoop(void *app_ptr) {
 
         if (app->menu.openMenu) {
             app->menu.openFile = IsKeyPressed(KEY_O);
+#ifndef PLATFORM_WEB
             if (app->menu.openFile) {
-                char *selectedFile = NULL;
+                static char *selectedFile = NULL;
+                static const char *const filters[] = { "*.nes" };
 
-                const char *filters[1] = { "*.nes" };
-
-                selectedFile = tinyfd_openFileDialog("Open...", ".\\", 1, filters, "NES ROM File (*.nes)", false);
+                selectedFile = tinyfd_openFileDialog("Open...", ".\\", NOB_ARRAY_LEN(filters), filters, "NES ROM File (*.nes)", false);
 
                 if (selectedFile)
                     tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
@@ -495,6 +495,7 @@ void mainLoop(void *app_ptr) {
 
                 app->menu.openFile = false;
             }
+#endif // !PLATFORM_WEB
             KxDGui(app);
         }
 #endif // KXD_DEBUG
