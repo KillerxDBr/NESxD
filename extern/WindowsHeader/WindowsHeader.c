@@ -129,10 +129,26 @@ long WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, ui
 
 #define SHARED_USER_DATA (BYTE *)0x7FFE0000
 WinVer GetWindowsVersion(void) {
-    // const void *sharedUserData = (BYTE *)0x7FFE0000;
-    return (WinVer){
+    WinVer result = {
         .major = *(ULONG *)(SHARED_USER_DATA + 0x26c), // major version offset
         .minor = *(ULONG *)(SHARED_USER_DATA + 0x270), // minor version offset
-        // .build = *(ULONG *)(SHARED_USER_DATA + 0x260), // build number offset
     };
+
+    if (result.major >= 10UL)
+        result.build = *(ULONG *)(SHARED_USER_DATA + 0x260); // build number offset
+
+    return result;
+}
+
+/*
+    OLDER_WIN - Older Windows
+    WIN_10    - Windows 10
+    WIN_11    - Windows 11
+*/
+WVResp GetWinVer(void) {
+    const WinVer ver = GetWindowsVersion();
+    if (ver.build == 0)
+        return OLDER_WIN;
+
+    return ver.build >= 21996UL ? WIN_11 : WIN_10; // if build >= 21996 = Win 11 else Win 10
 }

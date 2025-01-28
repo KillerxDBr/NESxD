@@ -43,8 +43,6 @@
 
 #include "rlImGui/rlImGui.h"
 
-#include "nob.h"
-
 #ifdef KXD_DEBUG
 #include "test.h"
 #endif
@@ -52,6 +50,8 @@
 #ifndef PLATFORM_WEB
 #include "bundle.h"
 #endif
+
+#include "nob.h"
 
 #ifndef CP_UTF8
 #define CP_UTF8 65001

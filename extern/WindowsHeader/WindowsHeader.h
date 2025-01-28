@@ -2,10 +2,10 @@
 #ifndef KXD_WIN_H_ISOLATION
 #define KXD_WIN_H_ISOLATION
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 typedef enum {
     WIN_H_HKEY_CLASSES_ROOT,
@@ -36,10 +36,17 @@ typedef enum {
 typedef struct WinVer {
     unsigned long major;
     unsigned long minor;
-    // unsigned long build;
+    unsigned long build;
 } WinVer;
 
+typedef enum {
+    OLDER_WIN = -1,
+    WIN_10    =  0,
+    WIN_11    =  1,
+} WVResp;
+
 WinVer GetWindowsVersion(void);
+WVResp GetWinVer(void);
 
 bool WinH_SetConsoleOutputCP(uint32_t wCodePageID);
 bool WinH_CopyFileA(const char *sourceFile, const char *destFile, bool failIfExists);

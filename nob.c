@@ -200,7 +200,7 @@ typedef struct {
 Objects obj = { 0 };
 Resources resources = { 0 };
 
-bool buildRayLib(bool isWeb);
+bool BuildRayLib(bool isWeb);
 bool PrecompileHeader(bool isWeb);
 bool CompileFiles(bool isWeb);
 bool CleanupFiles(void);
@@ -208,10 +208,9 @@ bool CompileDependencies(bool isWeb);
 bool CompileExecutable(bool isWeb);
 bool CompileNobHeader(bool isWeb);
 bool Bundler(char **path, size_t pathCount);
-bool GetIncludedHeaders(Objects *eh, const char *header);
+bool GetIncludedHeaders(Objects *eh, const char *depFile);
 bool TestFile(void);
 bool WebServer(const char *pyExec);
-void errorTest(void);
 bool TestCompiler(void);
 bool C3Compile(bool isWeb);
 
@@ -323,7 +322,7 @@ int main(int argc, char **argv) {
 
         const size_t bkpCount = obj.count;
         nob_log(NOB_INFO, "--- Building Raylib ---");
-        if (!buildRayLib(isWeb)) {
+        if (!BuildRayLib(isWeb)) {
             if (nob_file_exists(RAYLIB_A) != 1)
                 nob_return_defer(1);
 
@@ -537,33 +536,41 @@ bool PrecompileHeader(bool isWeb) {
 
         output = nob_temp_strdup(sb.items);
 
-        if (GetIncludedHeaders(&extraHeaders, input)) {
+        char *depFile = nob_temp_sprintf("%s.d", output);
+        if (!GetIncludedHeaders(&extraHeaders, depFile)) {
             nob_da_append(&extraHeaders, input);
         }
 
         // nob_log(NOB_INFO, "------------------------------------");
+        // nob_log(NOB_INFO, "Extra Headers for %s:", input);
         // for (size_t j = 0; j < extraHeaders.count; j++) {
-        //     nob_log(NOB_INFO, "Extra Headers: %s", extraHeaders.items[j]);
+        //     nob_log(NOB_INFO, "    %s", extraHeaders.items[j]);
         // }
         // nob_log(NOB_INFO, "Number of extra headers: %zu", extraHeaders.count);
         // nob_log(NOB_INFO, "------------------------------------");
 
         if (nob_needs_rebuild(output, extraHeaders.items, extraHeaders.count) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            char *depFile = nob_temp_sprintf("%s.d", output);
             nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-o", output, input, filesFlags[i]);
 
             nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
-
+        if (extraHeaders.count > 1) {
+            for (size_t i = 0; i < extraHeaders.count; ++i) {
+                // nob_log(NOB_INFO, "Cleaning str '%s'", extraHeaders.items[i]);
+                free((void *)extraHeaders.items[i]);
+            }
+        }
         nob_temp_rewind(internalCheckpoint);
     }
     nob_cmd_free(cmd);
     nob_sb_free(sb);
 
     bool result = nob_procs_wait(procs);
+
+    nob_da_free(extraHeaders);
     nob_da_free(procs);
 
     return result;
@@ -834,8 +841,7 @@ bool CompileFiles(bool isWeb) {
 
         if (nob_needs_rebuild(output, input_files, input_count) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            char *depFile = nob_temp_sprintf("%s.d", output);
-            nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-o", output);
+            nob_cmd_append(&cmd, "-o", output);
 
             if (!isWeb)
                 nob_cmd_append(&cmd, "-include", pch);
@@ -1295,60 +1301,35 @@ defer:
 #define INCLUDE_TXT "#include \""
 #define INC_TXT_SZ (sizeof(INCLUDE_TXT) - 1)
 
-bool GetIncludedHeaders(Objects *eh, const char *header) {
-    bool result = true;
+bool GetIncludedHeaders(Objects *eh, const char *depFile) {
+    if (nob_file_exists(depFile) < 1)
+        return false;
 
     Nob_String_Builder sb = { 0 };
-    char line[1024] = { 0 };
+    nob_read_entire_file(depFile, &sb);
+    Nob_String_View sv = nob_sb_to_sv(sb);
+    Nob_String_View sv2;
+    nob_sv_chop_by_delim(&sv, ':');
+    sv = nob_sv_trim(sv);
 
-    FILE *fHeader = fopen(header, "rt");
-
-    if (fHeader == NULL) {
-        nob_log(NOB_ERROR, "Could not open header file '%s': %s", header, strerror(errno));
-        nob_return_defer(false);
-    }
-
-    size_t sz;
-    // nob_log(NOB_INFO, "Header: '%s'", header);
-    while (feof(fHeader) == 0) {
-        fgets(line, sizeof(line), fHeader);
-        sz = strlen(line);
-        if (sz < INC_TXT_SZ)
-            continue;
-        line[--sz] = '\0'; // removing \n from end
-
-        if (strncmp(line, INCLUDE_TXT, INC_TXT_SZ) == 0) {
-            for (size_t i = 0; i < NOB_ARRAY_LEN(dirs); ++i) {
-                sb.count = 0;
-                // nob_sb_append_cstr(&sb, "./");
-                nob_sb_append_cstr(&sb, dirs[i]);
-                nob_sb_append_buf(&sb, line + INC_TXT_SZ, sz - sizeof(INCLUDE_TXT));
-
-                nob_sb_append_null(&sb);
-
-                if (nob_file_exists(sb.items) == 1) {
-                    // nob_log(NOB_INFO, "  File Exists: %s", sb.items);
-                    char *s = strdup(sb.items);
-                    nob_da_append(eh, s);
-                }
-            }
+    char *c = sv.data;
+    for (size_t i = 0; i < sv.count; ++i) {
+        if (isspace(sv.data[i]) || sv.data[i] == '\\') {
+            c[i] = ' ';
         }
     }
 
-    for (size_t i = 0; i < eh->count; ++i) {
-        if (strcmp(eh->items[i], "src/InsFlags.h") == 0) {
-            nob_da_append(eh, "src/instructions.h");
-            break;
-        }
+    c = NULL;
+    const size_t cp = nob_temp_save();
+    while (sv.count > 0) {
+        sv = nob_sv_trim(sv);
+        sv2 = nob_sv_chop_by_delim(&sv, ' ');
+        c = strdup(nob_temp_sprintf(SV_Fmt, SV_Arg(sv2)));
+        nob_temp_rewind(cp);
+        nob_da_append(eh, c);
     }
-
-defer:
     nob_sb_free(sb);
-
-    if (fHeader)
-        fclose(fHeader);
-
-    return result;
+    return eh->count > 0;
 }
 
 bool TestFile(void) {

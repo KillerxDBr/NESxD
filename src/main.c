@@ -1,10 +1,5 @@
 #include "main.h"
 
-#if defined(_WIN32)
-static int windowsVersion(void);
-static int powershellPresent(void);
-#endif // defined(_WIN32)
-
 #define C3_EXPORT
 
 #ifdef C3_EXPORT
@@ -18,8 +13,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if (windowsVersion() >= 10) {
-        // Should be Win10+ only, but methods to detect windows versions are unreliable...
+    WVResp winVer = GetWinVer();
+    if (winVer >= WIN_10) {
         LOG_INF("Enabling buffer on console std outputs");
 
         // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
@@ -577,56 +572,3 @@ void calcScreenPos(app_t *app) {
         }
     }
 }
-
-// Stolen from tinyfiledialogs.c
-#ifdef _WIN32
-static int powershellPresent(void) { /*only on vista and above (or installed on xp)*/
-    static int lPowershellPresent = -1;
-    char lBuff[1024];
-    FILE *lIn;
-    char const *lString = "powershell.exe";
-
-    if (lPowershellPresent < 0) {
-        if (!(lIn = _popen("where powershell.exe", "r"))) {
-            lPowershellPresent = 0;
-            return 0;
-        }
-        while (fgets(lBuff, sizeof(lBuff), lIn) != NULL) {
-        }
-        _pclose(lIn);
-        if (lBuff[strlen(lBuff) - 1] == '\n') {
-            lBuff[strlen(lBuff) - 1] = '\0';
-        }
-        if (strcmp(lBuff + strlen(lBuff) - strlen(lString), lString)) {
-            lPowershellPresent = 0;
-        } else {
-            lPowershellPresent = 1;
-        }
-    }
-    return lPowershellPresent;
-}
-
-static int windowsVersion(void) {
-#if !defined(__MINGW32__) || defined(__MINGW64_VERSION_MAJOR)
-    typedef LONG NTSTATUS;
-    typedef NTSTATUS(WINAPI * RtlGetVersionPtr)(PRTL_OSVERSIONINFOW);
-    HMODULE hMod;
-    RtlGetVersionPtr lFxPtr;
-    RTL_OSVERSIONINFOW lRovi = { 0 };
-
-    hMod = GetModuleHandleW(L"ntdll.dll");
-    if (hMod) {
-        lFxPtr = (RtlGetVersionPtr)GetProcAddress(hMod, "RtlGetVersion");
-        if (lFxPtr) {
-            lRovi.dwOSVersionInfoSize = sizeof(lRovi);
-            if (!lFxPtr(&lRovi)) {
-                return lRovi.dwMajorVersion;
-            }
-        }
-    }
-#endif // !defined(__MINGW32__) || defined(__MINGW64_VERSION_MAJOR)
-    if (powershellPresent())
-        return 6; /*minimum is vista or installed on xp*/
-    return 0;
-}
-#endif // _WIN32
