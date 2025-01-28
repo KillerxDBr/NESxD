@@ -126,6 +126,7 @@ typedef struct {
 
     uint16_t fastForwardKey;
     uint16_t pauseKey;
+    char *lang;
 } config_t;
 
 typedef struct {

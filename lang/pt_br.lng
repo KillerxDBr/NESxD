@@ -1,0 +1,10 @@
+base          , en-us, Base Language
+code          , pt, Language Code: en, es, pt, etc...
+country       , br, Country Code: us, es, br, pt, etc...
+name          , Portugues (Brasil), Language Name in its native idiom
+name_en-us    , Brazilian Portuguese, Language name in other idioms
+author        , Killer_xD, Localization author
+text_paused   , Pausado...
+menu_file     , Arquivo
+menu_file_open, Abrir
+menu_file_quit, Fechar

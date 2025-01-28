@@ -1,8 +1,10 @@
 #include "lang.h"
 
 void loadDefaultLang(lang_t *lang) {
-    strcpy(lang->code,     "en_US");
-    lang->name           = "English";
+    lang->base = NULL;
+    memcpy(lang->code,    "en", 2);
+    memcpy(lang->country, "us", 2);
+    lang->name           = "English (US)";
     lang->author         = "KxD";
     lang->text_paused    = "Paused...";
     lang->menu_file      = "File";

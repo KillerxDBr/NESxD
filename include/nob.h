@@ -549,9 +549,11 @@ struct dirent
 
 typedef struct DIR DIR;
 
+#ifdef NOB_IMPLEMENTATION
 static DIR *opendir(const char *dirpath);
 static struct dirent *readdir(DIR *dirp);
 static int closedir(DIR *dirp);
+#endif // NOB_IMPLEMENTATION
 
 #endif // _WIN32
 // minirent.h HEADER END ////////////////////////////////////////
@@ -589,18 +591,17 @@ char *nob_win32_error_message(DWORD err) {
                                       NOB_WIN32_ERR_MSG_SIZE, NULL);
 
     if (errMsgSize == 0) {
-        if (GetLastError() != ERROR_MR_MID_NOT_FOUND) {
-            if (sprintf(win32ErrMsg, "Could not get error message for 0x%lX", err) > 0) {
+        char *newErrMsg = NULL;
+        if (GetLastError() == ERROR_MR_MID_NOT_FOUND) {
+            newErrMsg = "Invalid Win32 error code";
+            } else {
+            newErrMsg = "Could not get error message";
+            }
+
+        if (snprintf(win32ErrMsg, sizeof(win32ErrMsg), "%s for 0x%lX", newErrMsg, err) > 0) {
                 return (char *)&win32ErrMsg;
             } else {
-                return NULL;
-            }
-        } else {
-            if (sprintf(win32ErrMsg, "Invalid Windows Error code (0x%lX)", err) > 0) {
-                return (char *)&win32ErrMsg;
-            } else {
-                return NULL;
-            }
+            return newErrMsg;
         }
     }
 
@@ -654,10 +655,19 @@ static char nob_temp[NOB_TEMP_CAPACITY] = {0};
 bool nob_mkdir_if_not_exists(const char *path)
 {
 #ifdef _WIN32
-    int result = mkdir(path);
+    int result = CreateDirectoryA(path, NULL);
+    if (result == 0) {
+        DWORD err = GetLastError();
+        if (err == ERROR_ALREADY_EXISTS) {
+            nob_log(NOB_INFO, "directory `%s` already exists", path);
+            return true;
+        }
+        nob_log(NOB_ERROR, "could not create directory `%s`: %s", path, nob_win32_error_message(err));
+        return false;
+    }
 #else
     int result = mkdir(path, 0755);
-#endif
+
     if (result < 0) {
         if (errno == EEXIST) {
             nob_log(NOB_INFO, "directory `%s` already exists", path);
@@ -666,7 +676,7 @@ bool nob_mkdir_if_not_exists(const char *path)
         nob_log(NOB_ERROR, "could not create directory `%s`: %s", path, strerror(errno));
         return false;
     }
-
+#endif
     nob_log(NOB_INFO, "created directory `%s`", path);
     return true;
 }
@@ -675,7 +685,7 @@ bool nob_copy_file(const char *src_path, const char *dst_path)
 {
     nob_log(NOB_INFO, "copying %s -> %s", src_path, dst_path);
 #ifdef _WIN32
-    if (!CopyFile(src_path, dst_path, FALSE)) {
+    if (!CopyFileA(src_path, dst_path, FALSE)) {
         nob_log(NOB_ERROR, "Could not copy file: %s", nob_win32_error_message(GetLastError()));
         return false;
     }
@@ -733,15 +743,8 @@ defer:
 #endif
 }
 
-#ifndef _WIN32
-#define SEP "\'"
-#else
-#define SEP "\""
-#endif
-
 void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render)
 {
-	size_t checkpoint = nob_temp_save();
     for (size_t i = 0; i < cmd.count; ++i) {
         const char *arg = cmd.items[i];
         if (arg == NULL) break;
@@ -749,13 +752,12 @@ void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render)
         if (!strchr(arg, ' ')) {
             nob_sb_append_cstr(render, arg);
         } else {
-            nob_sb_append_cstr(render, nob_temp_sprintf(SEP "%s" SEP, arg));
+            nob_da_append(render, '\'');
+            nob_sb_append_cstr(render, arg);
+            nob_da_append(render, '\'');
         }
     }
-	nob_temp_rewind(checkpoint);
 }
-
-#undef SEP
 
 Nob_Proc nob_cmd_run_async_redirect(Nob_Cmd cmd, Nob_Cmd_Redirect redirect)
 {
@@ -774,9 +776,9 @@ Nob_Proc nob_cmd_run_async_redirect(Nob_Cmd cmd, Nob_Cmd_Redirect redirect)
 #ifdef _WIN32
     // https://docs.microsoft.com/en-us/windows/win32/procthread/creating-a-child-process-with-redirected-input-and-output
 
-    STARTUPINFO siStartInfo;
+    STARTUPINFOA siStartInfo;
     ZeroMemory(&siStartInfo, sizeof(siStartInfo));
-    siStartInfo.cb = sizeof(STARTUPINFO);
+    siStartInfo.cb = sizeof(STARTUPINFOA);
     // NOTE: theoretically setting NULL to std handles should not be a problem
     // https://docs.microsoft.com/en-us/windows/console/getstdhandle?redirectedfrom=MSDN#attachdetach-behavior
     // TODO: check for errors in GetStdHandle
@@ -791,13 +793,6 @@ Nob_Proc nob_cmd_run_async_redirect(Nob_Cmd cmd, Nob_Cmd_Redirect redirect)
     // TODO: use a more reliable rendering of the command instead of cmd_render
     // cmd_render is for logging primarily
     nob_cmd_render(cmd, &sb);
-
-    // for (size_t i = 0; i < sb.count; ++i) {
-    //     if (sb.items[i] == '\'') {
-    //         sb.items[i] = '\"';
-    //     }
-    // }
-
     nob_sb_append_null(&sb);
     BOOL bSuccess = CreateProcessA(NULL, sb.items, NULL, NULL, TRUE, 0, NULL, NULL, &siStartInfo, &piProcInfo);
     nob_sb_free(sb);
@@ -897,7 +892,7 @@ Nob_Fd nob_fd_open_for_read(const char *path)
     saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
     saAttr.bInheritHandle = TRUE;
 
-    Nob_Fd result = CreateFile(
+    Nob_Fd result = CreateFileA(
                     path,
                     GENERIC_READ,
                     0,
@@ -931,7 +926,7 @@ Nob_Fd nob_fd_open_for_write(const char *path)
     saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
     saAttr.bInheritHandle = TRUE;
 
-    Nob_Fd result = CreateFile(
+    Nob_Fd result = CreateFileA(
                     path,                            // name of the write
                     GENERIC_WRITE,                   // open for writing
                     0,                               // do not share
@@ -964,8 +959,6 @@ bool nob_procs_wait(Nob_Procs procs)
     bool success = true;
     for (size_t i = 0; i < procs.count; ++i) {
         success = nob_proc_wait(procs.items[i]) && success;
-        fflush(stdout);
-        fflush(stderr);
     }
     return success;
 }
@@ -1362,7 +1355,7 @@ int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t 
 #ifdef _WIN32
     BOOL bSuccess;
 
-    HANDLE output_path_fd = CreateFile(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
+    HANDLE output_path_fd = CreateFileA(output_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
     if (output_path_fd == INVALID_HANDLE_VALUE) {
         // NOTE: if output does not exist it 100% must be rebuilt
         if (GetLastError() == ERROR_FILE_NOT_FOUND) return 1;
@@ -1379,7 +1372,7 @@ int nob_needs_rebuild(const char *output_path, const char **input_paths, size_t 
 
     for (size_t i = 0; i < input_paths_count; ++i) {
         const char *input_path = input_paths[i];
-        HANDLE input_path_fd = CreateFile(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
+        HANDLE input_path_fd = CreateFileA(input_path, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
         if (input_path_fd == INVALID_HANDLE_VALUE) {
             // NOTE: non-existing input is an error cause it is needed for building in the first place
             nob_log(NOB_ERROR, "Could not open file %s: %s", input_path, nob_win32_error_message(GetLastError()));
@@ -1447,7 +1440,7 @@ bool nob_rename(const char *old_path, const char *new_path)
 {
     nob_log(NOB_INFO, "renaming %s -> %s", old_path, new_path);
 #ifdef _WIN32
-    if (!MoveFileEx(old_path, new_path, MOVEFILE_REPLACE_EXISTING)) {
+    if (!MoveFileExA(old_path, new_path, MOVEFILE_REPLACE_EXISTING)) {
         nob_log(NOB_ERROR, "could not rename %s to %s: %s", old_path, new_path, nob_win32_error_message(GetLastError()));
         return false;
     }
@@ -1576,9 +1569,14 @@ bool nob_sv_end_with(Nob_String_View sv, const char *cstr)
 int nob_file_exists(const char *file_path)
 {
 #if _WIN32
-    // TODO: distinguish between "does not exists" and other errors
     DWORD dwAttrib = GetFileAttributesA(file_path);
-    return dwAttrib != INVALID_FILE_ATTRIBUTES;
+    if(dwAttrib == INVALID_FILE_ATTRIBUTES){
+        DWORD err = GetLastError();
+        if (err == ERROR_FILE_NOT_FOUND) return 0;
+        nob_log(NOB_ERROR, "Could not check if file %s exists: %s", file_path, nob_win32_error_message(err));
+        return -1;
+    }
+    return 1;
 #else
     struct stat statbuf;
     if (stat(file_path, &statbuf) < 0) {
@@ -1593,14 +1591,14 @@ int nob_file_exists(const char *file_path)
 const char *nob_get_current_dir_temp()
 {
 #ifdef _WIN32
-    DWORD nBufferLength = GetCurrentDirectory(0, NULL);
+    DWORD nBufferLength = GetCurrentDirectoryA(0, NULL);
     if (nBufferLength == 0) {
         nob_log(NOB_ERROR, "could not get current directory: %s", nob_win32_error_message(GetLastError()));
         return NULL;
     }
 
     char *buffer = (char*) nob_temp_alloc(nBufferLength);
-    if (GetCurrentDirectory(nBufferLength, buffer) == 0) {
+    if (GetCurrentDirectoryA(nBufferLength, buffer) == 0) {
         nob_log(NOB_ERROR, "could not get current directory: %s", nob_win32_error_message(GetLastError()));
         return NULL;
     }
@@ -1620,7 +1618,7 @@ const char *nob_get_current_dir_temp()
 bool nob_set_current_dir(const char *path)
 {
 #ifdef _WIN32
-    if (!SetCurrentDirectory(path)) {
+    if (!SetCurrentDirectoryA(path)) {
         nob_log(NOB_ERROR, "could not set current directory to %s: %s", path, nob_win32_error_message(GetLastError()));
         return false;
     }

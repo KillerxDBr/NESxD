@@ -207,7 +207,7 @@ bool CleanupFiles(void);
 bool CompileDependencies(bool isWeb);
 bool CompileExecutable(bool isWeb);
 bool CompileNobHeader(bool isWeb);
-bool Bundler(const char *path);
+bool Bundler(char **path, size_t pathCount);
 bool GetIncludedHeaders(Objects *eh, const char *header);
 bool TestFile(void);
 bool WebServer(const char *pyExec);
@@ -384,14 +384,7 @@ int main(int argc, char **argv) {
 
     } else if (strcmp(command, "bundler") == 0) {
         nob_log(NOB_INFO, "--- Bundler ---");
-
-        const char *bundlerPath;
-        if (argc > 0)
-            bundlerPath = nob_shift_args(&argc, &argv);
-        else
-            bundlerPath = NULL;
-
-        nob_return_defer(!Bundler(bundlerPath));
+        nob_return_defer(!Bundler(argv, argc));
 
     } else if ((strcmp(command, "test") == 0) || (strcmp(command, "t") == 0)) {
         nob_log(NOB_INFO, "--- Building Test File ---");
@@ -457,7 +450,8 @@ defer:
 
 // clang-format off
 // -Os -Wall -s USE_GLFW=3 -s FORCE_FILESYSTEM=1 -s ASYNCIFY -DPLATFORM_WEB --preload-file resources
-#define WFLAGS  "-Os",                                                                   \
+#define WFLAGS  "-Og",                                                                   \
+                "-g",                                                                    \
                 "-Wall",                                                                 \
                 "-Wextra",                                                               \
                 "-lm",                                                                   \
@@ -468,7 +462,7 @@ defer:
                 "-sFORCE_FILESYSTEM=1",                                                  \
                 "-sALLOW_MEMORY_GROWTH=1",                                               \
                 "-sGL_ENABLE_GET_PROC_ADDRESS=1",                                        \
-                "-sSTACK_SIZE=82000",                                                    \
+                "-sSTACK_SIZE=100mb",                                                    \
                 "-sASSERTIONS=1"
 
 // clang-format on
@@ -556,7 +550,8 @@ bool PrecompileHeader(bool isWeb) {
 
         if (nob_needs_rebuild(output, extraHeaders.items, extraHeaders.count) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            nob_cmd_append(&cmd, "-o", output, input, filesFlags[i]);
+            char *depFile = nob_temp_sprintf("%s.d", output);
+            nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-o", output, input, filesFlags[i]);
 
             nob_da_append(&procs, nob_cmd_run_async(cmd));
         } else {
@@ -839,7 +834,8 @@ bool CompileFiles(bool isWeb) {
 
         if (nob_needs_rebuild(output, input_files, input_count) != 0) {
             nob_log(NOB_INFO, "Rebuilding '%s' file", output);
-            nob_cmd_append(&cmd, "-o", output);
+            char *depFile = nob_temp_sprintf("%s.d", output);
+            nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-o", output);
 
             if (!isWeb)
                 nob_cmd_append(&cmd, "-include", pch);
@@ -1099,6 +1095,7 @@ bool generate_resource_bundle(void) {
         nob_return_defer(false);
     }
 
+    genf(out, "#pragma once");
     genf(out, "#ifndef BUNDLE_H_");
     genf(out, "#define BUNDLE_H_");
     genf(out, "#include <stdlib.h>");
@@ -1186,33 +1183,35 @@ void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
     }
 }
 
-bool Bundler(const char *path) {
-    if (path == NULL)
-        path = ROM_PATH;
+bool Bundler(char **path, size_t pathCount) {
+    if (pathCount < 1 || path[0] == NULL)
+        return true;
 
     Nob_String_Builder sb = { 0 };
     Nob_Procs procs = { 0 };
+    EmbedFiles eb = { 0 };
+    DIR *dir;
     nob_log(NOB_INFO, "Starting Dir read!");
 
-    DIR *dir = NULL;
-    dir = opendir(path);
-    if (dir == NULL) {
+    for (size_t i = 0; i < pathCount; i++) {
+        sb.count = 0;
+        dir = opendir(path[i]);
+        if (dir == NULL) {
 #ifdef _WIN32
-        DWORD err = GetLastError();
-        nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path, nob_win32_error_message(err), err);
+            DWORD err = GetLastError();
+            nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path[i], nob_win32_error_message(err), err);
 #else
-        nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path, strerror(errno), errno);
+            nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path[i], strerror(errno), errno);
 #endif // _WIN32
 
-        // nob_log(NOB_ERROR, "Could not open directory '%s'", path);
-        return false;
+            // nob_log(NOB_ERROR, "Could not open directory '%s'", path[i]);
+            return false;
+        }
+        closedir(dir);
+
+        nob_sb_append_cstr(&sb, path[i]);
+        recurse_dir(&sb, &eb);
     }
-    closedir(dir);
-
-    nob_sb_append_cstr(&sb, path);
-
-    EmbedFiles eb = { 0 };
-    recurse_dir(&sb, &eb);
     if (eb.count) {
         nob_log(NOB_INFO, "Generating Resource Bundle");
 
@@ -1508,7 +1507,7 @@ bool C3Compile(bool isWeb) {
     Nob_Cmd cmd = { 0 };
     if (nob_needs_rebuild1(tmpOutput, input)) {
         // c3c.exe compile-only src/c3/c3teste.c3 -o build/c3teste --target mingw-x64 --single-module=yes -O1
-        nob_cmd_append(&cmd, "c3c.exe", "compile-only", input, "-o", output, "--single-module=yes", C3_OPT);
+        nob_cmd_append(&cmd, "c3c.exe", "compile-only", input, "-o", output, "--single-module=yes", C3_OPT, "-D", "NOMAIN");
         if (isWeb)
             nob_cmd_append(&cmd, C3_TARGET_WEB);
         else
