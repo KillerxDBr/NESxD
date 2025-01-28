@@ -2,6 +2,8 @@
 #ifndef KXD_WIN_H_ISOLATION
 #define KXD_WIN_H_ISOLATION
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -31,6 +33,14 @@ typedef enum {
     WIN_H_ANY = 0x0000ffff,
 } WIN_H_REG_TYPE;
 
+typedef struct WinVer {
+    unsigned long major;
+    unsigned long minor;
+    // unsigned long build;
+} WinVer;
+
+WinVer GetWindowsVersion(void);
+
 bool WinH_SetConsoleOutputCP(uint32_t wCodePageID);
 bool WinH_CopyFileA(const char *sourceFile, const char *destFile, bool failIfExists);
 bool WinH_CopyFileW(const wchar_t *sourceFile, const wchar_t *destFile, bool failIfExists);
@@ -38,4 +48,5 @@ long WinH_RegGetValueA(int hKey, const char *subKey, const char *value, uint32_t
                        unsigned long *regValueSize);
 long WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, uint32_t flags, unsigned long *valueType, wchar_t *regValue,
                        unsigned long *regValueSize);
+
 #endif /* KXD_WIN_H_ISOLATION */

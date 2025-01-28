@@ -126,3 +126,13 @@ long WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, ui
 
     return RegGetValueW(key, subKey, value, flags, valueType, regValue, regValueSize);
 }
+
+#define SHARED_USER_DATA (BYTE *)0x7FFE0000
+WinVer GetWindowsVersion(void) {
+    // const void *sharedUserData = (BYTE *)0x7FFE0000;
+    return (WinVer){
+        .major = *(ULONG *)(SHARED_USER_DATA + 0x26c), // major version offset
+        .minor = *(ULONG *)(SHARED_USER_DATA + 0x270), // minor version offset
+        // .build = *(ULONG *)(SHARED_USER_DATA + 0x260), // build number offset
+    };
+}
