@@ -41,8 +41,13 @@ typedef struct WinVer {
 
 typedef enum {
     OLDER_WIN = -1,
-    WIN_10    =  0,
-    WIN_11    =  1,
+    WIN_XP,
+    WIN_VISTA,
+    WIN_7,
+    WIN_8,
+    WIN_81,
+    WIN_10,
+    WIN_11,
 } WVResp;
 
 WinVer GetWindowsVersion(void);

@@ -142,13 +142,29 @@ WinVer GetWindowsVersion(void) {
 
 /*
     OLDER_WIN - Older Windows
+    WIN_XP    - Windows XP
+    WIN_VISTA - Windows Vista
+    WIN_7     - Windows 7
+    WIN_8     - Windows 8
+    WIN_81    - Windows 8.1
     WIN_10    - Windows 10
     WIN_11    - Windows 11
 */
 WVResp GetWinVer(void) {
-    const WinVer ver = GetWindowsVersion();
-    if (ver.build == 0)
+    WinVer ver = GetWindowsVersion();
+    if (ver.build == 0) {
+        if(ver.major < 5UL) return OLDER_WIN;
+        if(ver.major < 6UL) return WIN_XP;
+        if(ver.major == 6UL) {
+            switch (ver.minor)
+            {
+            case 0UL: return WIN_VISTA;
+            case 1UL: return WIN_7;
+            case 2UL: return WIN_8;
+            case 3UL: return WIN_81;
+            }
+        }
         return OLDER_WIN;
-
+    }
     return ver.build >= 21996UL ? WIN_11 : WIN_10; // if build >= 21996 = Win 11 else Win 10
 }
