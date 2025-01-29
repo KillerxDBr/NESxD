@@ -172,6 +172,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
 #include <errno.h>
@@ -431,14 +432,14 @@ bool nob_set_current_dir(const char *path);
 #ifndef NOB_REBUILD_URSELF
 #  if _WIN32
 #    if defined(__GNUC__)
-#       define NOB_REBUILD_URSELF(binary_path, source_path) "gcc", "-o", binary_path, source_path
+#       define NOB_REBUILD_URSELF(binary_path, source_path, depFile) "gcc", "-MMD", "-MF", depFile, "-o", binary_path, source_path
 #    elif defined(__clang__)
-#       define NOB_REBUILD_URSELF(binary_path, source_path) "clang", "-o", binary_path, source_path
+#       define NOB_REBUILD_URSELF(binary_path, source_path, depFile) "clang", "-MMD", "-MF", depFile, "-o", binary_path, source_path
 #    elif defined(_MSC_VER)
-#       define NOB_REBUILD_URSELF(binary_path, source_path) "cl.exe", nob_temp_sprintf("/Fe:%s", (binary_path)), source_path
+#       define NOB_REBUILD_URSELF(binary_path, source_path, depFile) "cl.exe", nob_temp_sprintf("/Fe:%s", (binary_path)), source_path
 #    endif
 #  else
-#    define NOB_REBUILD_URSELF(binary_path, source_path) "cc", "-o", binary_path, source_path
+#    define NOB_REBUILD_URSELF(binary_path, source_path, depFile) "cc", "-o", binary_path, source_path
 #  endif
 #endif
 
@@ -466,6 +467,7 @@ bool nob_set_current_dir(const char *path);
 //
 void nob__go_rebuild_urself(const char *source_path, int argc, char **argv);
 #define NOB_GO_REBUILD_URSELF(argc, argv) nob__go_rebuild_urself(__FILE__, argc, argv)
+bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile);
 
 const char *nob_header_path(void);
 
@@ -486,6 +488,27 @@ Nob_String_View nob_sv_from_cstr(const char *cstr);
 Nob_String_View nob_sv_from_parts(const char *data, size_t count);
 // nob_sb_to_sv() enables you to just view Nob_String_Builder as Nob_String_View
 #define nob_sb_to_sv(sb) nob_sv_from_parts((sb).items, (sb).count)
+
+Nob_String_View nob_sv_take_left_while(Nob_String_View sv, bool (*predicate)(char x));
+Nob_String_View nob_sv_chop_by_sv(Nob_String_View *sv, Nob_String_View thicc_delim);
+bool nob_sv_try_chop_by_delim(Nob_String_View *sv, char delim, Nob_String_View *chunk);
+Nob_String_View nob_sv_chop_left(Nob_String_View *sv, size_t n);
+Nob_String_View nob_sv_chop_right(Nob_String_View *sv, size_t n);
+Nob_String_View nob_sv_chop_left_while(Nob_String_View *sv, bool (*predicate)(char x));
+bool nob_sv_index_of(Nob_String_View sv, char c, size_t *index);
+bool nob_sv_eq_ignorecase(Nob_String_View a, Nob_String_View b);
+bool nob_sv_start_with(Nob_String_View sv, const char *expected_prefix);
+uint64_t nob_sv_to_u64(Nob_String_View sv);
+uint64_t nob_sv_chop_u64(Nob_String_View *sv);
+
+#define SV(cstr_lit) nob_sv_from_parts(cstr_lit, sizeof(cstr_lit) - 1)
+#define SV_STATIC(cstr_lit)   \
+    {                         \
+        sizeof(cstr_lit) - 1, \
+        (cstr_lit)            \
+    }
+
+#define SV_NULL nob_sv_from_parts(NULL, 0)
 
 // printf macros for String_View
 #ifndef SV_Fmt
@@ -614,9 +637,41 @@ char *nob_win32_error_message(DWORD err) {
 
 #endif // _WIN32
 
+bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile) {
+    if (nob_file_exists(depFile) < 1)
+        return false;
+
+    Nob_String_Builder sb = { 0 };
+    nob_read_entire_file(depFile, &sb);
+
+    for (size_t i = 0; i < sb.count; ++i) {
+        if (isspace(sb.items[i]) || sb.items[i] == '\\') {
+            sb.items[i] = ' ';
+        }
+    }
+
+    Nob_String_View sv = nob_sb_to_sv(sb);
+
+    while (nob_sv_index_of(sv, ':', NULL)) {
+        nob_sv_chop_by_delim(&sv, ':');
+    }
+    sv = nob_sv_trim(sv);
+
+    Nob_String_View sv2;
+    while (sv.count > 0) {
+        sv = nob_sv_trim(sv);
+        sv2 = nob_sv_chop_by_delim(&sv, ' ');
+        char *cstr = nob_temp_sprintf(SV_Fmt, SV_Arg(sv2));
+        nob_da_append(fp, cstr);
+    }
+    nob_sb_free(sb);
+    return fp->count > 0;
+}
+
 // The implementation idea is stolen from https://github.com/zhiayang/nabs
 void nob__go_rebuild_urself(const char *source_path, int argc, char **argv)
 {
+    const size_t checkpoint = nob_temp_save();
     const char *binary_path = nob_shift(argv, argc);
 #ifdef _WIN32
     // On Windows executables almost always invoked without extension, so
@@ -625,19 +680,29 @@ void nob__go_rebuild_urself(const char *source_path, int argc, char **argv)
         binary_path = nob_temp_sprintf("%s.exe", binary_path);
     }
 #endif
+    Nob_File_Paths deps = {0};
+    const char *depFile = nob_temp_sprintf("%s.d", nob_path_name(source_path));
 
-    const char* inputs[] = {source_path, nob_header_path()};
-    int rebuild_is_needed = nob_needs_rebuild(binary_path, inputs, NOB_ARRAY_LEN(inputs));
+    if (!ParseDependencyFile(&deps, depFile)) {
+        nob_da_append(&deps, source_path);
+        nob_da_append(&deps, nob_header_path());
+    }
+
+    int rebuild_is_needed = nob_needs_rebuild(binary_path, deps.items, deps.count);
     // int rebuild_is_needed = nob_needs_rebuild1(binary_path, source_path);
+    nob_da_free(deps);
     if (rebuild_is_needed < 0) exit(1); // error
-    if (!rebuild_is_needed) return;     // no rebuild is needed
+    if (!rebuild_is_needed) {   // no rebuild is needed
+        nob_temp_rewind(checkpoint);
+        return;
+    }
 
     Nob_Cmd cmd = {0};
 
     const char *old_binary_path = nob_temp_sprintf("%s.old", binary_path);
 
     if (!nob_rename(binary_path, old_binary_path)) exit(1);
-    nob_cmd_append(&cmd, NOB_REBUILD_URSELF(binary_path, source_path));
+    nob_cmd_append(&cmd, NOB_REBUILD_URSELF(binary_path, source_path, depFile));
     if (!nob_cmd_run_sync_and_reset(&cmd)) {
         nob_rename(old_binary_path, binary_path);
         exit(1);
@@ -1560,6 +1625,153 @@ bool nob_sv_end_with(Nob_String_View sv, const char *cstr)
         return nob_sv_eq(sv_ending, nob_sv_from_cstr(cstr));
     }
     return false;
+}
+
+Nob_String_View nob_sv_take_left_while(Nob_String_View sv, bool (*predicate)(char x)) {
+    size_t i = 0;
+    while (i < sv.count && predicate(sv.data[i])) {
+        i += 1;
+    }
+    return nob_sv_from_parts(sv.data, i);
+}
+
+Nob_String_View nob_sv_chop_by_sv(Nob_String_View *sv, Nob_String_View thicc_delim) {
+    Nob_String_View window = nob_sv_from_parts(sv->data, thicc_delim.count);
+    size_t i = 0;
+    while (i + thicc_delim.count < sv->count && !(nob_sv_eq(window, thicc_delim))) {
+        i++;
+        window.data++;
+    }
+
+    Nob_String_View result = nob_sv_from_parts(sv->data, i);
+
+    if (i + thicc_delim.count == sv->count) {
+        // include last <thicc_delim.count> characters if they aren't
+        //  equal to thicc_delim
+        result.count += thicc_delim.count;
+    }
+
+    // Chop!
+    sv->data += i + thicc_delim.count;
+    sv->count -= i + thicc_delim.count;
+
+    return result;
+}
+
+bool nob_sv_try_chop_by_delim(Nob_String_View *sv, char delim, Nob_String_View *chunk) {
+    size_t i = 0;
+    while (i < sv->count && sv->data[i] != delim) {
+        i += 1;
+    }
+
+    Nob_String_View result = nob_sv_from_parts(sv->data, i);
+
+    if (i < sv->count) {
+        sv->count -= i + 1;
+        sv->data += i + 1;
+        if (chunk) {
+            *chunk = result;
+        }
+        return true;
+    }
+
+    return false;
+}
+
+Nob_String_View nob_sv_chop_left(Nob_String_View *sv, size_t n) {
+    if (n > sv->count) {
+        n = sv->count;
+    }
+
+    Nob_String_View result = nob_sv_from_parts(sv->data, n);
+
+    sv->data += n;
+    sv->count -= n;
+
+    return result;
+}
+
+Nob_String_View nob_sv_chop_right(Nob_String_View *sv, size_t n) {
+    if (n > sv->count) {
+        n = sv->count;
+    }
+
+    Nob_String_View result = nob_sv_from_parts(sv->data + sv->count - n, n);
+
+    sv->count -= n;
+
+    return result;
+}
+
+Nob_String_View nob_sv_chop_left_while(Nob_String_View *sv, bool (*predicate)(char x)) {
+    size_t i = 0;
+    while (i < sv->count && predicate(sv->data[i])) {
+        i += 1;
+    }
+    return nob_sv_chop_left(sv, i);
+}
+
+bool nob_sv_index_of(Nob_String_View sv, char c, size_t *index) {
+    size_t i = 0;
+    while (i < sv.count && sv.data[i] != c) {
+        i += 1;
+    }
+
+    if (i < sv.count) {
+        if (index) {
+            *index = i;
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool nob_sv_eq_ignorecase(Nob_String_View a, Nob_String_View b) {
+    if (a.count != b.count) {
+        return false;
+    }
+
+    char x, y;
+    for (size_t i = 0; i < a.count; i++) {
+        x = 'A' <= a.data[i] && a.data[i] <= 'Z' ? a.data[i] + 32 : a.data[i];
+
+        y = 'A' <= b.data[i] && b.data[i] <= 'Z' ? b.data[i] + 32 : b.data[i];
+
+        if (x != y)
+            return false;
+    }
+    return true;
+}
+
+bool nob_sv_start_with(Nob_String_View sv, const char *expected_prefix) {
+    Nob_String_View expected_prefix_sv = nob_sv_from_cstr(expected_prefix);
+    if (expected_prefix_sv.count <= sv.count) {
+        Nob_String_View actual_prefix = nob_sv_from_parts(sv.data, expected_prefix_sv.count);
+        return nob_sv_eq(expected_prefix_sv, actual_prefix);
+    }
+
+    return false;
+}
+
+uint64_t nob_sv_to_u64(Nob_String_View sv) {
+    uint64_t result = 0;
+
+    for (size_t i = 0; i < sv.count && isdigit(sv.data[i]); ++i) {
+        result = result * 10 + (uint64_t)sv.data[i] - '0';
+    }
+
+    return result;
+}
+
+uint64_t nob_sv_chop_u64(Nob_String_View *sv) {
+    uint64_t result = 0;
+    while (sv->count > 0 && isdigit(*sv->data)) {
+        result = result * 10 + *sv->data - '0';
+        sv->count -= 1;
+        sv->data += 1;
+    }
+    return result;
 }
 
 // RETURNS:

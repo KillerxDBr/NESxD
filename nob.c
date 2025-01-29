@@ -4,6 +4,10 @@
 #include <locale.h>
 #include <signal.h>
 
+#if defined(_WIN32)
+#include <consoleapi2.h>
+#endif // defined(_WIN32)
+
 #include "build_src/nob_wasm.h"
 
 // #define RELEASE
@@ -177,8 +181,6 @@ const char *libraries[] = {
 };
 #endif
 
-typedef Nob_File_Paths Objects;
-
 typedef struct {
     const char *file_path;
     size_t offset;
@@ -197,7 +199,7 @@ typedef struct {
     size_t capacity;
 } EmbedFiles;
 
-Objects obj = { 0 };
+Nob_File_Paths obj = { 0 };
 Resources resources = { 0 };
 
 bool BuildRayLib(bool isWeb);
@@ -208,11 +210,25 @@ bool CompileDependencies(bool isWeb);
 bool CompileExecutable(bool isWeb);
 bool CompileNobHeader(bool isWeb);
 bool Bundler(char **path, size_t pathCount);
-bool GetIncludedHeaders(Objects *eh, const char *depFile);
 bool TestFile(void);
 bool WebServer(const char *pyExec);
 bool TestCompiler(void);
 bool C3Compile(bool isWeb);
+
+typedef struct WinVer {
+    unsigned long major;
+    unsigned long minor;
+    unsigned long build;
+} WinVer;
+
+typedef enum {
+    OLDER_WIN = -1,
+    WIN_10 = 0,
+    WIN_11 = 1,
+} WVResp;
+
+WinVer GetWindowsVersion(void);
+WVResp GetWinVer(void);
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -231,17 +247,22 @@ void PrintUsage(void) {
 int main(int argc, char **argv) {
     NOB_GO_REBUILD_URSELF(argc, argv); // Needs to be commented out to DEBUG
 
-#if defined(_WIN32) // Should be Win10+ only, but methods to detect windows versions are unreliable...
-    nob_log(NOB_INFO, "Enabling buffer on console std outputs");
-    // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
-    if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
-        nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
-        return 1;
+#if defined(_WIN32)
+    if (!SetConsoleOutputCP(CP_UTF8)) {
+        nob_log(NOB_ERROR, "Could not set console output to 'UTF-8'");
     }
 
-    if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
-        nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
-        return 1;
+    if (GetWinVer() >= WIN_10) {
+        nob_log(NOB_INFO, "Enabling buffer on console std outputs");
+
+        // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
+        if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
+            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
+        }
+
+        if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
+            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
+        }
     }
 #endif // defined(_WIN32)
 
@@ -471,7 +492,7 @@ defer:
 bool PrecompileHeader(bool isWeb) {
     if (isWeb)
         return true;
-    Objects extraHeaders = { 0 };
+    Nob_File_Paths extraHeaders = { 0 };
     Nob_Procs procs = { 0 };
     Nob_Cmd cmd = { 0 };
 
@@ -485,59 +506,17 @@ bool PrecompileHeader(bool isWeb) {
     nob_cmd_append(&cmd, INCLUDES);
     const size_t command_size = cmd.count;
 
-    /* ccache gcc -fdiagnostics-color=always -xc-header -Ibuild/
-    -I. -Iinclude -Isrc -Istyles -Iextern -o build/6502precomp.h.gch
-    src/6502.h -Wall -Wextra -Winvalid-pch -std=gnu11 -Og -g3 -ggdb -march=native
-    -DKXD_DEBUG -D_UNICODE -DUNICODE -DPLATFORM_DESKTOP -DGRAPHICS_API_OPENGL_33
-    */
-    //-o build/6502precomp.h.gch src/6502.h
-    Nob_String_Builder sb = { 0 };
     for (size_t i = 0; i < NOB_ARRAY_LEN(files); i++) {
         size_t internalCheckpoint = nob_temp_save();
 
         cmd.count = command_size;
         extraHeaders.count = 0;
 
-        char *input;
-        char *output;
-
-        // input file
-        sb.count = 0;
-        nob_sb_append_cstr(&sb, SRC_DIR);
-        nob_sb_append_cstr(&sb, files[i]);
-        nob_sb_append_cstr(&sb, ".h");
-        nob_sb_append_null(&sb);
-
-        // if (sb.count > STR_SIZE) {
-        //     goto defer;
-        // }
-
-        // strcpy(input, sb.items);
-
-        input = nob_temp_strdup(sb.items);
-
-        // output
-        sb.count = 0;
-
-        if (isWeb)
-            nob_sb_append_cstr(&sb, BUILD_WASM_DIR);
-        else
-            nob_sb_append_cstr(&sb, BUILD_DIR);
-
-        nob_sb_append_cstr(&sb, files[i]);
-        nob_sb_append_cstr(&sb, GCH_SUFFIX);
-        nob_sb_append_null(&sb);
-
-        // if (sb.count > STR_SIZE) {
-        //     goto defer;
-        // }
-
-        // strcpy(output, sb.items);
-
-        output = nob_temp_strdup(sb.items);
+        char *input = nob_temp_sprintf("%s%s%s", SRC_DIR, files[i], ".h");
+        char *output = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, files[i], GCH_SUFFIX);
 
         char *depFile = nob_temp_sprintf("%s.d", output);
-        if (!GetIncludedHeaders(&extraHeaders, depFile)) {
+        if (!ParseDependencyFile(&extraHeaders, depFile)) {
             nob_da_append(&extraHeaders, input);
         }
 
@@ -557,16 +536,9 @@ bool PrecompileHeader(bool isWeb) {
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
-        if (extraHeaders.count > 1) {
-            for (size_t i = 0; i < extraHeaders.count; ++i) {
-                // nob_log(NOB_INFO, "Cleaning str '%s'", extraHeaders.items[i]);
-                free((void *)extraHeaders.items[i]);
-            }
-        }
         nob_temp_rewind(internalCheckpoint);
     }
     nob_cmd_free(cmd);
-    nob_sb_free(sb);
 
     bool result = nob_procs_wait(procs);
 
@@ -1298,40 +1270,6 @@ defer:
     return result;
 }
 
-#define INCLUDE_TXT "#include \""
-#define INC_TXT_SZ (sizeof(INCLUDE_TXT) - 1)
-
-bool GetIncludedHeaders(Objects *eh, const char *depFile) {
-    if (nob_file_exists(depFile) < 1)
-        return false;
-
-    Nob_String_Builder sb = { 0 };
-    nob_read_entire_file(depFile, &sb);
-    Nob_String_View sv = nob_sb_to_sv(sb);
-    Nob_String_View sv2;
-    nob_sv_chop_by_delim(&sv, ':');
-    sv = nob_sv_trim(sv);
-
-    char *c = sv.data;
-    for (size_t i = 0; i < sv.count; ++i) {
-        if (isspace(sv.data[i]) || sv.data[i] == '\\') {
-            c[i] = ' ';
-        }
-    }
-
-    c = NULL;
-    const size_t cp = nob_temp_save();
-    while (sv.count > 0) {
-        sv = nob_sv_trim(sv);
-        sv2 = nob_sv_chop_by_delim(&sv, ' ');
-        c = strdup(nob_temp_sprintf(SV_Fmt, SV_Arg(sv2)));
-        nob_temp_rewind(cp);
-        nob_da_append(eh, c);
-    }
-    nob_sb_free(sb);
-    return eh->count > 0;
-}
-
 bool TestFile(void) {
     const char *input = "outTest.c";
     const char *output = "outTest.exe";
@@ -1354,7 +1292,7 @@ void pyWsHandler(int dummy) {
 bool WebServer(const char *pyExec) {
 #if !defined(_WIN32)
     NOB_TODO("Webserver handling not implemented for this platform");
-    nob_return_defer(false);
+    return false;
 #else  // !defined(_WIN32)
     Nob_Cmd cmd = { 0 };
     bool result = true;
@@ -1512,3 +1450,30 @@ defer:
 
     return result;
 }
+#if defined(_WIN32)
+#define SHARED_USER_DATA (BYTE *)0x7FFE0000
+WinVer GetWindowsVersion(void) {
+    WinVer result = {
+        .major = *(ULONG *)(SHARED_USER_DATA + 0x26c), // major version offset
+        .minor = *(ULONG *)(SHARED_USER_DATA + 0x270), // minor version offset
+    };
+
+    if (result.major >= 10UL)
+        result.build = *(ULONG *)(SHARED_USER_DATA + 0x260); // build number offset
+
+    return result;
+}
+
+/*
+    OLDER_WIN - Older Windows
+    WIN_10    - Windows 10
+    WIN_11    - Windows 11
+*/
+WVResp GetWinVer(void) {
+    const WinVer ver = GetWindowsVersion();
+    if (ver.build == 0)
+        return OLDER_WIN;
+
+    return ver.build >= 21996UL ? WIN_11 : WIN_10; // if build >= 21996 = Win 11 else Win 10
+}
+#endif // defined(_WIN32)
