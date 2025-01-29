@@ -689,25 +689,31 @@ void nob__go_rebuild_urself(const char *source_path, int argc, char **argv)
     }
 
     int rebuild_is_needed = nob_needs_rebuild(binary_path, deps.items, deps.count);
-    // int rebuild_is_needed = nob_needs_rebuild1(binary_path, source_path);
     nob_da_free(deps);
     if (rebuild_is_needed < 0) exit(1); // error
     if (!rebuild_is_needed) {   // no rebuild is needed
         nob_temp_rewind(checkpoint);
         return;
     }
-
+#ifdef _WIN32
+    Sleep(100);
+#endif
     Nob_Cmd cmd = {0};
 
     const char *old_binary_path = nob_temp_sprintf("%s.old", binary_path);
 
     if (!nob_rename(binary_path, old_binary_path)) exit(1);
+#ifdef _WIN32
+    Sleep(100);
+#endif  
     nob_cmd_append(&cmd, NOB_REBUILD_URSELF(binary_path, source_path, depFile));
     if (!nob_cmd_run_sync_and_reset(&cmd)) {
         nob_rename(old_binary_path, binary_path);
         exit(1);
     }
-
+#ifdef _WIN32
+    Sleep(100);
+#endif
     nob_cmd_append(&cmd, binary_path);
     nob_da_append_many(&cmd, argv, argc);
     if (!nob_cmd_run_sync_and_reset(&cmd)) exit(1);
