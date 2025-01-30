@@ -140,6 +140,8 @@ WinVer GetWindowsVersion(void) {
     return result;
 }
 
+// clang-format off
+
 /*
     OLDER_WIN - Older Windows
     WIN_XP    - Windows XP
@@ -151,20 +153,21 @@ WinVer GetWindowsVersion(void) {
     WIN_11    - Windows 11
 */
 WVResp GetWinVer(void) {
-    WinVer ver = GetWindowsVersion();
+    const WinVer ver = GetWindowsVersion();
     if (ver.build == 0) {
-        if(ver.major < 5UL) return OLDER_WIN;
-        if(ver.major < 6UL) return WIN_XP;
-        if(ver.major == 6UL) {
-            switch (ver.minor)
-            {
-            case 0UL: return WIN_VISTA;
-            case 1UL: return WIN_7;
-            case 2UL: return WIN_8;
-            case 3UL: return WIN_81;
+        if (ver.major < 5UL) return OLDER_WIN;
+        if (ver.major < 6UL) return WIN_XP;
+        if (ver.major == 6UL) {
+            switch (ver.minor) {
+                case 0UL: return WIN_VISTA;
+                case 1UL: return WIN_7;
+                case 2UL: return WIN_8;
+                case 3UL: return WIN_81;
             }
         }
-        return OLDER_WIN;
+        fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, "GetWinVer");
+        abort();
     }
     return ver.build >= 21996UL ? WIN_11 : WIN_10; // if build >= 21996 = Win 11 else Win 10
 }
+// clang-format on
