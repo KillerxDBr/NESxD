@@ -8,87 +8,7 @@
 #include <consoleapi2.h>
 #endif // defined(_WIN32)
 
-#include "build_src/nob_wasm.h"
-
-// #define RELEASE
-// #define USE_SDL
-#define STATIC
-#define ROM_PATH "rom/"
-#define MEM_BIN_PATH "mem.bin"
-
-/*
-#if defined(_WIN32)
-#define EMSDK_ENV "D:/emsdk/emsdk_env.bat"
-
-#define EMS(cmd)                                                                                                                           \
-    do {                                                                                                                                   \
-        nob_cmd_append((cmd), "set", "EMSDK_QUIET=1");                                                                                     \
-        nob_cmd_append((cmd), "&&");                                                                                                       \
-        nob_cmd_append((cmd), EMSDK_ENV);                                                                                                  \
-        nob_cmd_append((cmd), "&&");                                                                                                       \
-    } while (0)
-#else
-#define EMS(cmd)
-#endif // defined(_WIN32)
-*/
-
-#define WS_PORT "8000"
-
-#if defined(__GNUC__)
-#define CC "gcc"
-#elif defined(__clang__)
-#define CC "clang"
-#elif defined(_MSC_VER)
-#error Cant Compile with MSVC yet...
-#define CC "cl"
-#define MSVC_ENV "D:/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat"
-
-#define MSVC(cmd)                                                                                                                          \
-    do {                                                                                                                                   \
-        nob_cmd_append((cmd), "cmd", "/c");                                                                                                \
-        nob_cmd_append((cmd), MSVC_ENV);                                                                                                   \
-        nob_cmd_append((cmd), "&&");                                                                                                       \
-    } while (0)
-#else
-#define CC "cc"
-#endif // defined(__GNUC__)
-
-#if defined(_MSC_VER)
-#define NO_LINK_FLAG "/c"
-#else
-#define NO_LINK_FLAG "-c"
-#endif // defined(_MSC_VER)
-
-#define EMCC "emcc"
-
-#define RAYLIB_A "./lib/libraylib.a"
-
-#define BUILD_DIR "build/"
-#define WASM_DIR "wasm/"
-#define BUILD_WASM_DIR BUILD_DIR WASM_DIR
-#define BIN_DIR "bin/"
-#define SRC_DIR "src/"
-#define LIB_DIR "lib/"
-#define EXTERN_DIR "extern/"
-#define INC_DIR "include/"
-
-#define PROGRAM_NAME "nesxd"
-
-#if defined(_WIN32)
-#define PY_EXEC "py"
-#define EXE_NAME PROGRAM_NAME ".exe"
-#else
-#define PY_EXEC "python3"
-#define EXE_NAME PROGRAM_NAME
-#endif // defined(_WIN32)
-
-#define EXE_OUTPUT BIN_DIR EXE_NAME
-#define WASM_OUTPUT WASM_DIR PROGRAM_NAME ".html"
-
-#define PCH_SUFFIX "_pch.h"
-#define GCH_SUFFIX PCH_SUFFIX ".gch"
-
-#define INCLUDES "-I.", "-I" BUILD_DIR, "-I"INC_DIR, "-I" SRC_DIR, "-Istyles", "-I" EXTERN_DIR, "-ID:/Projetos/cimgui/imgui"
+#include "build_src/nob_shared.h"
 
 #if defined(_WIN32)
 const char *libs[] = {
@@ -97,58 +17,6 @@ const char *libs[] = {
 #else
 #define LIBS "-lm", "-static", "-lstdc++"
 #endif // defined(_WIN32)
-
-#define RAYLIB_SRC_PATH "extern/raylib/src/"
-
-#define RL_MIN_SHELL RAYLIB_SRC_PATH "minshell.html"
-
-#define SDL_PATH "C:/msys64/ucrt64/include/SDL2"
-
-#ifdef USE_SDL
-#define PLATFORM "-DPLATFORM_DESKTOP_SDL"
-#else
-#define PLATFORM "-DPLATFORM_DESKTOP_GLFW"
-#endif /* USE_SDL */
-
-// TODO: Test SDL Backend, why not?
-// clang-format off
-#ifndef RELEASE
-#define RAYLIB_CFLAGS "-Wall",                                             \
-                      "-D_GNU_SOURCE",                                     \
-                      PLATFORM,                                            \
-                      "-DGRAPHICS_API_OPENGL_33",                          \
-                      "-Wno-missing-braces",                               \
-                      "-Werror=pointer-arith",                             \
-                      "-fno-strict-aliasing",                              \
-                      "-O1",                                               \
-                      "-std=c99",                                          \
-                      "-Werror=implicit-function-declaration"
-#else
-#define RAYLIB_CFLAGS "-Wall",                                             \
-                      "-D_GNU_SOURCE",                                     \
-                      PLATFORM,                                            \
-                      "-DGRAPHICS_API_OPENGL_33",                          \
-                      "-Wno-missing-braces",                               \
-                      "-Werror=pointer-arith",                             \
-                      "-fno-strict-aliasing",                              \
-                      "-Og",                                               \
-                      "-ggdb",                                            \
-                      "-std=c99",                                          \
-                      "-Werror=implicit-function-declaration"
-#endif //RELEASE
-
-#define RAYLIB_WFLAGS "-Wall",                                             \
-                      "-D_GNU_SOURCE",                                     \
-                      "-DPLATFORM_WEB",                                    \
-                      "-DGRAPHICS_API_OPENGL_ES2",                         \
-                      "-Wno-missing-braces",                               \
-                      "-Werror=pointer-arith",                             \
-                      "-fno-strict-aliasing",                              \
-                      "-std=gnu99",                                        \
-                      "-Os"
-
-// clang-format on
-#define RL_INCLUDE_PATHS "-I" RAYLIB_SRC_PATH, "-I" RAYLIB_SRC_PATH "external/glfw/include"
 
 const char *files[] = {
     "main", "6502", "config", "gui", "input", "kxdMem", "iconTray", "lang",
@@ -171,10 +39,6 @@ const char *dependencies[] = {
     "WindowsHeader",
 #endif /* _WIN32 */
 };
-
-const char *dirs[] = { BUILD_DIR, BIN_DIR, SRC_DIR, EXTERN_DIR };
-
-const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
 #if !defined(STATIC)
 const char *libraries[] = {
@@ -208,7 +72,7 @@ bool PrecompileHeader(bool isWeb);
 bool CompileFiles(bool isWeb);
 bool CleanupFiles(void);
 bool CompileDependencies(bool isWeb);
-bool CompileExecutable(bool isWeb);
+bool LinkExecutable(bool isWeb);
 bool CompileNobHeader(bool isWeb);
 bool Bundler(char **path, size_t pathCount);
 bool TestFile(void);
@@ -258,7 +122,8 @@ int main(int argc, char **argv) {
         nob_log(NOB_ERROR, "Could not set console output to 'UTF-8'");
     }
 
-    if (GetWinVer() >= WIN_10) {
+    const WVResp WinVer = GetWinVer();
+    if (WinVer >= WIN_10) {
         nob_log(NOB_INFO, "Enabling buffer on console std outputs (Win 10+)");
 
         // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
@@ -289,18 +154,18 @@ int main(int argc, char **argv) {
 
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
-    const char *program = nob_shift_args(&argc, &argv);
-    NOB_UNUSED(program);
-    // nob_shift_args(&argc, &argv);
+    nob_shift(argv, argc);
+    // const char *program = nob_shift(argv, argc);
+    // NOB_UNUSED(program);
 
-    nob_log(NOB_INFO, "Using Compiler: \"%s\"", CC);
-    nob_log(NOB_INFO, "Using WASM Compiler: \"%s\"", EMCC);
+    nob_log(NOB_INFO, "Using Compiler: \"" CC "\"");
+    nob_log(NOB_INFO, "Using WASM Compiler: \"" EMCC "\"");
 
     const char *command;
-    if (argc <= 0)
-        command = "build";
+    if (argc)
+        command = nob_shift(argv, argc);
     else
-        command = nob_shift_args(&argc, &argv);
+        command = "build";
 
     int result = 0;
 
@@ -315,7 +180,7 @@ int main(int argc, char **argv) {
         }
 
         if (argc > 0) {
-            command = nob_shift_args(&argc, &argv);
+            command = nob_shift(argv, argc);
             // nob.exe build clean/cls
             if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
                 nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
@@ -326,7 +191,7 @@ int main(int argc, char **argv) {
 
                 isWeb = true;
                 if (argc > 0) {
-                    command = nob_shift_args(&argc, &argv);
+                    command = nob_shift(argv, argc);
                     if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
                         nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
                         if (!CleanupFiles())
@@ -389,7 +254,7 @@ int main(int argc, char **argv) {
                 nob_return_defer(1);
         }
 
-        if (!CompileExecutable(isWeb))
+        if (!LinkExecutable(isWeb))
             nob_return_defer(1);
 
         nob_log(NOB_INFO, "--- Finished Compiling ---");
@@ -420,7 +285,7 @@ int main(int argc, char **argv) {
         nob_log(NOB_INFO, "--- Starting WebServer ---");
 
         if (argc > 0)
-            command = nob_shift_args(&argc, &argv);
+            command = nob_shift(argv, argc);
         else
             command = PY_EXEC;
 
@@ -442,7 +307,6 @@ defer:
         free((void *)obj.items[i]);
 
     free(obj.items);
-
     free(resources.items);
 
     return result;
@@ -558,7 +422,7 @@ bool PrecompileHeader(bool isWeb) {
     //     return false;
 }
 
-bool CompileExecutable(bool isWeb) {
+bool LinkExecutable(bool isWeb) {
     const size_t checkpoint = nob_temp_save();
     bool result = true;
     Nob_Cmd cmd = { 0 };
@@ -1277,15 +1141,32 @@ defer:
 }
 
 bool TestFile(void) {
-    const char *input = "outTest.c";
-    const char *output = "outTest.exe";
-    if (nob_needs_rebuild1(output, input) != 0) {
-        Nob_Cmd cmd = { 0 };
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-o", output, input, "-Wall", "-Wextra", "-O2");
-        return nob_cmd_run_sync(cmd);
+    bool result = true;
+
+    Nob_Cmd cmd = { 0 };
+    const char *input = "./outTest.c";
+    const char *output = "./outTest.exe";
+
+    int rebuild = nob_needs_rebuild1(output, input);
+    if (rebuild < 0)
+        nob_return_defer(false);
+
+    if (rebuild > 0) {
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-o", output, input, "-Wall", "-Wextra", "-Og", "-g");
+
+        if (!nob_cmd_run_sync_and_reset(&cmd))
+            nob_return_defer(false);
+
+    } else {
+        nob_log(NOB_INFO, "File \"%s\" is up to date", output);
     }
-    nob_log(NOB_INFO, "File \"%s\" is up to date", output);
-    return true;
+
+    nob_cmd_append(&cmd, output);
+    nob_return_defer(nob_cmd_run_sync(cmd));
+
+defer:
+    nob_cmd_free(cmd);
+    return result;
 }
 
 static volatile int pyWskeepRunning = 1;
@@ -1485,7 +1366,7 @@ WinVer GetWindowsVersion(void) {
 WVResp GetWinVer(void) {
     const WinVer ver = GetWindowsVersion();
     if (ver.build == 0) {
-        if (ver.major < 5UL) return OLDER_WIN;
+        if (ver.major < 5UL || (ver.major == 5UL && ver.minor < 1UL)) return OLDER_WIN;
         if (ver.major < 6UL) return WIN_XP;
         if (ver.major == 6UL) {
             switch (ver.minor) {

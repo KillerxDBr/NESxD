@@ -2,7 +2,7 @@
 #include "../include/nob.h"
 #endif // NOB_H_
 
-#include "nob_wasm.h"
+#include "nob_shared.h"
 
 #ifndef RAYLIB_SRC_PATH
 #define RAYLIB_SRC_PATH "extern/raylib/src/"
@@ -80,6 +80,11 @@ bool BuildRayLib(bool isWeb) {
     const size_t checkpoint = nob_temp_save();
 
     bool result = true;
+
+    char *input;
+    char *output;
+    char *depFile;
+
     Nob_Cmd cmd = { 0 };
     Nob_Cmd webCmd = { 0 };
     Nob_Procs procs = { 0 };
@@ -99,6 +104,8 @@ bool BuildRayLib(bool isWeb) {
 #endif
     }
 
+    nob_cmd_append(&cmd, RL_INCLUDE_PATHS);
+
     const size_t cmdCount = cmd.count;
 
     for (size_t i = 0; i < NOB_ARRAY_LEN(rlFiles); ++i) {
@@ -109,9 +116,9 @@ bool BuildRayLib(bool isWeb) {
         webCmd.count = 0;
         deps.count = 0;
 
-        char *input = nob_temp_sprintf("%s%s%s", RAYLIB_SRC_PATH, rlFiles[i], ".c");
-        char *output = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, rlFiles[i], ".o");
-        char *depFile = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, rlFiles[i], ".o.d");
+        input = nob_temp_sprintf("%s%s%s", RAYLIB_SRC_PATH, rlFiles[i], ".c");
+        output = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, rlFiles[i], ".o");
+        depFile = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, rlFiles[i], ".o.d");
 
         if (!ParseDependencyFile(&deps, depFile)) {
             nob_da_append(&deps, input);
@@ -137,8 +144,8 @@ bool BuildRayLib(bool isWeb) {
             nob_log(NOB_INFO, skippingMsg, output);
         }
 
-        char *s = strdup(output);
-        nob_da_append(&obj, s);
+        output = strdup(output);
+        nob_da_append(&obj, output);
     }
 
     // raygui.h ===========================================
@@ -147,9 +154,9 @@ bool BuildRayLib(bool isWeb) {
         webCmd.count = 0;
         deps.count = 0;
 
-        char *input = nob_temp_sprintf("%s%s%s", INC_DIR, "raygui", ".h");
-        char *output = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, "raygui", ".o");
-        char *depFile = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, "raygui", ".o.d");
+        input = nob_temp_sprintf("%s%s%s", INC_DIR, "raygui", ".h");
+        output = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, "raygui", ".o");
+        depFile = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, "raygui", ".o.d");
 
         if (!ParseDependencyFile(&deps, depFile)) {
             nob_da_append(&deps, input);
@@ -175,14 +182,13 @@ bool BuildRayLib(bool isWeb) {
             nob_log(NOB_INFO, skippingMsg, output);
         }
 
-        char *s = strdup(output);
-        nob_da_append(&obj, s);
+        output = strdup(output);
+        nob_da_append(&obj, output);
     } while (0);
 
     if (!isWeb)
         result = nob_procs_wait(procs);
 
-defer:
     nob_da_free(cmd);
     nob_da_free(webCmd);
     nob_da_free(deps);

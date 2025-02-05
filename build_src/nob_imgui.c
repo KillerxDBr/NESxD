@@ -2,21 +2,7 @@
 #include "../include/nob.h"
 #endif // NOB_H_
 
-#include "nob_wasm.h"
-
-#ifndef CC
-
-#if defined(__GNUC__)
-#define CC "gcc"
-#elif defined(__clang__)
-#define CC "clang"
-#elif defined(_MSC_VER)
-#define CC "cl"
-#else
-#define CC "cc"
-#endif // defined(__GNUC__)
-
-#endif // CC
+#include "nob_shared.h"
 
 #ifdef RELEASE
 #define IG_CFLAGS "-O3", "-Wall", "-Wextra"
@@ -25,11 +11,6 @@
 #define IG_CFLAGS "-Og", "-g", "-ggdb", "-Wall", "-Wextra"
 #define IG_WFLAGS "-Og", "-g", "-Wall", "-Wextra"
 #endif // RELEASE
-
-typedef Nob_File_Paths Objects;
-
-extern Objects obj;
-extern const char *skippingMsg;
 
 bool CompileRLImgui(bool isWeb) {
     bool result = true;

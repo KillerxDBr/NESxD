@@ -814,6 +814,12 @@ defer:
 #endif
 }
 
+#ifdef _WIN32
+#define SEP '\"'
+#else
+#define SEP '\''
+#endif // _WIN32
+
 void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render)
 {
     for (size_t i = 0; i < cmd.count; ++i) {
@@ -823,9 +829,9 @@ void nob_cmd_render(Nob_Cmd cmd, Nob_String_Builder *render)
         if (!strchr(arg, ' ')) {
             nob_sb_append_cstr(render, arg);
         } else {
-            nob_da_append(render, '\'');
+            nob_da_append(render, SEP);
             nob_sb_append_cstr(render, arg);
-            nob_da_append(render, '\'');
+            nob_da_append(render, SEP);
         }
     }
 }
@@ -864,11 +870,6 @@ Nob_Proc nob_cmd_run_async_redirect(Nob_Cmd cmd, Nob_Cmd_Redirect redirect)
     // TODO: use a more reliable rendering of the command instead of cmd_render
     // cmd_render is for logging primarily
     nob_cmd_render(cmd, &sb);
-
-    for (size_t i = 0; i < sb.count; ++i) {
-        if (sb.items[i] == '\'')
-            sb.items[i] = '\"';
-    }
     nob_sb_append_null(&sb);
 
     BOOL bSuccess = CreateProcessA(NULL, sb.items, NULL, NULL, TRUE, 0, NULL, NULL, &siStartInfo, &piProcInfo);
