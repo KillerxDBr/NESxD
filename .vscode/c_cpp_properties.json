@@ -9,8 +9,6 @@
             ],
             "defines": [
                 "_DEBUG",
-                "UNICODE",
-                "_UNICODE",
                 "GUI_WINDOW_FILE_DIALOG_IMPLEMENTATION",
                 "RAYMATH_STATIC_INLINE",
                 "NOPPU",

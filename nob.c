@@ -70,6 +70,7 @@
 #define SRC_DIR "src/"
 #define LIB_DIR "lib/"
 #define EXTERN_DIR "extern/"
+#define INC_DIR "include/"
 
 #define PROGRAM_NAME "nesxd"
 
@@ -87,7 +88,7 @@
 #define PCH_SUFFIX "_pch.h"
 #define GCH_SUFFIX PCH_SUFFIX ".gch"
 
-#define INCLUDES "-I.", "-I" BUILD_DIR, "-Iinclude", "-I" SRC_DIR, "-Istyles", "-I" EXTERN_DIR, "-ID:/Projetos/cimgui/imgui"
+#define INCLUDES "-I.", "-I" BUILD_DIR, "-I"INC_DIR, "-I" SRC_DIR, "-Istyles", "-I" EXTERN_DIR, "-ID:/Projetos/cimgui/imgui"
 
 #if defined(_WIN32)
 const char *libs[] = {

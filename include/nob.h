@@ -864,7 +864,13 @@ Nob_Proc nob_cmd_run_async_redirect(Nob_Cmd cmd, Nob_Cmd_Redirect redirect)
     // TODO: use a more reliable rendering of the command instead of cmd_render
     // cmd_render is for logging primarily
     nob_cmd_render(cmd, &sb);
+
+    for (size_t i = 0; i < sb.count; ++i) {
+        if (sb.items[i] == '\'')
+            sb.items[i] = '\"';
+    }
     nob_sb_append_null(&sb);
+
     BOOL bSuccess = CreateProcessA(NULL, sb.items, NULL, NULL, TRUE, 0, NULL, NULL, &siStartInfo, &piProcInfo);
     nob_sb_free(sb);
 
