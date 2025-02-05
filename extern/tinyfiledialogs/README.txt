@@ -11,16 +11,16 @@ Copyright (c) 2014 - 2024 Guillaume Vareille http://ysengrin.com
   | 100% compatible C C++  ->  You can rename tinfiledialogs.c as .cpp |
   |____________________________________________________________________|
 
-tiny file dialogs ( cross-platform C C++ ) v3.18.2 [Jun 16, 2024]
+tiny file dialogs ( cross-platform C C++ ) v3.19.1 [Jan 27, 2025]
  _________
-/         \   Tray-popup InputBox PasswordBox MessageBox Notification Beep
+/         \   Tray-popup InputBox PasswordBox MessageBox Notification Beep ColorPicker
 |tiny file|   ColorPicker OpenFileDialog SaveFileDialog SelectFolderDialog
 | dialogs |   ASCII UTF-8 (and also MBCS & UTF-16 for windows)
-\____  ___/   Native dialog library for WINDOWS MAC OSX GTK+ QT CONSOLE
-     \|       SSH support via automatic switch to console mode or X forwarding
+\____  ___/   Native dialog library for WINDOWS MAC OSX GTK+ QT CONSOLE X Wayland
+     \|       SSH: automatic switch to console mode / X forwarding / waypipe
 
-C89/C18 & C++98/C++20 compliant: tested with C & C++ compilers
-VisualStudio MinGW GCC Clang TinyCC OpenWatcom-v2 BorlandC SunCC ZapCC
+C89/C18 & C++98/C++23 compliant: tested with C & C++ compilers
+VisualStudio MinGW GCC Clang TinyCC IntelCC OpenWatcomC BorlandC SunCC
 on Windows Mac Linux Bsd Solaris Minix Raspbian Flatpak
 using Gnome Kde Mate Enlightenment Cinnamon Budgie Unity Lxde Lxqt Xfce
       WindowMaker IceWm Cde Jds OpenBox Awesome Jwm Xdm Cwm
@@ -211,9 +211,9 @@ $ clang -o hello hello.c tinyfiledialogs.c
       -isystem C:\tcc\winapi-full-for-0.9.27\include\winapi ^
       -lcomdlg32 -lole32 -luser32 -lshell32
 
-  Borland C :
+  Embarcadero / Borland C :
   > bcc32c -o hello.exe hello.c tinyfiledialogs.c
-  
+
   Open Watcom C v2
   > owcc -o hello.exe hello.c tinyfiledialogs.c
 
@@ -226,7 +226,7 @@ $ clang -o hello hello.c tinyfiledialogs.c
   VisualStudio command line :
   > cl hello.c tinyfiledialogs.c comdlg32.lib ole32.lib user32.lib shell32.lib /W4
 
-  VisualStudio 
+  VisualStudio
 	In the properties of your project, in the linker input field,
 	      you may need to add: comdlg32.lib ole32.lib user32.lib shell32.lib
 	         or maybe simply add: %(AdditionalDependencies)
