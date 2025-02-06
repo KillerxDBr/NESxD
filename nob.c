@@ -1,3 +1,11 @@
+#ifdef UNICODE
+#undef UNICODE
+#endif
+
+#ifdef _UNICODE
+#undef _UNICODE
+#endif
+
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
@@ -320,7 +328,7 @@ defer:
         "-Wextra",                                                                                      \
 		"-Wswitch-enum",                                                                                \
         "-Og",                                                                                          \
-        "-ggdb",                                                                                       \
+        "-ggdb",                                                                                        \
         "-march=native",                                                                                \
         "-DKXD_DEBUG",                                                                                  \
         "-DPLATFORM_DESKTOP",                                                                           \
@@ -984,6 +992,10 @@ defer:
 
 void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
     Nob_File_Paths children = { 0 };
+    for (size_t i = 0; i < sb->count; i++) {
+        if (sb->items[i] == '\\')
+            sb->items[i] = '/';
+    }
 
     if (sb->items[sb->count - 1] != 0)
         nob_sb_append_null(sb);
@@ -1001,7 +1013,7 @@ void recurse_dir(Nob_String_Builder *sb, EmbedFiles *eb) {
         const size_t dir_qtd = sb->count;
 
         // nob_log(NOB_INFO, "Last Char: '%c'(count - 1)", sb->items[sb->count - 1]);
-        if (sb->items[sb->count - 1] != '\\' && sb->items[sb->count - 1] != '/') {
+        if (sb->items[sb->count - 1] != '/') {
             // nob_log(NOB_INFO, "Appending '/' to sb");
             nob_sb_append_cstr(sb, "/");
         }
@@ -1057,7 +1069,12 @@ bool Bundler(char **path, size_t pathCount) {
         }
         closedir(dir);
 
+        if (strncmp(path[i], "./", 2) != 0 && strncmp(path[i], ".\\", 2) != 0) {
+            nob_sb_append_cstr(&sb, "./");
+        }
+
         nob_sb_append_cstr(&sb, path[i]);
+
         recurse_dir(&sb, &eb);
     }
     if (eb.count) {
