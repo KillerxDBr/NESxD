@@ -1409,7 +1409,7 @@ WVResp GetWindowsVersion(void) {
                 case 3UL: return WIN_81;
             }
         }
-        NOB_UNREACHABLE("GetWinVer");
+        NOB_UNREACHABLE("GetWindowsVersion");
     }
     return ver.build >= 21996UL ? WIN_11 : WIN_10; // if build >= 21996 = Win 11 else Win 10
 }
