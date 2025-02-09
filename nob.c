@@ -1422,7 +1422,6 @@ bool ExeIsInPath(const char *exe) {
     Nob_Cmd_Redirect cr = { 0 };
 
     Nob_Fd nullOutput = nob_fd_open_for_write(NULL_OUTPUT);
-    Sleep(0);
     if (nullOutput == NOB_INVALID_FD) {
         nob_log(NOB_ERROR, "Could not dump output to \"" NULL_OUTPUT "\"");
         nob_log(NOB_ERROR, "Dumping to default outputs");
@@ -1432,10 +1431,17 @@ bool ExeIsInPath(const char *exe) {
     }
     nob_cmd_append(&cmd, FINDER, exe);
     bool result = nob_cmd_run_sync_redirect(cmd, cr);
-    nob_cmd_free(cmd);
-    if (result)
+
+    if (result) {
         nob_log(NOB_INFO, "\"%s\" found in PATH", exe);
-    else
+    } else {
         nob_log(NOB_ERROR, "\"%s\" not found in PATH", exe);
+    }
+
+    if (nullOutput != NOB_INVALID_FD)
+        nob_fd_close(nullOutput);
+
+    nob_cmd_free(cmd);
+
     return result;
 }
