@@ -50,8 +50,8 @@ typedef enum {
     WIN_11,
 } WVResp;
 
-WinVer GetWindowsVersion(void);
-WVResp GetWinVer(void);
+WVResp GetWindowsVersion(void);
+WinVer GetWinVer(void);
 
 bool WinH_SetConsoleOutputCP(uint32_t wCodePageID);
 bool WinH_CopyFileA(const char *sourceFile, const char *destFile, bool failIfExists);

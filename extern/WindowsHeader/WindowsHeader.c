@@ -128,7 +128,7 @@ long WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, ui
 }
 
 #define SHARED_USER_DATA (BYTE *)0x7FFE0000
-WinVer GetWindowsVersion(void) {
+WinVer GetWinVer(void) {
     WinVer result = {
         .major = *(ULONG *)(SHARED_USER_DATA + 0x26c), // major version offset
         .minor = *(ULONG *)(SHARED_USER_DATA + 0x270), // minor version offset
@@ -152,8 +152,8 @@ WinVer GetWindowsVersion(void) {
     WIN_10    - Windows 10
     WIN_11    - Windows 11
 */
-WVResp GetWinVer(void) {
-    const WinVer ver = GetWindowsVersion();
+WVResp GetWindowsVersion(void) {
+    const WinVer ver = GetWinVer();
     if (ver.build == 0) {
         if (ver.major < 5UL) return OLDER_WIN;
         if (ver.major < 6UL) return WIN_XP;

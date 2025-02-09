@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    WVResp winVer = GetWinVer();
+    WVResp winVer = GetWindowsVersion();
     if (winVer >= WIN_10) {
         LOG_INF("Enabling buffer on console std outputs");
 
