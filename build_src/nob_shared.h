@@ -13,13 +13,18 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
 #define WS_PORT "8000"
 
+#define CCACHE "ccache"
+
 #if defined(__GNUC__)
 #define CC "gcc"
+#define CXX "g++"
 #elif defined(__clang__)
-#define CC "clang"
+#define C "clang"
+#define CXX "clang++"
 #elif defined(_MSC_VER)
 #error Cant Compile with MSVC yet...
 #define CC "cl"
+#define CXX "cl"
 #define MSVC_ENV "D:/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat"
 
 #define MSVC(cmd)                                                                                                                          \
@@ -137,5 +142,13 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
 // clang-format on
 #define RL_INCLUDE_PATHS "-I" RAYLIB_SRC_PATH, "-I" RAYLIB_SRC_PATH "external/glfw/include"
+
+#ifdef _WIN32
+#define FINDER "where"
+#else
+#define FINDER "which"
+#endif
+
+bool hasCCache;
 
 #endif // NOB_SHARED_H_

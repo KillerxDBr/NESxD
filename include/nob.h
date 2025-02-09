@@ -1,4 +1,4 @@
-/* nob - v1.9.0 - Public Domain - https://github.com/tsoding/nob
+/* nob - v1.12.0 - Public Domain - https://github.com/tsoding/nob.h
 
    This library is the next generation of the [NoBuild](https://github.com/tsoding/nobuild) idea.
 
@@ -91,9 +91,9 @@
       // Opening all the necessary files
       Nob_Fd fdin = nob_fd_open_for_read("input.txt");
       if (fdin == NOB_INVALID_FD) return 1;
-      Nob_Fd fdout = nob_fd_open_for_read("output.txt");
+      Nob_Fd fdout = nob_fd_open_for_write("output.txt");
       if (fdout == NOB_INVALID_FD) return 1;
-      Nob_Fd fderr = nob_fd_open_for_read("error.txt");
+      Nob_Fd fderr = nob_fd_open_for_write("error.txt");
       if (fderr == NOB_INVALID_FD) return 1;
 
       // Preparing the command
@@ -164,11 +164,21 @@
 #ifndef NOB_H_
 #define NOB_H_
 
-#define NOB_ASSERT assert
-#define NOB_REALLOC realloc
-#define NOB_FREE free
-
+#ifndef NOB_ASSERT
 #include <assert.h>
+#define NOB_ASSERT assert
+#endif /* NOB_ASSERT */
+
+#ifndef NOB_REALLOC
+#include <stdlib.h>
+#define NOB_REALLOC realloc
+#endif /* NOB_REALLOC */
+
+#ifndef NOB_FREE
+#include <stdlib.h>
+#define NOB_FREE free
+#endif /* NOB_FREE */
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -203,8 +213,8 @@
 #endif
 
 #define NOB_UNUSED(value) (void)(value)
-#define NOB_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
-#define NOB_UNREACHABLE(message) do { fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, message); abort(); } while(0)
+#define NOB_TODO(message) do { fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message); fflush(stderr); abort(); } while(0)
+#define NOB_UNREACHABLE(message) do { fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, message); fflush(stderr); abort(); } while(0)
 
 #define NOB_ARRAY_LEN(array) (sizeof(array)/sizeof(array[0]))
 #define NOB_ARRAY_GET(array, index) \
@@ -432,14 +442,14 @@ bool nob_set_current_dir(const char *path);
 #ifndef NOB_REBUILD_URSELF
 #  if _WIN32
 #    if defined(__GNUC__)
-#       define NOB_REBUILD_URSELF(binary_path, source_path, depFile) "gcc", "-MMD", "-MF", depFile, "-o", binary_path, source_path
+#       define NOB_REBUILD_URSELF(binary_path, source_path) "gcc", "-o", binary_path, source_path
 #    elif defined(__clang__)
-#       define NOB_REBUILD_URSELF(binary_path, source_path, depFile) "clang", "-MMD", "-MF", depFile, "-o", binary_path, source_path
+#       define NOB_REBUILD_URSELF(binary_path, source_path) "clang", "-o", binary_path, source_path
 #    elif defined(_MSC_VER)
-#       define NOB_REBUILD_URSELF(binary_path, source_path, depFile) "cl.exe", nob_temp_sprintf("/Fe:%s", (binary_path)), source_path
+#       define NOB_REBUILD_URSELF(binary_path, source_path) "cl.exe", nob_temp_sprintf("/Fe:%s", (binary_path)), source_path
 #    endif
 #  else
-#    define NOB_REBUILD_URSELF(binary_path, source_path, depFile) "cc", "-o", binary_path, source_path
+#    define NOB_REBUILD_URSELF(binary_path, source_path) "cc", "-o", binary_path, source_path
 #  endif
 #endif
 
@@ -465,11 +475,27 @@ bool nob_set_current_dir(const char *path);
 //   do not recommend since the whole idea of NoBuild is to keep the process of bootstrapping
 //   as simple as possible and doing all of the actual work inside of ./nob)
 //
-void nob__go_rebuild_urself(const char *source_path, int argc, char **argv);
-#define NOB_GO_REBUILD_URSELF(argc, argv) nob__go_rebuild_urself(__FILE__, argc, argv)
-bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile);
+void nob__go_rebuild_urself(int argc, char **argv, const char *source_path, ...);
+#define NOB_GO_REBUILD_URSELF(argc, argv) nob__go_rebuild_urself(argc, argv, __FILE__, NULL)
+// Sometimes your nob.c includes additional files, so you want the Go Rebuild Urself™ Technology to check
+// if they also were modified and rebuild nob.c accordingly. For that we have NOB_GO_REBUILD_URSELF_PLUS():
+// ```c
+// #define NOB_IMPLEMENTATION
+// #include "nob.h"
+//
+// #include "foo.c"
+// #include "bar.c"
+//
+// int main(int argc, char **argv)
+// {
+//     NOB_GO_REBUILD_URSELF_PLUS(argc, argv, "foo.c", "bar.c");
+//     // ...
+//     return 0;
+// }
+#define NOB_GO_REBUILD_URSELF_PLUS(argc, argv, ...) nob__go_rebuild_urself(argc, argv, __FILE__, __VA_ARGS__, NULL);
 
 const char *nob_header_path(void);
+bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile);
 
 typedef struct {
     size_t count;
@@ -594,9 +620,7 @@ char *nob_win32_error_message(DWORD err);
 // Any messages with the level below nob_minimal_log_level are going to be suppressed.
 Nob_Log_Level nob_minimal_log_level = NOB_INFO;
 
-const char *nob_header_path(void){
-    return __FILE__;
-}
+const char *nob_header_path(void) { return __FILE__; }
 
 #ifdef _WIN32
 
@@ -645,7 +669,7 @@ bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile) {
     nob_read_entire_file(depFile, &sb);
 
     for (size_t i = 0; i < sb.count; ++i) {
-        if (isspace(sb.items[i]) || sb.items[i] == '\\') {
+        if (isspace(sb.items[i]) /*|| sb.items[i] == '\\'*/) {
             sb.items[i] = ' ';
         }
     }
@@ -658,10 +682,12 @@ bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile) {
     sv = nob_sv_trim(sv);
 
     Nob_String_View sv2;
+    char *cstr;
     while (sv.count > 0) {
         sv = nob_sv_trim(sv);
         sv2 = nob_sv_chop_by_delim(&sv, ' ');
-        char *cstr = nob_temp_sprintf(SV_Fmt, SV_Arg(sv2));
+        cstr = nob_temp_sprintf(SV_Fmt, SV_Arg(sv2));
+        if(strcmp(cstr, "\\") == 0) {continue;}
         nob_da_append(fp, cstr);
     }
     nob_sb_free(sb);
@@ -669,7 +695,7 @@ bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile) {
 }
 
 // The implementation idea is stolen from https://github.com/zhiayang/nabs
-void nob__go_rebuild_urself(const char *source_path, int argc, char **argv)
+void nob__go_rebuild_urself(int argc, char **argv, const char *source_path, ...)
 {
     const size_t checkpoint = nob_temp_save();
     const char *binary_path = nob_shift(argv, argc);
@@ -680,40 +706,48 @@ void nob__go_rebuild_urself(const char *source_path, int argc, char **argv)
         binary_path = nob_temp_sprintf("%s.exe", binary_path);
     }
 #endif
-    Nob_File_Paths deps = {0};
-    const char *depFile = nob_temp_sprintf("%s.d", nob_path_name(source_path));
 
-    if (!ParseDependencyFile(&deps, depFile)) {
-        nob_da_append(&deps, source_path);
-        nob_da_append(&deps, nob_header_path());
+    Nob_File_Paths source_paths = {0};
+    nob_da_append(&source_paths, source_path);
+    va_list args;
+    va_start(args, source_path);
+    for (;;) {
+        const char *path = va_arg(args, const char*);
+        if (path == NULL) break;
+        nob_da_append(&source_paths, path);
     }
-
-    int rebuild_is_needed = nob_needs_rebuild(binary_path, deps.items, deps.count);
-    nob_da_free(deps);
+    va_end(args);
+#if defined(_WIN32)
+    Sleep(0);
+#endif
+    int rebuild_is_needed = nob_needs_rebuild(binary_path, source_paths.items, source_paths.count);
+#if defined(_WIN32)
+    Sleep(0);
+#endif
     if (rebuild_is_needed < 0) exit(1); // error
-    if (!rebuild_is_needed) {   // no rebuild is needed
+    if (!rebuild_is_needed) {           // no rebuild is needed
+        NOB_FREE(source_paths.items);
         nob_temp_rewind(checkpoint);
         return;
     }
-#ifdef _WIN32
-    Sleep(100);
-#endif
+
     Nob_Cmd cmd = {0};
 
     const char *old_binary_path = nob_temp_sprintf("%s.old", binary_path);
 
     if (!nob_rename(binary_path, old_binary_path)) exit(1);
-#ifdef _WIN32
-    Sleep(100);
-#endif  
-    nob_cmd_append(&cmd, NOB_REBUILD_URSELF(binary_path, source_path, depFile));
+#if defined(_WIN32)
+    Sleep(0);
+#endif
+    nob_cmd_append(&cmd, NOB_REBUILD_URSELF(binary_path, source_path));
     if (!nob_cmd_run_sync_and_reset(&cmd)) {
         nob_rename(old_binary_path, binary_path);
         exit(1);
     }
-#ifdef _WIN32
-    Sleep(100);
+#if defined(_WIN32)
+    Sleep(0);
 #endif
+
     nob_cmd_append(&cmd, binary_path);
     nob_da_append_many(&cmd, argv, argc);
     if (!nob_cmd_run_sync_and_reset(&cmd)) exit(1);
@@ -807,7 +841,7 @@ bool nob_copy_file(const char *src_path, const char *dst_path)
     }
 
 defer:
-    free(buf);
+    NOB_FREE(buf);
     close(src_fd);
     close(dst_fd);
     return result;
@@ -871,7 +905,6 @@ Nob_Proc nob_cmd_run_async_redirect(Nob_Cmd cmd, Nob_Cmd_Redirect redirect)
     // cmd_render is for logging primarily
     nob_cmd_render(cmd, &sb);
     nob_sb_append_null(&sb);
-
     BOOL bSuccess = CreateProcessA(NULL, sb.items, NULL, NULL, TRUE, 0, NULL, NULL, &siStartInfo, &piProcInfo);
     nob_sb_free(sb);
 
@@ -1544,7 +1577,7 @@ bool nob_read_entire_file(const char *path, Nob_String_Builder *sb)
 
     size_t new_count = sb->count + m;
     if (new_count > sb->capacity) {
-        sb->items = realloc(sb->items, new_count);
+        sb->items = NOB_REALLOC(sb->items, new_count);
         NOB_ASSERT(sb->items != NULL && "Buy more RAM lool!!");
         sb->capacity = new_count;
     }
@@ -1813,7 +1846,7 @@ int nob_file_exists(const char *file_path)
 #endif
 }
 
-const char *nob_get_current_dir_temp()
+const char *nob_get_current_dir_temp(void)
 {
 #ifdef _WIN32
     DWORD nBufferLength = GetCurrentDirectoryA(0, NULL);
@@ -1862,18 +1895,19 @@ bool nob_set_current_dir(const char *path)
 struct DIR
 {
     HANDLE hFind;
-    WIN32_FIND_DATA data;
+    WIN32_FIND_DATAA data;
     struct dirent *dirent;
 };
 
 DIR *opendir(const char *dirpath)
 {
-    assert(dirpath);
+    NOB_ASSERT(dirpath);
 
     char buffer[MAX_PATH];
     snprintf(buffer, MAX_PATH, "%s\\*", dirpath);
 
-    DIR *dir = (DIR*)calloc(1, sizeof(DIR));
+    DIR *dir = (DIR*)NOB_REALLOC(NULL, sizeof(DIR));
+    memset(dir, 0, sizeof(DIR));
 
     dir->hFind = FindFirstFile(buffer, &dir->data);
     if (dir->hFind == INVALID_HANDLE_VALUE) {
@@ -1887,7 +1921,7 @@ DIR *opendir(const char *dirpath)
 
 fail:
     if (dir) {
-        free(dir);
+        NOB_FREE(dir);
     }
 
     return NULL;
@@ -1895,12 +1929,13 @@ fail:
 
 struct dirent *readdir(DIR *dirp)
 {
-    assert(dirp);
+    NOB_ASSERT(dirp);
 
     if (dirp->dirent == NULL) {
-        dirp->dirent = (struct dirent*)calloc(1, sizeof(struct dirent));
+        dirp->dirent = (struct dirent*)NOB_REALLOC(NULL, sizeof(struct dirent));
+        memset(dirp->dirent, 0, sizeof(struct dirent));
     } else {
-        if(!FindNextFile(dirp->hFind, &dirp->data)) {
+        if(!FindNextFileA(dirp->hFind, &dirp->data)) {
             if (GetLastError() != ERROR_NO_MORE_FILES) {
                 // TODO: readdir should set errno accordingly on FindNextFile fail
                 // https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
@@ -1923,7 +1958,7 @@ struct dirent *readdir(DIR *dirp)
 
 int closedir(DIR *dirp)
 {
-    assert(dirp);
+    NOB_ASSERT(dirp);
 
     if(!FindClose(dirp->hFind)) {
         // TODO: closedir should set errno accordingly on FindClose fail
@@ -1933,9 +1968,9 @@ int closedir(DIR *dirp)
     }
 
     if (dirp->dirent) {
-        free(dirp->dirent);
+        NOB_FREE(dirp->dirent);
     }
-    free(dirp);
+    NOB_FREE(dirp);
 
     return 0;
 }
@@ -2049,6 +2084,11 @@ int closedir(DIR *dirp)
 /*
    Revision history:
 
+     1.12.0 (2025-02-04) Add nob_delete_file()
+                         Add nob_sv_start_with()
+     1.11.0 (2025-02-04) Add NOB_GO_REBUILD_URSELF_PLUS() (By @rexim)
+     1.10.0 (2025-02-04) Make NOB_ASSERT, NOB_REALLOC, and NOB_FREE redefinable (By @OleksiiBulba)
+      1.9.1 (2025-02-04) Fix signature of nob_get_current_dir_temp() (By @julianstoerig)
       1.9.0 (2024-11-06) Add Nob_Cmd_Redirect mechanism (By @rexim)
                          Add nob_path_name() (By @0dminnimda)
       1.8.0 (2024-11-03) Add nob_cmd_extend() (By @0dminnimda)

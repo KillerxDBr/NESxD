@@ -1,6 +1,8 @@
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
+bool ExeIsInPath(const char *exe);
+
 #define LOG_INF(...)                                                                                                                       \
     do {                                                                                                                                   \
         fprintf(stdout, __VA_ARGS__);                                                                                                      \
@@ -15,62 +17,30 @@ static inline void *callocWrapperFunc(size_t n, size_t sz, const char *fileName,
     if (ptr == NULL) {
         LOG_ERR("%s:%d:  Could not allocate memory (%zu bytes), exiting...", fileName, lineNum, n * sz);
         // fprintf(stderr, "%s:%d: ERROR: Could not allocate memory (%zu bytes), exiting...\n\n", fileName, lineNum, n * sz);
-        exit(1);
+        fflush(stderr); abort();
     }
     return ptr;
 }
 // void *callocWrapper(size_t _NumOfElements, Type)
 #define callocWrapper(n, T) ((T *)callocWrapperFunc((n), sizeof(T), (__FILE__), (__LINE__)))
 
-#undef NOB_GO_REBUILD_URSELF
-#define NOB_GO_REBUILD_URSELF(argc, argv)                                                                                                  \
-    do {                                                                                                                                   \
-        const char *source_path = __FILE__;                                                                                                \
-        assert(argc >= 1);                                                                                                                 \
-        const char *binary_path = argv[0];                                                                                                 \
-                                                                                                                                           \
-        int rebuild_is_needed = nob_needs_rebuild(binary_path, &source_path, 1);                                                           \
-        if (rebuild_is_needed < 0)                                                                                                         \
-            exit(1);                                                                                                                       \
-        if (rebuild_is_needed) {                                                                                                           \
-            Nob_String_Builder sb = { 0 };                                                                                                 \
-            nob_sb_append_cstr(&sb, binary_path);                                                                                          \
-            nob_sb_append_cstr(&sb, ".old");                                                                                               \
-            nob_sb_append_null(&sb);                                                                                                       \
-                                                                                                                                           \
-            if (!nob_rename(binary_path, sb.items))                                                                                        \
-                exit(1);                                                                                                                   \
-            Nob_Cmd rebuild = { 0 };                                                                                                       \
-            nob_cmd_append(&rebuild, NOB_REBUILD_URSELF(binary_path, source_path), "-O2");                                                 \
-            bool rebuild_succeeded = nob_cmd_run_sync(rebuild);                                                                            \
-            nob_cmd_free(rebuild);                                                                                                         \
-            if (!rebuild_succeeded) {                                                                                                      \
-                nob_rename(sb.items, binary_path);                                                                                         \
-                exit(1);                                                                                                                   \
-            }                                                                                                                              \
-                                                                                                                                           \
-            Nob_Cmd cmd = { 0 };                                                                                                           \
-            nob_da_append_many(&cmd, argv, argc);                                                                                          \
-            if (!nob_cmd_run_sync(cmd))                                                                                                    \
-                exit(1);                                                                                                                   \
-            exit(0);                                                                                                                       \
-        }                                                                                                                                  \
-    } while (0)
-
 bool ParseJson(const char *input);
 
-#if 0
+#if 1
 int main(int argc, char **argv) {
-    NOB_GO_REBUILD_URSELF(argc, argv);
+    NOB_GO_REBUILD_URSELF_PLUS(argc, argv, nob_header_path());
+    ExeIsInPath("gcc");
+    return 0;
 #else
 int main(void) {
 #endif
+#ifdef _WIN32
     const BYTE *sharedUserData = (BYTE *)0x7FFE0000;
     printf("Windows Version: %lu.%lu.%lu\n",
            *(ULONG *)(sharedUserData + 0x26c),  // major version offset
            *(ULONG *)(sharedUserData + 0x270),  // minor version offset
            *(ULONG *)(sharedUserData + 0x260)); // build number offset
-
+#endif
     return 0;
     const char *input = "tests/00.json";
 
@@ -125,5 +95,34 @@ defer:
     if (content)
         free(content);
 
+    return result;
+}
+
+#ifdef _WIN32
+#define NULL_OUTPUT "NUL"
+#define FINDER "where"
+#else
+#define NULL_OUTPUT "/dev/null"
+#define FINDER "which"
+#endif
+
+bool ExeIsInPath(const char *exe) {
+    Nob_Cmd cmd = { 0 };
+    Nob_Fd nullOutput = nob_fd_open_for_write(NULL_OUTPUT);
+    if (nullOutput == NOB_INVALID_FD) {
+        nob_log(NOB_ERROR, "Could not dump output to \"" NULL_OUTPUT "\"");
+        nob_log(NOB_ERROR, "Dumping to default outputs");
+    }
+    Nob_Cmd_Redirect cr = {
+        .fdout = &nullOutput,
+        .fderr = &nullOutput,
+    };
+    nob_cmd_append(&cmd, FINDER, exe);
+    bool result = nob_cmd_run_sync_redirect(cmd, cr);
+    nob_cmd_free(cmd);
+    if (result)
+        nob_log(NOB_INFO, "\"%s\" found in PATH", exe);
+    else
+        nob_log(NOB_WARNING, "\"%s\" not found in PATH", exe);
     return result;
 }

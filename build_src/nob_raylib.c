@@ -96,6 +96,8 @@ bool BuildRayLib(bool isWeb) {
         nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never");
         nob_cmd_append(&cmd, RAYLIB_WFLAGS);
     } else {
+        if (hasCCache)
+            nob_cmd_append(&cmd, CCACHE);
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never");
         nob_cmd_append(&cmd, RAYLIB_CFLAGS);
 
@@ -127,7 +129,7 @@ bool BuildRayLib(bool isWeb) {
 
         if (nob_needs_rebuild(output, deps.items, deps.count) > 0) {
             nob_log(NOB_INFO, "--- Generating %s ---", output);
-            nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-o", output, "-c", input);
+            nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-o", output, NO_LINK_FLAG, input);
 
             if (isWeb) {
                 Nob_String_Builder cmdRender = { 0 };
@@ -165,7 +167,7 @@ bool BuildRayLib(bool isWeb) {
 
         if (nob_needs_rebuild(output, deps.items, deps.count) > 0) {
             nob_log(NOB_INFO, "--- Generating %s ---", output);
-            nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-xc", "-o", output, "-c", input, "-DRAYGUI_IMPLEMENTATION");
+            nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-xc", "-o", output, NO_LINK_FLAG, input, "-DRAYGUI_IMPLEMENTATION");
 
             if (isWeb) {
                 Nob_String_Builder cmdRender = { 0 };

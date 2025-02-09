@@ -23,7 +23,7 @@ const char *libs[] = {
     "gdi32", "winmm", "comdlg32", "ole32", "shell32", "Dbghelp",
 };
 #else
-#define LIBS "-lm", "-static", "-lstdc++"
+#define LIBS "-lm"
 #endif // defined(_WIN32)
 
 const char *files[] = {
@@ -87,6 +87,7 @@ bool TestFile(void);
 bool WebServer(const char *pyExec);
 bool TestCompiler(void);
 bool C3Compile(bool isWeb);
+bool ExeIsInPath(const char *exe);
 
 typedef struct WinVer {
     unsigned long major;
@@ -105,8 +106,8 @@ typedef enum {
     WIN_11,
 } WVResp;
 
-WinVer GetWindowsVersion(void);
-WVResp GetWinVer(void);
+WVResp GetWindowsVersion(void);
+WinVer GetWinVer(void);
 
 #ifdef STATIC
 bool staticCompile = true;
@@ -123,14 +124,15 @@ void PrintUsage(void) {
 }
 
 int main(int argc, char **argv) {
-    NOB_GO_REBUILD_URSELF(argc, argv); // Needs to be commented out to DEBUG
+    // Needs to be commented out to DEBUG
+    NOB_GO_REBUILD_URSELF_PLUS(argc, argv, nob_header_path(), "build_src/nob_shared.h", "build_src/nob_imgui.c", "build_src/nob_raylib.c");
 
 #if defined(_WIN32)
     if (!SetConsoleOutputCP(CP_UTF8)) {
         nob_log(NOB_ERROR, "Could not set console output to 'UTF-8'");
     }
 
-    const WVResp WinVer = GetWinVer();
+    const WVResp WinVer = GetWindowsVersion();
     if (WinVer >= WIN_10) {
         nob_log(NOB_INFO, "Enabling buffer on console std outputs (Win 10+)");
 
@@ -168,6 +170,8 @@ int main(int argc, char **argv) {
 
     nob_log(NOB_INFO, "Using Compiler: \"" CC "\"");
     nob_log(NOB_INFO, "Using WASM Compiler: \"" EMCC "\"");
+
+    hasCCache = ExeIsInPath(CCACHE);
 
     const char *command;
     if (argc)
@@ -378,6 +382,8 @@ bool PrecompileHeader(bool isWeb) {
         EMS(&cmd);
         nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc-header", WFLAGS);
     } else {
+        if (hasCCache)
+            nob_cmd_append(&cmd, CCACHE);
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc-header", CFLAGS);
     }
 
@@ -484,6 +490,8 @@ bool LinkExecutable(bool isWeb) {
             result = nob_cmd_run_sync(cmd);
         }
     } else if (nob_needs_rebuild(EXE_OUTPUT, obj.items, obj.count) != 0) {
+        if (hasCCache)
+            nob_cmd_append(&cmd, CCACHE);
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never");
         nob_cmd_append(&cmd, "-o", EXE_OUTPUT);
         nob_da_append_many(&cmd, obj.items, obj.count);
@@ -588,6 +596,8 @@ bool CompileFiles(bool isWeb) {
         EMS(&cmd);
         nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc", WFLAGS);
     } else {
+        if (hasCCache)
+            nob_cmd_append(&cmd, CCACHE);
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc", CFLAGS);
     }
 
@@ -714,8 +724,8 @@ bool CompileFiles(bool isWeb) {
         // char *toObj = malloc(strlen(output) + 1);
         // strcpy(toObj, output);
         // nob_da_append(&obj, toObj);
-        char *s = strdup(output);
-        nob_da_append(&obj, s);
+        output = strdup(output);
+        nob_da_append(&obj, output);
 
         nob_temp_rewind(internalCheckpoint);
     }
@@ -733,13 +743,15 @@ bool CompileFiles(bool isWeb) {
             if (nob_needs_rebuild(resource, inputs, 2) != 0) {
                 nob_log(NOB_INFO, "--- Building %s file", rc_input);
                 cmd.count = 0;
+                if (hasCCache)
+                    nob_cmd_append(&cmd, CCACHE);
                 nob_cmd_append(&cmd, "windres", "-i", rc_input, "-o", resource);
                 nob_da_append(&procs, nob_cmd_run_async(cmd));
             } else {
                 nob_log(NOB_INFO, skippingMsg, resource);
             }
-            char *s = strdup(resource);
-            nob_da_append(&obj, s);
+            resource = strdup(resource);
+            nob_da_append(&obj, resource);
         }
     }
 #endif
@@ -776,6 +788,8 @@ bool CompileDependencies(bool isWeb) {
         EMS(&cmd);
         nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc", WFLAGS);
     } else {
+        if (hasCCache)
+            nob_cmd_append(&cmd, CCACHE);
         nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc", CFLAGS);
     }
 
@@ -836,8 +850,8 @@ bool CompileDependencies(bool isWeb) {
         } else {
             nob_log(NOB_INFO, skippingMsg, output);
         }
-        char *s = strdup(output);
-        nob_da_append(&obj, s);
+        output = strdup(output);
+        nob_da_append(&obj, output);
 
         nob_temp_rewind(checkpoint);
     }
@@ -899,6 +913,8 @@ bool CompileNobHeader(bool isWeb) {
     } else {
         if (nob_needs_rebuild1(output, nob_header_dir) != 0) {
             nob_log(NOB_INFO, "Rebuilding: '%s'", output);
+            if (hasCCache)
+                nob_cmd_append(&cmd, CCACHE);
             nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc", "-o", output, NO_LINK_FLAG, nob_header_dir,
                            "-DNOB_IMPLEMENTATION");
 
@@ -908,8 +924,8 @@ bool CompileNobHeader(bool isWeb) {
             nob_log(NOB_INFO, skippingMsg, output);
         }
     }
-    char *s = strdup(output);
-    nob_da_append(&obj, s);
+    output = strdup(output);
+    nob_da_append(&obj, output);
 
 defer:
     nob_temp_rewind(checkpoint);
@@ -1356,7 +1372,7 @@ defer:
 }
 #if defined(_WIN32)
 #define SHARED_USER_DATA (BYTE *)0x7FFE0000
-WinVer GetWindowsVersion(void) {
+WinVer GetWinVer(void) {
     WinVer result = {
         .major = *(ULONG *)(SHARED_USER_DATA + 0x26c), // major version offset
         .minor = *(ULONG *)(SHARED_USER_DATA + 0x270), // minor version offset
@@ -1380,10 +1396,10 @@ WinVer GetWindowsVersion(void) {
     WIN_10    - Windows 10
     WIN_11    - Windows 11
 */
-WVResp GetWinVer(void) {
-    const WinVer ver = GetWindowsVersion();
+WVResp GetWindowsVersion(void) {
+    const WinVer ver = GetWinVer();
     if (ver.build == 0) {
-        if (ver.major < 5UL || (ver.major == 5UL && ver.minor < 1UL)) return OLDER_WIN;
+        if (ver.major < 5UL) return OLDER_WIN;
         if (ver.major < 6UL) return WIN_XP;
         if (ver.major == 6UL) {
             switch (ver.minor) {
@@ -1398,4 +1414,28 @@ WVResp GetWinVer(void) {
     return ver.build >= 21996UL ? WIN_11 : WIN_10; // if build >= 21996 = Win 11 else Win 10
 }
 // clang-format on
+
 #endif // defined(_WIN32)
+
+bool ExeIsInPath(const char *exe) {
+    Nob_Cmd cmd = { 0 };
+    Nob_Cmd_Redirect cr = { 0 };
+
+    Nob_Fd nullOutput = nob_fd_open_for_write(NULL_OUTPUT);
+    Sleep(0);
+    if (nullOutput == NOB_INVALID_FD) {
+        nob_log(NOB_ERROR, "Could not dump output to \"" NULL_OUTPUT "\"");
+        nob_log(NOB_ERROR, "Dumping to default outputs");
+    } else {
+        cr.fdout = &nullOutput;
+        cr.fderr = &nullOutput;
+    }
+    nob_cmd_append(&cmd, FINDER, exe);
+    bool result = nob_cmd_run_sync_redirect(cmd, cr);
+    nob_cmd_free(cmd);
+    if (result)
+        nob_log(NOB_INFO, "\"%s\" found in PATH", exe);
+    else
+        nob_log(NOB_ERROR, "\"%s\" not found in PATH", exe);
+    return result;
+}
