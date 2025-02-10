@@ -33,7 +33,7 @@ bool CompileRLImgui(bool isWeb) {
     Nob_String_Builder cmdRender = { 0 };
 
     if (isWeb) {
-        nob_cmd_append(&cmd, "em++", "-fdiagnostics-color=never", NO_LINK_FLAG, IG_WFLAGS, IMGUI_INC);
+        nob_cmd_append(&cmd, EMXX, "-fdiagnostics-color=never", NO_LINK_FLAG, IG_WFLAGS, IMGUI_INC);
 
     } else {
         if (hasCCache)

@@ -87,7 +87,7 @@ bool TestFile(void);
 bool WebServer(const char *pyExec);
 bool TestCompiler(void);
 bool C3Compile(bool isWeb);
-bool ExeIsInPath(const char *exe);
+bool IsExeInPath(const char *exe);
 
 typedef struct WinVer {
     unsigned long major;
@@ -120,7 +120,7 @@ bool staticCompile = false;
 
 void PrintUsage(void) {
     nob_log(NOB_ERROR, "Incorrect use of program");
-    nob_log(NOB_ERROR, "Usage: ./nob <[b]uild [[w]eb] [[c]lean/cls], [w]eb [python executable], bundler [dir], [c]lean/cls>");
+    nob_log(NOB_ERROR, "Usage: ./nob <[b]uild [[w]eb] [[c]lean], [w]eb [python executable], bundler [dir], [c]lean>");
 }
 
 int main(int argc, char **argv) {
@@ -165,31 +165,173 @@ int main(int argc, char **argv) {
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
     nob_shift(argv, argc);
-    // const char *program = nob_shift(argv, argc);
-    // NOB_UNUSED(program);
 
-    nob_log(NOB_INFO, "Using Compiler: \"" CC "\"");
-    nob_log(NOB_INFO, "Using WASM Compiler: \"" EMCC "\"");
+    int result = 0;
 
-    hasCCache = ExeIsInPath(CCACHE);
+#define USE_FLAGS
+#ifdef USE_FLAGS
+    // Flags
+    // clang-format off
+    bool BuildMode   = false;
+    bool BundlerMode = false;
+    bool CleanMode   = false;
+    bool TestMode    = false;
+    bool WebMode     = false;
+    // clang-format on
 
+    for (int i = 0; i < argc; ++i) {
+        if (!BuildMode)
+            BuildMode = (strcasecmp(argv[i], "build") == 0 || strcasecmp(argv[i], "b") == 0);
+        if (!CleanMode)
+            CleanMode = (strcasecmp(argv[i], "clean") == 0) || (strcasecmp(argv[i], "c") == 0);
+        if (!WebMode)
+            WebMode = (strcasecmp(argv[i], "web") == 0 || strcasecmp(argv[i], "w") == 0);
+        if (!BundlerMode)
+            BundlerMode = strcasecmp(argv[i], "bundler") == 0;
+        if (!TestMode)
+            TestMode = strcasecmp(argv[i], "test") == 0 || strcasecmp(argv[i], "t") == 0;
+
+        if (BuildMode && CleanMode && WebMode && BundlerMode && TestMode)
+            break;
+    }
+
+    nob_log(NOB_INFO, "Flags =====================================");
+    BOOLLOG(BuildMode);
+    BOOLLOG(BundlerMode);
+    BOOLLOG(CleanMode);
+    BOOLLOG(TestMode);
+    BOOLLOG(WebMode);
+
+    if (!BuildMode && !CleanMode && !WebMode && !BundlerMode && !TestMode) {
+        if (argc == 0) {
+            BuildMode = true;
+        } else {
+            PrintUsage();
+            nob_return_defer(1);
+        }
+    }
+
+    bool isWeb = WebMode && BuildMode;
+    // exit(0);
+#endif
+
+    nob_log(NOB_INFO, "Compilers =================================");
+    nob_log(NOB_INFO, "Using C Compiler: \"" CC "\"");
+    nob_log(NOB_INFO, "Using C++ Compiler: \"" CXX "\"");
+    nob_log(NOB_INFO, "Using WASM C Compiler: \"" EMCC "\"");
+    nob_log(NOB_INFO, "Using WASM C++ Compiler: \"" EMXX "\"");
+    nob_log(NOB_INFO, "Using C3 Compiler: \"c3c\"");
+
+    hasCCache = IsExeInPath(CCACHE);
+
+#ifdef USE_FLAGS
+    if (BuildMode) {
+        if (!nob_mkdir_if_not_exists(BUILD_DIR))
+            nob_return_defer(1);
+
+        if (CleanMode)
+            CleanupFiles();
+
+        if (isWeb) {
+            if (!nob_mkdir_if_not_exists(BUILD_WASM_DIR))
+                nob_return_defer(1);
+#ifdef _WIN32
+            if (nob_file_exists(EMSDK_ENV) != 1) {
+                nob_log(NOB_ERROR, "Could not find emsdk env builder \"" EMSDK_ENV "\", check if the path is correct and try again...");
+                nob_return_defer(1);
+            }
+#else
+            if (!IsExeInPath(EMCC) || !IsExeInPath(EMXX)) {
+                nob_log(NOB_ERROR, "Could not find '" EMCC "' and/or '" EMXX "' in PATH");
+                nob_return_defer(1);
+            }
+#endif
+        }
+
+        const size_t bkpCount = obj.count;
+        nob_log(NOB_INFO, "--- Building Raylib ---");
+        if (!BuildRayLib(isWeb)) {
+            if (nob_file_exists(RAYLIB_A) != 1)
+                nob_return_defer(1);
+
+            obj.count = bkpCount;
+            nob_da_append(&obj, RAYLIB_A);
+        }
+
+        nob_log(NOB_INFO, "--- Building Dependencies ---");
+        if (!CompileDependencies(isWeb))
+            nob_return_defer(1);
+
+        if (!CompileRLImgui(isWeb))
+            nob_return_defer(1);
+
+        if (!isWeb) {
+            nob_log(NOB_INFO, "--- Precompiling Headers ---");
+            if (!PrecompileHeader(false))
+                nob_return_defer(1);
+        }
+
+        nob_log(NOB_INFO, "--- Generating Object Files ---");
+        if (!CompileFiles(isWeb))
+            nob_return_defer(1);
+
+        nob_log(NOB_INFO, "--- Compiling C3 Module ---");
+        if (!C3Compile(isWeb)) {
+            nob_return_defer(1);
+        }
+
+        nob_log(NOB_INFO, "--- Compiling Executable ---");
+
+        if (!nob_mkdir_if_not_exists(BIN_DIR))
+            nob_return_defer(1);
+
+        if (isWeb) {
+            if (!nob_mkdir_if_not_exists(WASM_DIR))
+                nob_return_defer(1);
+        }
+
+        if (!LinkExecutable(isWeb))
+            nob_return_defer(1);
+
+        nob_log(NOB_INFO, "--- Finished Compiling ---");
+        nob_return_defer(0);
+
+    } else if (BundlerMode) {
+        nob_shift(argv, argc); // Removing "bundler" from argv
+        nob_log(NOB_INFO, "--- Bundler ---");
+        nob_return_defer(!Bundler(argv, argc));
+
+    } else if (TestMode) {
+        nob_log(NOB_INFO, "--- Building Test File ---");
+        nob_return_defer(!TestFile());
+
+    } else if (WebMode) {
+        nob_shift(argv, argc); // Removing "web"/"w" from argv
+        nob_log(NOB_INFO, "--- Starting WebServer ---");
+
+        const char *command;
+        if (argc > 0) {
+            command = nob_shift(argv, argc);
+        } else {
+            command = PY_EXEC;
+        }
+
+        nob_return_defer(!WebServer(command));
+    } else if (CleanMode) {
+        nob_log(NOB_INFO, "--- Cleaning Files ---");
+        nob_return_defer(!CleanupFiles());
+    }
+#else
     const char *command;
-    if (argc)
+    if (argc > 0)
         command = nob_shift(argv, argc);
     else
         command = "build";
-
-    int result = 0;
 
     if (strcmp(command, "build") == 0 || strcmp(command, "b") == 0) {
         nob_log(NOB_INFO, "--- Building ---");
 
         bool isWeb = false;
-
-        nob_log(NOB_INFO, "Testing Compiler: '" CC "', 'c3c'");
-        if (!TestCompiler()) {
-            nob_return_defer(1);
-        }
 
         if (argc > 0) {
             command = nob_shift(argv, argc);
@@ -220,6 +362,11 @@ int main(int argc, char **argv) {
             }
         }
 #endif
+
+        nob_log(NOB_INFO, "Testing Compiler: \"%s\", \"%s\", \"c3c\"", isWeb ? EMCC : CC, isWeb ? EMXX : CXX);
+        if (!(ExeIsInPath(isWeb ? EMCC : CC) && ExeIsInPath(isWeb ? EMXX : CXX) && ExeIsInPath("c3c"))) {
+            nob_return_defer(1);
+        }
 
         if (!nob_mkdir_if_not_exists(BUILD_DIR))
             nob_return_defer(1);
@@ -311,6 +458,7 @@ int main(int argc, char **argv) {
         // nob_log(NOB_INFO, "Unknown command \"%s\", expects: <[b]uild [[w]eb] [[c]lean/cls],  bundler [dir], [c]lean/cls>", command);
         nob_return_defer(1);
     }
+#endif
 
     NOB_UNREACHABLE("Main");
 
@@ -362,14 +510,11 @@ defer:
                 "-DNES",                                                                 \
                 "-sUSE_GLFW=3",                                                          \
                 "-sFORCE_FILESYSTEM=1",                                                  \
-                "-sALLOW_MEMORY_GROWTH=1",                                               \
                 "-sGL_ENABLE_GET_PROC_ADDRESS=1",                                        \
                 "-sSTACK_SIZE=100mb",                                                    \
                 "-sASSERTIONS=1"
 
 // clang-format on
-
-// #define STR_SIZE 128
 
 bool PrecompileHeader(bool isWeb) {
     if (isWeb)
@@ -430,10 +575,6 @@ bool PrecompileHeader(bool isWeb) {
     nob_da_free(procs);
 
     return result;
-
-    // defer:
-    //     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
-    //     return false;
 }
 
 bool LinkExecutable(bool isWeb) {
@@ -887,7 +1028,7 @@ bool CompileNobHeader(bool isWeb) {
             nob_log(NOB_INFO, "Rebuilding: '%s'", output);
             EMS(&cmd);
             nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc", "-Os", "-Wall", "-Wextra", "-sFORCE_FILESYSTEM=1",
-                           "-sALLOW_MEMORY_GROWTH=1", "-sGL_ENABLE_GET_PROC_ADDRESS=1", "-sASSERTIONS=1");
+                           "-sGL_ENABLE_GET_PROC_ADDRESS=1", "-sASSERTIONS=1");
             nob_cmd_append(&cmd, "-o", output, NO_LINK_FLAG, nob_header_dir, "-DNOB_IMPLEMENTATION");
 
             Nob_String_Builder cmdRender = { 0 };
@@ -1417,7 +1558,7 @@ WVResp GetWindowsVersion(void) {
 
 #endif // defined(_WIN32)
 
-bool ExeIsInPath(const char *exe) {
+bool IsExeInPath(const char *exe) {
     Nob_Cmd cmd = { 0 };
     Nob_Cmd_Redirect cr = { 0 };
 

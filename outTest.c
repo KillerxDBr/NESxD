@@ -1,7 +1,7 @@
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
-bool ExeIsInPath(const char *exe);
+bool IsExeInPath(const char *exe);
 
 #define LOG_INF(...)                                                                                                                       \
     do {                                                                                                                                   \
@@ -29,7 +29,7 @@ bool ParseJson(const char *input);
 #if 1
 int main(int argc, char **argv) {
     NOB_GO_REBUILD_URSELF_PLUS(argc, argv, nob_header_path());
-    ExeIsInPath("gcc");
+    IsExeInPath("gcc");
     return 0;
 #else
 int main(void) {
@@ -106,7 +106,7 @@ defer:
 #define FINDER "which"
 #endif
 
-bool ExeIsInPath(const char *exe) {
+bool IsExeInPath(const char *exe) {
     Nob_Cmd cmd = { 0 };
     Nob_Fd nullOutput = nob_fd_open_for_write(NULL_OUTPUT);
     if (nullOutput == NOB_INVALID_FD) {

@@ -47,6 +47,10 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 #define EMCC "emcc"
 #endif // EMCC
 
+#ifndef EMXX
+#define EMXX "em++"
+#endif // EMXX
+
 #if defined(_WIN32)
 
 #ifndef EMSDK_ENV
@@ -148,6 +152,8 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 #else
 #define FINDER "which"
 #endif
+
+#define BOOLLOG(v) nob_log(NOB_INFO, "%s: %s", #v, v ? "True" : "False")
 
 bool hasCCache;
 
