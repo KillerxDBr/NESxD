@@ -73,6 +73,8 @@ int main(int argc, char **argv) {
     strcpy(app->config.fileName, app->program);
 
     const char *exeName = nob_path_name(app->config.fileName);
+
+    const size_t nameIndex = exeName - app->config.fileName;
     // char *slash = strrchr(app->config.fileName, '\\');
     // assert(slash != NULL);
 
@@ -82,6 +84,29 @@ int main(int argc, char **argv) {
     app->config.fileName = realloc(app->config.fileName, strlen(app->config.fileName) + 1);
 
     LOG_INF("app->config.fileName: '%s'", app->config.fileName);
+
+    char *cwd = strdup(app->program);
+    strcpy(cwd + nameIndex - 1, "");
+
+    for (size_t i = 0; i < strlen(cwd); ++i) {
+        if (cwd[i] == '\\') {
+            cwd[i] = '/';
+        }
+    }
+
+    VARLOG(nob_path_name(cwd), "'%s'");
+    if (DirectoryExists(TextFormat("%s/rom", cwd)) && strcmp(nob_path_name(cwd), "bin") == 0) {
+        strcpy(nob_path_name(cwd) - 1, "");
+    }
+
+    if (!ChangeDirectory(cwd)) {
+        LOG_ERR("Could not change directory to '%s'", cwd);
+        return 1;
+    }
+
+    VARLOG(cwd, "'%s'");
+    free(cwd);
+
 #endif
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow((NES_W * FACTOR), (NES_H * FACTOR) + MENU_BAR_SIZE, "NES_xD");

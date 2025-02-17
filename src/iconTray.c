@@ -1,4 +1,4 @@
-#if !defined(PLATFORM_WEB)
+#if !defined(PLATFORM_WEB) && defined(_WIN32)
 
 #include <stdio.h>
 #include <windows.h>
@@ -65,4 +65,4 @@ void KxD_Destroy_Tray(void) {
 void KxD_Create_Tray(void *hWnd) { (void)(hWnd); }
 void KxD_Handle_Tray(void) {}
 void KxD_Destroy_Tray(void) {}
-#endif // PLATFORM_WEB
+#endif // !defined(PLATFORM_WEB) && defined(_WIN32)

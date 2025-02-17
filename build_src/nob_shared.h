@@ -11,10 +11,13 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 #define ROM_PATH "rom/"
 #define MEM_BIN_PATH "mem.bin"
 
+#ifndef WS_PORT
 #define WS_PORT "8000"
+#endif // WS_PORT
 
 #define CCACHE "ccache"
 
+#ifndef CC
 #if defined(__GNUC__)
 #define CC "gcc"
 #define CXX "g++"
@@ -36,6 +39,7 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 #else
 #define CC "cc"
 #endif // defined(__GNUC__)
+#endif // CC
 
 #if defined(_MSC_VER)
 #define NO_LINK_FLAG "/c"
