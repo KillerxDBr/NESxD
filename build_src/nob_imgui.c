@@ -33,6 +33,7 @@ bool CompileRLImgui(bool isWeb) {
     Nob_String_Builder cmdRender = { 0 };
 
     if (isWeb) {
+        EMS(&cmd);
         nob_cmd_append(&cmd, EMXX, "-fdiagnostics-color=never", NO_LINK_FLAG, IG_WFLAGS, IMGUI_INC);
 
     } else {
@@ -79,7 +80,6 @@ bool CompileRLImgui(bool isWeb) {
         nob_da_append(&obj, output);
     }
 
-defer:
     if (!isWeb)
         result = nob_procs_wait(procs);
 

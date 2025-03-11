@@ -28,7 +28,10 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 #error Cant Compile with MSVC yet...
 #define CC "cl"
 #define CXX "cl"
+
+#ifndef MSVC_ENV
 #define MSVC_ENV "D:/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat"
+#endif // MSVC_ENV
 
 #define MSVC(cmd)                                                                                                                          \
     do {                                                                                                                                   \
@@ -62,9 +65,7 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 // #define EMSDK_ENV "C:/Users/antonioroberto/Desktop/w64devkit/emsdk/emsdk_env.bat"
 #endif // EMSDK_ENV
 
-#ifndef EMS
 #define EMS(cmd) nob_cmd_append((cmd), "set", "EMSDK_QUIET=1", "&&", EMSDK_ENV, "&&");
-#endif // EMS
 
 #else
 #define EMS(cmd)

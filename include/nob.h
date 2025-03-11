@@ -1,4 +1,4 @@
-/* nob - v1.12.0 - Public Domain - https://github.com/tsoding/nob.h
+/* nob - v1.15.0 - Public Domain - https://github.com/tsoding/nob.h
 
    This library is the next generation of the [NoBuild](https://github.com/tsoding/nobuild) idea.
 
@@ -301,6 +301,24 @@ bool nob_delete_dir(const char *path);
         (da)->count += (new_items_count);                                                     \
     } while (0)
 
+#define nob_da_resize(da, new_size)                                                        \
+    do {                                                                                   \
+        if ((new_size) > (da)->capacity) {                                                 \
+            (da)->capacity = (new_size);                                                   \
+            (da)->items = NOB_REALLOC((da)->items, (da)->capacity * sizeof(*(da)->items)); \
+            NOB_ASSERT((da)->items != NULL && "Buy more RAM lol");                         \
+        }                                                                                  \
+        (da)->count = (new_size);                                                          \
+    } while (0)
+
+#define nob_da_last(da) (da)->items[(NOB_ASSERT((da)->count > 0), (da)->count-1)]
+#define nob_da_remove_unordered(da, i)               \
+    do {                                             \
+        size_t j = (i);                              \
+        NOB_ASSERT(j < (da)->count);                 \
+        (da)->items[j] = (da)->items[--(da)->count]; \
+    } while(0)
+
 typedef struct {
     char *items;
     size_t count;
@@ -494,9 +512,6 @@ void nob__go_rebuild_urself(int argc, char **argv, const char *source_path, ...)
 // }
 #define NOB_GO_REBUILD_URSELF_PLUS(argc, argv, ...) nob__go_rebuild_urself(argc, argv, __FILE__, __VA_ARGS__, NULL);
 
-const char *nob_header_path(void);
-bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile);
-
 typedef struct {
     size_t count;
     const char *data;
@@ -505,11 +520,13 @@ typedef struct {
 const char *nob_temp_sv_to_cstr(Nob_String_View sv);
 
 Nob_String_View nob_sv_chop_by_delim(Nob_String_View *sv, char delim);
+Nob_String_View nob_sv_chop_left(Nob_String_View *sv, size_t n);
 Nob_String_View nob_sv_trim(Nob_String_View sv);
 Nob_String_View nob_sv_trim_left(Nob_String_View sv);
 Nob_String_View nob_sv_trim_right(Nob_String_View sv);
 bool nob_sv_eq(Nob_String_View a, Nob_String_View b);
 bool nob_sv_end_with(Nob_String_View sv, const char *cstr);
+bool nob_sv_starts_with(Nob_String_View sv, Nob_String_View expected_prefix);
 Nob_String_View nob_sv_from_cstr(const char *cstr);
 Nob_String_View nob_sv_from_parts(const char *data, size_t count);
 // nob_sb_to_sv() enables you to just view Nob_String_Builder as Nob_String_View
@@ -518,12 +535,10 @@ Nob_String_View nob_sv_from_parts(const char *data, size_t count);
 Nob_String_View nob_sv_take_left_while(Nob_String_View sv, bool (*predicate)(char x));
 Nob_String_View nob_sv_chop_by_sv(Nob_String_View *sv, Nob_String_View thicc_delim);
 bool nob_sv_try_chop_by_delim(Nob_String_View *sv, char delim, Nob_String_View *chunk);
-Nob_String_View nob_sv_chop_left(Nob_String_View *sv, size_t n);
 Nob_String_View nob_sv_chop_right(Nob_String_View *sv, size_t n);
 Nob_String_View nob_sv_chop_left_while(Nob_String_View *sv, bool (*predicate)(char x));
 bool nob_sv_index_of(Nob_String_View sv, char c, size_t *index);
 bool nob_sv_eq_ignorecase(Nob_String_View a, Nob_String_View b);
-bool nob_sv_start_with(Nob_String_View sv, const char *expected_prefix);
 uint64_t nob_sv_to_u64(Nob_String_View sv);
 uint64_t nob_sv_chop_u64(Nob_String_View *sv);
 
@@ -589,7 +604,7 @@ uint64_t nob_sv_chop_u64(Nob_String_View *sv);
 #else // _WIN32
 
 #define WIN32_LEAN_AND_MEAN
-#include "windows.h"
+#include <windows.h>
 
 struct dirent
 {
@@ -620,8 +635,6 @@ char *nob_win32_error_message(DWORD err);
 // Any messages with the level below nob_minimal_log_level are going to be suppressed.
 Nob_Log_Level nob_minimal_log_level = NOB_INFO;
 
-const char *nob_header_path(void) { return __FILE__; }
-
 #ifdef _WIN32
 
 // Base on https://stackoverflow.com/a/75644008
@@ -641,13 +654,13 @@ char *nob_win32_error_message(DWORD err) {
         char *newErrMsg = NULL;
         if (GetLastError() == ERROR_MR_MID_NOT_FOUND) {
             newErrMsg = "Invalid Win32 error code";
-            } else {
+        } else {
             newErrMsg = "Could not get error message";
-            }
+        }
 
         if (snprintf(win32ErrMsg, sizeof(win32ErrMsg), "%s for 0x%lX", newErrMsg, err) > 0) {
-                return (char *)&win32ErrMsg;
-            } else {
+            return (char *)&win32ErrMsg;
+        } else {
             return newErrMsg;
         }
     }
@@ -660,39 +673,6 @@ char *nob_win32_error_message(DWORD err) {
 }
 
 #endif // _WIN32
-
-bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile) {
-    if (nob_file_exists(depFile) < 1)
-        return false;
-
-    Nob_String_Builder sb = { 0 };
-    nob_read_entire_file(depFile, &sb);
-
-    for (size_t i = 0; i < sb.count; ++i) {
-        if (isspace(sb.items[i]) /*|| sb.items[i] == '\\'*/) {
-            sb.items[i] = ' ';
-        }
-    }
-
-    Nob_String_View sv = nob_sb_to_sv(sb);
-
-    while (nob_sv_index_of(sv, ':', NULL)) {
-        nob_sv_chop_by_delim(&sv, ':');
-    }
-    sv = nob_sv_trim(sv);
-
-    Nob_String_View sv2;
-    char *cstr;
-    while (sv.count > 0) {
-        sv = nob_sv_trim(sv);
-        sv2 = nob_sv_chop_by_delim(&sv, ' ');
-        cstr = nob_temp_sprintf(SV_Fmt, SV_Arg(sv2));
-        if(strcmp(cstr, "\\") == 0) {continue;}
-        nob_da_append(fp, cstr);
-    }
-    nob_sb_free(sb);
-    return fp->count > 0;
-}
 
 // The implementation idea is stolen from https://github.com/zhiayang/nabs
 void nob__go_rebuild_urself(int argc, char **argv, const char *source_path, ...)
@@ -717,13 +697,8 @@ void nob__go_rebuild_urself(int argc, char **argv, const char *source_path, ...)
         nob_da_append(&source_paths, path);
     }
     va_end(args);
-#if defined(_WIN32)
-    Sleep(0);
-#endif
+
     int rebuild_is_needed = nob_needs_rebuild(binary_path, source_paths.items, source_paths.count);
-#if defined(_WIN32)
-    Sleep(0);
-#endif
     if (rebuild_is_needed < 0) exit(1); // error
     if (!rebuild_is_needed) {           // no rebuild is needed
         NOB_FREE(source_paths.items);
@@ -736,17 +711,17 @@ void nob__go_rebuild_urself(int argc, char **argv, const char *source_path, ...)
     const char *old_binary_path = nob_temp_sprintf("%s.old", binary_path);
 
     if (!nob_rename(binary_path, old_binary_path)) exit(1);
-#if defined(_WIN32)
-    Sleep(0);
-#endif
     nob_cmd_append(&cmd, NOB_REBUILD_URSELF(binary_path, source_path));
     if (!nob_cmd_run_sync_and_reset(&cmd)) {
         nob_rename(old_binary_path, binary_path);
         exit(1);
     }
-#if defined(_WIN32)
-    Sleep(0);
-#endif
+#ifdef NOB_EXPERIMENTAL_DELETE_OLD
+    // TODO: this is an experimental behavior behind a compilation flag.
+    // Once it is confirmed that it does not cause much problems on both POSIX and Windows
+    // we may turn it on by default.
+    nob_delete_file(old_binary_path);
+#endif // NOB_EXPERIMENTAL_DELETE_OLD
 
     nob_cmd_append(&cmd, binary_path);
     nob_da_append_many(&cmd, argv, argc);
@@ -1306,13 +1281,13 @@ bool nob_delete_file(const char *path)
     nob_log(NOB_INFO, "deleting %s", path);
 #ifdef _WIN32
     if (!DeleteFileA(path)) {
-        nob_log(NOB_ERROR, "Could not delete file %s: %s", nob_win32_error_message(GetLastError()));
+        nob_log(NOB_ERROR, "Could not delete file %s: %s", path, nob_win32_error_message(GetLastError()));
         return false;
     }
     return true;
 #else
     if (remove(path) < 0) {
-        nob_log(NOB_ERROR, "Could not delete file %s: %s", strerror(errno));
+        nob_log(NOB_ERROR, "Could not delete file %s: %s", path, strerror(errno));
         return false;
     }
     return true;
@@ -1324,13 +1299,13 @@ bool nob_delete_dir(const char *path)
     nob_log(NOB_INFO, "deleting %s", path);
 #ifdef _WIN32
     if (!RemoveDirectoryA(path)) {
-        nob_log(NOB_ERROR, "Could not delete directory %s: %s", nob_win32_error_message(GetLastError()));
+        nob_log(NOB_ERROR, "Could not delete directory %s: %s", path, nob_win32_error_message(GetLastError()));
         return false;
     }
     return true;
 #else
     if (rmdir(path) < 0) {
-        nob_log(NOB_ERROR, "Could not delete directory %s: %s", strerror(errno));
+        nob_log(NOB_ERROR, "Could not delete directory %s: %s", path, strerror(errno));
         return false;
     }
     return true;
@@ -1571,7 +1546,13 @@ bool nob_read_entire_file(const char *path, Nob_String_Builder *sb)
     FILE *f = fopen(path, "rb");
     if (f == NULL)                 nob_return_defer(false);
     if (fseek(f, 0, SEEK_END) < 0) nob_return_defer(false);
+
+#ifndef _WIN32
     long m = ftell(f);
+#else
+    long long m = _ftelli64(f);
+#endif
+
     if (m < 0)                     nob_return_defer(false);
     if (fseek(f, 0, SEEK_SET) < 0) nob_return_defer(false);
 
@@ -1611,6 +1592,20 @@ Nob_String_View nob_sv_chop_by_delim(Nob_String_View *sv, char delim)
         sv->count -= i;
         sv->data  += i;
     }
+
+    return result;
+}
+
+Nob_String_View nob_sv_chop_left(Nob_String_View *sv, size_t n)
+{
+    if (n > sv->count) {
+        n = sv->count;
+    }
+
+    Nob_String_View result = nob_sv_from_parts(sv->data, n);
+
+    sv->data  += n;
+    sv->count -= n;
 
     return result;
 }
@@ -1724,19 +1719,6 @@ bool nob_sv_try_chop_by_delim(Nob_String_View *sv, char delim, Nob_String_View *
     return false;
 }
 
-Nob_String_View nob_sv_chop_left(Nob_String_View *sv, size_t n) {
-    if (n > sv->count) {
-        n = sv->count;
-    }
-
-    Nob_String_View result = nob_sv_from_parts(sv->data, n);
-
-    sv->data += n;
-    sv->count -= n;
-
-    return result;
-}
-
 Nob_String_View nob_sv_chop_right(Nob_String_View *sv, size_t n) {
     if (n > sv->count) {
         n = sv->count;
@@ -1790,11 +1772,11 @@ bool nob_sv_eq_ignorecase(Nob_String_View a, Nob_String_View b) {
     return true;
 }
 
-bool nob_sv_start_with(Nob_String_View sv, const char *expected_prefix) {
-    Nob_String_View expected_prefix_sv = nob_sv_from_cstr(expected_prefix);
-    if (expected_prefix_sv.count <= sv.count) {
-        Nob_String_View actual_prefix = nob_sv_from_parts(sv.data, expected_prefix_sv.count);
-        return nob_sv_eq(expected_prefix_sv, actual_prefix);
+bool nob_sv_starts_with(Nob_String_View sv, Nob_String_View expected_prefix)
+{
+    if (expected_prefix.count <= sv.count) {
+        Nob_String_View actual_prefix = nob_sv_from_parts(sv.data, expected_prefix.count);
+        return nob_sv_eq(expected_prefix, actual_prefix);
     }
 
     return false;
@@ -1909,7 +1891,7 @@ DIR *opendir(const char *dirpath)
     DIR *dir = (DIR*)NOB_REALLOC(NULL, sizeof(DIR));
     memset(dir, 0, sizeof(DIR));
 
-    dir->hFind = FindFirstFile(buffer, &dir->data);
+    dir->hFind = FindFirstFileA(buffer, &dir->data);
     if (dir->hFind == INVALID_HANDLE_VALUE) {
         // TODO: opendir should set errno accordingly on FindFirstFile fail
         // https://docs.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
@@ -2017,11 +1999,13 @@ int closedir(DIR *dirp)
         #define write_entire_file nob_write_entire_file
         #define get_file_type nob_get_file_type
         #define delete_file nob_delete_file
-        #define delete_dir nob_delete_dir
         #define return_defer nob_return_defer
         #define da_append nob_da_append
         #define da_free nob_da_free
         #define da_append_many nob_da_append_many
+        #define da_resize nob_da_resize
+        #define da_last nob_da_last
+        #define da_remove_unordered nob_da_remove_unordered
         #define String_Builder Nob_String_Builder
         #define read_entire_file nob_read_entire_file
         #define sb_append_buf nob_sb_append_buf
@@ -2069,21 +2053,39 @@ int closedir(DIR *dirp)
         #define String_View Nob_String_View
         #define temp_sv_to_cstr nob_temp_sv_to_cstr
         #define sv_chop_by_delim nob_sv_chop_by_delim
+        #define sv_chop_left nob_sv_chop_left
         #define sv_trim nob_sv_trim
         #define sv_trim_left nob_sv_trim_left
         #define sv_trim_right nob_sv_trim_right
         #define sv_eq nob_sv_eq
+        #define sv_starts_with nob_sv_starts_with
         #define sv_end_with nob_sv_end_with
         #define sv_from_cstr nob_sv_from_cstr
         #define sv_from_parts nob_sv_from_parts
         #define sb_to_sv nob_sb_to_sv
         #define win32_error_message nob_win32_error_message
+        #define sv_take_left_while nob_sv_take_left_while
+        #define sv_chop_by_sv nob_sv_chop_by_sv
+        #define sv_try_chop_by_delim nob_sv_try_chop_by_delim
+        #define sv_chop_left nob_sv_chop_left
+        #define sv_chop_right nob_sv_chop_right
+        #define sv_chop_left_while nob_sv_chop_left_while
+        #define sv_index_of nob_sv_index_of
+        #define sv_eq_ignorecase nob_sv_eq_ignorecase
+        #define sv_to_u64 nob_sv_to_u64
+        #define sv_chop_u64 nob_sv_chop_u64
     #endif // NOB_STRIP_PREFIX
 #endif // NOB_STRIP_PREFIX_GUARD_
 
 /*
    Revision history:
 
+     1.15.0 (2025-03-03) Add nob_sv_chop_left()
+     1.14.1 (2025-03-02) Add NOB_EXPERIMENTAL_DELETE_OLD flag that enables deletion of nob.old in Go Rebuild Urself™ Technology
+     1.14.0 (2025-02-17) Add nob_da_last()
+                         Add nob_da_remove_unordered()
+     1.13.1 (2025-02-17) Fix segfault in nob_delete_file() (By @SileNce5k)
+     1.13.0 (2025-02-11) Add nob_da_resize() (By @satchelfrost)
      1.12.0 (2025-02-04) Add nob_delete_file()
                          Add nob_sv_start_with()
      1.11.0 (2025-02-04) Add NOB_GO_REBUILD_URSELF_PLUS() (By @rexim)

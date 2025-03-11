@@ -88,6 +88,7 @@ bool WebServer(const char *pyExec);
 bool TestCompiler(void);
 bool C3Compile(bool isWeb);
 bool IsExeInPath(const char *exe);
+bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile);
 
 typedef struct WinVer {
     unsigned long major;
@@ -125,7 +126,7 @@ void PrintUsage(void) {
 
 int main(int argc, char **argv) {
     // Needs to be commented out to DEBUG
-    NOB_GO_REBUILD_URSELF_PLUS(argc, argv, nob_header_path(), "build_src/nob_shared.h", "build_src/nob_imgui.c", "build_src/nob_raylib.c");
+    NOB_GO_REBUILD_URSELF_PLUS(argc, argv, "include/nob.h", "build_src/nob_shared.h", "build_src/nob_imgui.c", "build_src/nob_raylib.c");
 
 #if defined(_WIN32)
     if (!SetConsoleOutputCP(CP_UTF8)) {
@@ -1015,7 +1016,7 @@ bool CompileNobHeader(bool isWeb) {
 
     Nob_Cmd cmd = { 0 };
 
-    const char *nob_header_dir = nob_header_path();
+    const char *nob_header_dir = "include/nob.h";
     const char *output;
 
     if (isWeb)
@@ -1585,4 +1586,40 @@ bool IsExeInPath(const char *exe) {
     nob_cmd_free(cmd);
 
     return result;
+}
+
+bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile) {
+    if (nob_file_exists(depFile) < 1)
+        return false;
+
+    Nob_String_Builder sb = { 0 };
+    nob_read_entire_file(depFile, &sb);
+
+    for (size_t i = 0; i < sb.count; ++i) {
+        if (isspace(sb.items[i]) /*|| sb.items[i] == '\\'*/) {
+            sb.items[i] = ' ';
+        }
+    }
+
+    Nob_String_View sv = nob_sb_to_sv(sb);
+
+    while (nob_sv_index_of(sv, ':', NULL)) {
+        nob_sv_chop_by_delim(&sv, ':');
+    }
+    sv = nob_sv_trim(sv);
+
+    Nob_String_View sv2;
+    char *cstr;
+    while (sv.count > 0) {
+        sv = nob_sv_trim(sv);
+        sv2 = nob_sv_chop_by_delim(&sv, ' ');
+        cstr = nob_temp_sprintf(SV_Fmt, SV_Arg(sv2));
+
+        if (strcmp(cstr, "\\") == 0)
+            continue;
+
+        nob_da_append(fp, cstr);
+    }
+    nob_sb_free(sb);
+    return fp->count > 0;
 }
