@@ -34,9 +34,9 @@ typedef enum {
 } WIN_H_REG_TYPE;
 
 typedef struct WinVer {
-    unsigned long major;
-    unsigned long minor;
-    unsigned long build;
+    uint32_t major;
+    uint32_t minor;
+    uint32_t build;
 } WinVer;
 
 typedef enum {
@@ -56,10 +56,10 @@ WinVer GetWinVer(void);
 bool WinH_SetConsoleOutputCP(uint32_t wCodePageID);
 bool WinH_CopyFileA(const char *sourceFile, const char *destFile, bool failIfExists);
 bool WinH_CopyFileW(const wchar_t *sourceFile, const wchar_t *destFile, bool failIfExists);
-long WinH_RegGetValueA(int hKey, const char *subKey, const char *value, uint32_t flags, unsigned long *valueType, char *regValue,
-                       unsigned long *regValueSize);
-long WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, uint32_t flags, unsigned long *valueType, wchar_t *regValue,
-                       unsigned long *regValueSize);
+
+int32_t WinH_RegGetValueA(int hKey, const char *subKey, const char *value, uint32_t flags, uint32_t *valueType, char *regValue, uint32_t *regValueSize);
+
+int32_t WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, uint32_t flags, uint32_t *valueType, wchar_t *regValue, uint32_t *regValueSize);
 
 char *WinH_win32_error_message(uint32_t err);
 #endif /* KXD_WIN_H_ISOLATION */
