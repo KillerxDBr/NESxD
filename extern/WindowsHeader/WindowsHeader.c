@@ -155,7 +155,7 @@ WinVer GetWinVer(void) {
 WVResp GetWindowsVersion(void) {
     const WinVer ver = GetWinVer();
     if (ver.build == 0) {
-        if (ver.major < 5UL) return OLDER_WIN;
+        if (ver.major < 5UL || (ver.major == 5UL && ver.minor < 1UL)) return OLDER_WIN;
         if (ver.major < 6UL) return WIN_XP;
         if (ver.major == 6UL) {
             switch (ver.minor) {
@@ -166,8 +166,40 @@ WVResp GetWindowsVersion(void) {
             }
         }
         fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, "GetWinVer");
+        fflush(stderr);
         abort();
     }
     return ver.build >= 21996UL ? WIN_11 : WIN_10; // if build >= 21996 = Win 11 else Win 10
 }
 // clang-format on
+
+#ifndef WinH_WIN32_ERR_MSG_SIZE
+#define WinH_WIN32_ERR_MSG_SIZE (4 * 1024)
+#endif // WinH_WIN32_ERR_MSG_SIZE
+
+char *WinH_win32_error_message(uint32_t err) {
+    static char win32ErrMsg[WinH_WIN32_ERR_MSG_SIZE] = {0};
+    DWORD errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, LANG_USER_DEFAULT, win32ErrMsg,
+                                      WinH_WIN32_ERR_MSG_SIZE, NULL);
+
+    if (errMsgSize == 0) {
+        char *newErrMsg = NULL;
+        if (GetLastError() == ERROR_MR_MID_NOT_FOUND) {
+            newErrMsg = "Invalid Win32 error code";
+        } else {
+            newErrMsg = "Could not get error message";
+        }
+
+        if (snprintf(win32ErrMsg, sizeof(win32ErrMsg), "%s for 0x%X", newErrMsg, err) > 0) {
+            return (char *)&win32ErrMsg;
+        } else {
+            return newErrMsg;
+        }
+    }
+
+    while (errMsgSize > 1 && isspace(win32ErrMsg[errMsgSize - 1])) {
+        win32ErrMsg[--errMsgSize] = '\0';
+    }
+
+    return win32ErrMsg;
+}
