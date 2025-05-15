@@ -6,21 +6,25 @@
 #undef _UNICODE
 #endif
 
-#define NOB_IMPLEMENTATION
-#include "include/nob.h"
-
 #include <locale.h>
 #include <signal.h>
 
-#if defined(_WIN32)
-#include <consoleapi2.h>
-#endif // defined(_WIN32)
+#define NOB_IMPLEMENTATION
+#include "include/nob.h"
+
+#define FLAG_IMPLEMENTATION
+#include "include/flag.h"
 
 #include "build_src/nob_shared.h"
 
 #if defined(_WIN32)
+#undef _WINCON_
+#include <wincon.h>
+#endif // defined(_WIN32)
+
+#if defined(_WIN32)
 const char *libs[] = {
-    "gdi32", "winmm", "comdlg32", "ole32", "shell32", "Dbghelp",
+    "gdi32", "winmm", "comdlg32", "ole32", "shell32",
 };
 #else
 #define LIBS "-lm"
@@ -76,19 +80,19 @@ Nob_File_Paths obj = { 0 };
 Resources resources = { 0 };
 
 bool BuildRayLib(bool isWeb);
-bool PrecompileHeader(bool isWeb);
-bool CompileFiles(bool isWeb);
+bool Bundler(char **path, size_t pathCount);
 bool CleanupFiles(void);
 bool CompileDependencies(bool isWeb);
-bool LinkExecutable(bool isWeb);
+bool CompileFiles(bool isWeb);
 bool CompileNobHeader(bool isWeb);
-bool Bundler(char **path, size_t pathCount);
+bool CompileSHLibs(bool isWeb);
+bool IsExeInPath(const char *exe);
+bool LinkExecutable(bool isWeb);
+bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile);
+bool PrecompileHeader(bool isWeb);
+bool TestCompiler(void);
 bool TestFile(void);
 bool WebServer(const char *pyExec);
-bool TestCompiler(void);
-bool C3Compile(bool isWeb);
-bool IsExeInPath(const char *exe);
-bool ParseDependencyFile(Nob_File_Paths *fp, const char *depFile);
 
 typedef struct WinVer {
     unsigned long major;
@@ -129,6 +133,8 @@ int main(int argc, char **argv) {
     NOB_GO_REBUILD_URSELF_PLUS(argc, argv, "include/nob.h", "build_src/nob_shared.h", "build_src/nob_imgui.c", "build_src/nob_raylib.c");
 
 #if defined(_WIN32)
+    SetErrorMode(1);
+
     if (!SetConsoleOutputCP(CP_UTF8)) {
         nob_log(NOB_ERROR, "Could not set console output to 'UTF-8'");
     }
@@ -139,11 +145,11 @@ int main(int argc, char **argv) {
 
         // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
         if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
-            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
+            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to 1024: %s", "stderr", strerror(errno));
         }
 
         if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
-            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
+            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to 1024: %s", "stdout", strerror(errno));
         }
     }
 #endif // defined(_WIN32)
@@ -165,12 +171,15 @@ int main(int argc, char **argv) {
 
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
-    nob_shift(argv, argc);
+    // nob_shift(argv, argc);
 
     int result = 0;
 
 #define USE_FLAGS
+// #define USE_FLAG_H_LIB
+
 #ifdef USE_FLAGS
+#ifndef USE_FLAG_H_LIB
     // Flags
     // clang-format off
     bool BuildMode   = false;
@@ -214,14 +223,48 @@ int main(int argc, char **argv) {
 
     bool isWeb = WebMode && BuildMode;
     // exit(0);
+
+#else
+
+    bool *BuildModePtr = flag_bool("b", false, "BuildMode");
+    bool *BundlerModePtr = flag_bool("bundler", false, "BundlerMode");
+    bool *CleanModePtr = flag_bool("c", false, "CleanMode");
+    bool *TestModePtr = flag_bool("t", false, "TestMode");
+    bool *WebModePtr = flag_bool("w", false, "WebMode");
+
+    if (!flag_parse(argc, argv)) {
+        PrintUsage();
+        flag_print_error(stderr);
+        exit(1);
+    }
+
+    bool BuildMode = *BuildModePtr;
+    bool BundlerMode = *BundlerModePtr;
+    bool CleanMode = *CleanModePtr;
+    bool TestMode = *TestModePtr;
+    bool WebMode = *WebModePtr;
+
+    if (!BuildMode && !CleanMode && !WebMode && !BundlerMode && !TestMode) BuildMode = true;
+
+    bool isWeb = WebMode && BuildMode;
+
+    nob_log(NOB_INFO, "Flags =====================================");
+    BOOLLOG(BuildMode);
+    BOOLLOG(BundlerMode);
+    BOOLLOG(CleanMode);
+    BOOLLOG(TestMode);
+    BOOLLOG(WebMode);
+#endif
 #endif
 
     nob_log(NOB_INFO, "Compilers =================================");
     nob_log(NOB_INFO, "Using C Compiler: \"" CC "\"");
     nob_log(NOB_INFO, "Using C++ Compiler: \"" CXX "\"");
-    nob_log(NOB_INFO, "Using WASM C Compiler: \"" EMCC "\"");
-    nob_log(NOB_INFO, "Using WASM C++ Compiler: \"" EMXX "\"");
-    nob_log(NOB_INFO, "Using C3 Compiler: \"c3c\"");
+    if(isWeb) {
+        nob_log(NOB_INFO, "Using WASM C Compiler: \"" EMCC "\"");
+        nob_log(NOB_INFO, "Using WASM C++ Compiler: \"" EMXX "\"");
+    }
+    // nob_log(NOB_INFO, "Using C3 Compiler: \"c3c\"");
 
     hasCCache = IsExeInPath(CCACHE);
 
@@ -276,10 +319,10 @@ int main(int argc, char **argv) {
         if (!CompileFiles(isWeb))
             nob_return_defer(1);
 
-        nob_log(NOB_INFO, "--- Compiling C3 Module ---");
-        if (!C3Compile(isWeb)) {
-            nob_return_defer(1);
-        }
+        // nob_log(NOB_INFO, "--- Compiling C3 Module ---");
+        // if (!C3Compile(isWeb)) {
+        //     nob_return_defer(1);
+        // }
 
         nob_log(NOB_INFO, "--- Compiling Executable ---");
 
@@ -495,7 +538,8 @@ defer:
         "-march=native",                                                                                \
         "-DPLATFORM_DESKTOP",                                                                           \
         "-DGRAPHICS_API_OPENGL_33",                                                                     \
-        "-DNES"
+        "-DNES",                                                                                        \
+        "-s"
 #endif
 // clang-format on
 
@@ -571,6 +615,7 @@ bool PrecompileHeader(bool isWeb) {
     nob_cmd_free(cmd);
 
     bool result = nob_procs_wait(procs);
+    fflush(stderr);
 
     nob_da_free(extraHeaders);
     nob_da_free(procs);
@@ -898,6 +943,7 @@ bool CompileFiles(bool isWeb) {
     }
 #endif
     bool result = nob_procs_wait(procs);
+    fflush(stderr);
 
     nob_cmd_free(cmd);
     nob_cmd_free(webCmd);
@@ -999,12 +1045,14 @@ bool CompileDependencies(bool isWeb) {
     }
 
     bool result = nob_procs_wait(procs);
+    fflush(stderr);
 
     nob_cmd_free(cmd);
     nob_da_free(procs);
     nob_sb_free(sb);
 
-    return CompileNobHeader(isWeb) & result;
+    return CompileSHLibs(isWeb) & result;
+    // return CompileNobHeader(isWeb) & result;
     // defer:
     //     nob_log(NOB_ERROR, "String Buffer is too small, size: %d, expects: %zu", STR_SIZE, sb.count);
     //     return false;
@@ -1072,6 +1120,57 @@ bool CompileNobHeader(bool isWeb) {
 defer:
     nob_temp_rewind(checkpoint);
     nob_cmd_free(cmd);
+    return result;
+}
+
+typedef struct {
+    char *folder;
+    char *fileName;
+    char *define;
+} SHLib;
+
+SHLib SHLibs[] = {
+    { INC_DIR, "stb_ds", "STB_DS_IMPLEMENTATION" },
+    { INC_DIR, "nob", "NOB_IMPLEMENTATION" },
+};
+
+bool CompileSHLibs(bool isWeb) {
+    if (isWeb)
+        NOB_UNREACHABLE("CompileSHLibs isWeb");
+
+    Nob_Cmd cmd = { 0 };
+    const size_t cp = nob_temp_save();
+    bool result = true;
+
+    if (hasCCache)
+        nob_cmd_append(&cmd, CCACHE);
+
+    nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc", NO_LINK_FLAG, "-o");
+    const size_t cmdBkp = cmd.count;
+    for (size_t i = 0; i < NOB_ARRAY_LEN(SHLibs); ++i) {
+        cmd.count = cmdBkp;
+
+        char *output = nob_temp_sprintf(BUILD_DIR "%s.o", SHLibs[i].fileName);
+        char *input = nob_temp_sprintf("%s%s.h", SHLibs[i].folder, SHLibs[i].fileName);
+        char *define = nob_temp_sprintf("-D%s", SHLibs[i].define);
+
+        output = strdup(output);
+        nob_da_append(&obj, output);
+
+        if (nob_needs_rebuild1(output, input) == 0)
+            continue;
+
+        nob_cmd_append(&cmd, output, input, define);
+
+        if (!nob_cmd_run_sync(cmd)) {
+            nob_log(NOB_ERROR, "Could not build '%s'", input);
+            nob_return_defer(false);
+        }
+    }
+
+defer:
+    nob_cmd_free(cmd);
+    nob_temp_rewind(cp);
     return result;
 }
 
@@ -1217,7 +1316,7 @@ bool Bundler(char **path, size_t pathCount) {
         if (dir == NULL) {
 #ifdef _WIN32
             DWORD err = GetLastError();
-            nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%X)", path[i], nob_win32_error_message(err), err);
+            nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%lX)", path[i], nob_win32_error_message(err), err);
 #else
             nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path[i], strerror(errno), errno);
 #endif // _WIN32
@@ -1250,6 +1349,7 @@ bool Bundler(char **path, size_t pathCount) {
     }
 
     bool result = nob_procs_wait(procs);
+    fflush(stderr);
 
     nob_sb_free(sb);
     nob_da_free(procs);
@@ -1447,21 +1547,23 @@ bool TestCompiler(void) {
     }
     nob_log(NOB_INFO, foundCompiler, CC);
 
-    nob_cmd_append(&cmd, "c3c", "-V");
-    if (!nob_cmd_run_sync_redirect_and_reset(&cmd, cr)) {
-        nob_log(NOB_ERROR, missingCompiler, "c3c");
-        nob_return_defer(false);
-    }
-    nob_log(NOB_INFO, foundCompiler, "c3c");
+    // nob_cmd_append(&cmd, "c3c", "-V");
+    // if (!nob_cmd_run_sync_redirect_and_reset(&cmd, cr)) {
+    //     nob_log(NOB_ERROR, missingCompiler, "c3c");
+    //     nob_return_defer(false);
+    // }
+    // nob_log(NOB_INFO, foundCompiler, "c3c");
 
 defer:
     nob_cmd_free(cmd);
     nob_fd_close(nullOutput);
     return result;
 }
-
+/*
 #ifdef _WIN32
+#ifndef _MSC_VER
 #define C3_TARGET "--target", "mingw-x64"
+#endif // _MSC_VER
 #else
 #define C3_TARGET ""
 #endif
@@ -1512,6 +1614,7 @@ defer:
 
     return result;
 }
+*/
 #if defined(_WIN32)
 #define SHARED_USER_DATA (BYTE *)0x7FFE0000
 WinVer GetWinVer(void) {
@@ -1541,7 +1644,7 @@ WinVer GetWinVer(void) {
 WVResp GetWindowsVersion(void) {
     const WinVer ver = GetWinVer();
     if (ver.build == 0) {
-        if (ver.major < 5UL) return OLDER_WIN;
+        if (ver.major < 5UL || (ver.major == 5UL && ver.minor < 1UL)) return OLDER_WIN;
         if (ver.major < 6UL) return WIN_XP;
         if (ver.major == 6UL) {
             switch (ver.minor) {
