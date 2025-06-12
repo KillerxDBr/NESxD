@@ -480,6 +480,7 @@ void *nob_temp_alloc(size_t size);
 char *nob_temp_sprintf(const char *format, ...) NOB_PRINTF_FORMAT(1, 2);
 void nob_temp_reset(void);
 size_t nob_temp_save(void);
+size_t nob_temp_capacity(void);
 void nob_temp_rewind(size_t checkpoint);
 
 // Given any path returns the last part of that path.
@@ -1509,6 +1510,11 @@ void nob_temp_reset(void)
 size_t nob_temp_save(void)
 {
     return nob_temp_size;
+}
+
+size_t nob_temp_capacity(void)
+{
+    return NOB_TEMP_CAPACITY - nob_temp_size;
 }
 
 void nob_temp_rewind(size_t checkpoint)

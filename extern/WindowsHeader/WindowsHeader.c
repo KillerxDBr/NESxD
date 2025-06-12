@@ -2,20 +2,59 @@
 
 #define W32(T) __declspec(dllimport) T __stdcall
 
+#ifndef MAX_PATH
+#define MAX_PATH 260
+#endif
+
+// NOB functions
+void *nob_temp_alloc(size_t size);
+size_t nob_temp_save(void);
+size_t nob_temp_capacity(void);
+const char *nob_win32_error_message(uint32_t);
+
 W32(int) SetConsoleOutputCP(uint32_t);
-bool WinH_SetConsoleOutputCP(uint32_t wCodePageID) {
-    return SetConsoleOutputCP(wCodePageID); //
+bool WinH_SetConsoleOutputCP(uint32_t wCodePageID) { return SetConsoleOutputCP(wCodePageID) != 0; }
+
+bool nob_copy_file(const char *, const char *);
+bool WinH_CopyFile(const char *sourceFile, const char *destFile) { return nob_copy_file(sourceFile, destFile); }
+
+const char *WinH_win32_error_message(uint32_t err) { return nob_win32_error_message(err); }
+
+W32(uint32_t) GetLastError(void);
+W32(void *) LocalFree(void *);
+W32(wchar_t *) GetCommandLineW(void);
+W32(wchar_t **) CommandLineToArgvW(wchar_t *, int *);
+W32(int) WideCharToMultiByte(uint32_t, uint32_t, wchar_t *, int, char *, int, char *, int *);
+
+#define ERROR_INSUFFICIENT_BUFFER 122l
+
+bool WinH_GenerateCmdLineVector(int *argc, char ***argv_ptr) {
+    wchar_t **wargv = CommandLineToArgvW(GetCommandLineW(), argc);
+    char **argv = nob_temp_alloc((*argc) * sizeof(char *));
+    assert(argv != NULL);
+
+    for (int i = 0; i < *argc; ++i) {
+        int charCount = WideCharToMultiByte(65001, 0, wargv[i], -1, NULL, 0, NULL, NULL);
+        if (charCount == 0 || charCount > (int)nob_temp_capacity()) {
+            uint32_t err = GetLastError();
+            fprintf(stderr, "Could not convert Command line argument to C String: %s\n",
+                    WinH_win32_error_message(err ? err : ERROR_INSUFFICIENT_BUFFER));
+            return false;
+        }
+        argv[i] = nob_temp_alloc(charCount);
+        assert(argv[i] != NULL);
+
+        if (WideCharToMultiByte(65001, 0, wargv[i], -1, argv[i], charCount, NULL, NULL) == 0) {
+            fprintf(stderr, "Could not convert Command line argument to C String: %s\n", WinH_win32_error_message(GetLastError()));
+            return false;
+        }
+    }
+
+    *argv_ptr = argv;
+    LocalFree(wargv);
+    return true;
 }
 
-W32(int) CopyFileA(const char *, const char *, int);
-bool WinH_CopyFileA(const char *sourceFile, const char *destFile, bool failIfExists) {
-    return CopyFileA(sourceFile, destFile, failIfExists);
-}
-
-W32(int) CopyFileW(const wchar_t *, const wchar_t *, int);
-bool WinH_CopyFileW(const wchar_t *sourceFile, const wchar_t *destFile, bool failIfExists) {
-    return CopyFileW(sourceFile, destFile, failIfExists);
-}
 /*
 LSTATUS RegGetValueA(
  [in]                HKEY    hkey,
@@ -120,49 +159,10 @@ WVResp GetWindowsVersion(void) {
                 case 3UL: return WIN_81;
             }
         }
-        fprintf(stderr, "%s:%d: UNREACHABLE: %s\n", __FILE__, __LINE__, "GetWinVer");
+        fprintf(stderr, "%s:%d: UNREACHABLE: Invalid Windows Version: %u.%u.%u\n", __FILE__, __LINE__, ver.major, ver.minor, ver.build);
         fflush(stderr);
         abort();
     }
     return ver.build >= 21996UL ? WIN_11 : WIN_10; // if build >= 21996 = Win 11 else Win 10
 }
 // clang-format on
-__declspec(dllimport) int __cdecl isspace(int _C);
-
-#define FORMAT_MESSAGE_IGNORE_INSERTS 0x00000200
-#define FORMAT_MESSAGE_FROM_SYSTEM 0x00001000
-#define ERROR_MR_MID_NOT_FOUND 317l
-
-#ifndef WinH_WIN32_ERR_MSG_SIZE
-#define WinH_WIN32_ERR_MSG_SIZE (4 * 1024)
-#endif // WinH_WIN32_ERR_MSG_SIZE
-
-W32(uint32_t) FormatMessageA(uint32_t, void *, uint32_t, uint32_t, char *, uint32_t, void *);
-W32(uint32_t) GetLastError(void);
-
-char *WinH_win32_error_message(uint32_t err) {
-    static char win32ErrMsg[WinH_WIN32_ERR_MSG_SIZE] = { 0 };
-    uint32_t errMsgSize = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, 0, win32ErrMsg,
-                                         WinH_WIN32_ERR_MSG_SIZE, NULL);
-
-    if (errMsgSize == 0) {
-        char *newErrMsg = NULL;
-        if (GetLastError() == ERROR_MR_MID_NOT_FOUND) {
-            newErrMsg = "Invalid Win32 error code";
-        } else {
-            newErrMsg = "Could not get error message";
-        }
-
-        if (snprintf(win32ErrMsg, sizeof(win32ErrMsg), "%s for 0x%X", newErrMsg, err) > 0) {
-            return (char *)&win32ErrMsg;
-        } else {
-            return newErrMsg;
-        }
-    }
-
-    while (errMsgSize > 1 && isspace(win32ErrMsg[errMsgSize - 1])) {
-        win32ErrMsg[--errMsgSize] = '\0';
-    }
-
-    return win32ErrMsg;
-}

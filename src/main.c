@@ -6,8 +6,8 @@
 extern void c3_teste(lang_t *lang);
 #endif // C3_EXPORT
 
-int main(int argc, char **argv) {
 #if defined(_WIN32)
+int main(void) {
     if (!WinH_SetConsoleOutputCP(CP_UTF8)) {
         LOG_ERR("Could not set console output to 'UTF-8'");
         return 1;
@@ -35,7 +35,20 @@ int main(int argc, char **argv) {
     setlocale(LC_ALL, "C");
 #endif // _UCRT
 
+    int argc;
+    char **argv = NULL;
+    if (!WinH_GenerateCmdLineVector(&argc, &argv)) {
+        LOG_ERR("WinH_GenerateCmdLineVector failed");
+        return 1;
+    }
+
+    // for(int i = 0; i < argc; ++i) {
+    //     LOG_INF("%d: \"%s\"", i+1, argv[i]);
+    // }
+    // return 0;
+
 #else // Non Windows
+int main(int argc, char **argv) {
 #ifdef PLATFORM_WEB
     setlocale(LC_ALL, ""); // Web version
 #else
