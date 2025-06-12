@@ -1,7 +1,7 @@
 #pragma once // nob.c:1108
 #ifndef BUNDLE_H_ // nob.c:1109
 #define BUNDLE_H_ // nob.c:1110
-#include <stdlib.h> // nob.c:1111
+#include <stddef.h> // nob.c:1111
 typedef struct { // nob.c:1112
     const char *file_path; // nob.c:1113
     size_t offset; // nob.c:1114

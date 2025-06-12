@@ -43,20 +43,18 @@ void saveConfig(app_t *app);
 "controller.ButtonSelect",
 */
 
-// clang-format off
 #define NESxD_LANG           "NESxD.lang"
 #define NESxD_SELECTED_THEME "NESxD.selectedTheme"
 #define NESxD_FAST_FORWARD   "NESxD.fastForwardKey"
 #define NESxD_PAUSE          "NESxD.pauseKey"
 
-#define CTRL_BT_UP     "controller.ButtonUp"              
-#define CTRL_BT_DOWN   "controller.ButtonDown"            
-#define CTRL_BT_LEFT   "controller.ButtonLeft"            
-#define CTRL_BT_RIGHT  "controller.ButtonRight"           
-#define CTRL_BT_A      "controller.ButtonA"               
-#define CTRL_BT_B      "controller.ButtonB"               
-#define CTRL_BT_START  "controller.ButtonStart"           
+#define CTRL_BT_UP     "controller.ButtonUp"
+#define CTRL_BT_DOWN   "controller.ButtonDown"
+#define CTRL_BT_LEFT   "controller.ButtonLeft"
+#define CTRL_BT_RIGHT  "controller.ButtonRight"
+#define CTRL_BT_A      "controller.ButtonA"
+#define CTRL_BT_B      "controller.ButtonB"
+#define CTRL_BT_START  "controller.ButtonStart"
 #define CTRL_BT_SELECT "controller.ButtonSelect"
-// clang-format on
 
 #endif /* KXD_CONFIG_H */

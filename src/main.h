@@ -36,6 +36,10 @@
 #include "kxdTypes.h"
 #include "lang.h"
 
+#ifdef KXD_DEBUG
+#include "test.h"
+#endif
+
 #define CIMGUI_USE_GLFW
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include "cimgui/cimgui.h"
@@ -43,15 +47,14 @@
 
 #include "rlImGui/rlImGui.h"
 
-#ifdef KXD_DEBUG
-#include "test.h"
-#endif
-
 #ifndef PLATFORM_WEB
 #include "bundle.h"
 #endif
 
 #include "nob.h"
+
+#define FLAG_IMPLEMENTATION
+#include "flag.h"
 
 #ifndef CP_UTF8
 #define CP_UTF8 65001
@@ -61,12 +64,22 @@
 #define NOPPU
 // #define NOVID
 
-#define KXD_BG (CLITERAL(Color){ 0x38, 0x38, 0x38, 0xFF })
+#define KXD_BG (CLITERAL(Color){0x38, 0x38, 0x38, 0xFF})
 
 // index = y * W + x
 #define XY2Index(x, y, w) ((y * w) + x)
 
-#define CHECK_ROM_HEADER(rom) assert(rom[0] == 'N' && rom[1] == 'E' && rom[2] == 'S' && rom[3] == 0x1A)
+#define CHECK_ROM_HEADER(rom) assert(memcmp(rom, "NES\x1A", 4) == 0)
+
+#ifdef PLATFORM_DESKTOP
+#ifdef _WIN32
+#define KXD_LOCALE "" // Win32 version
+#else
+#define KXD_LOCALE "C.UTF-8" // Non Windows
+#endif                       // _WIN32
+#else
+#define KXD_LOCALE "" // Web version
+#endif                // PLATFORM_DESKTOP
 
 void loadRom(nes_t *nes, const char *fileName);
 void loadRomFromMem(nes_t *nes, const char *fileName);

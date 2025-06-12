@@ -8,7 +8,7 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 // #define RELEASE
 // #define USE_SDL
 #define STATIC
-#define ROM_PATH "rom/"
+#define ROM_PATH     "rom/"
 #define MEM_BIN_PATH "mem.bin"
 
 #ifndef WS_PORT
@@ -19,25 +19,25 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
 #ifndef CC
 #if defined(__GNUC__)
-#define CC "gcc"
+#define CC  "gcc"
 #define CXX "g++"
 #elif defined(__clang__)
-#define C "clang"
+#define C   "clang"
 #define CXX "clang++"
 #elif defined(_MSC_VER)
 #error Cant Compile with MSVC yet...
-#define CC "cl"
+#define CC  "cl"
 #define CXX "cl"
 
 #ifndef MSVC_ENV
 #define MSVC_ENV "D:/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat"
 #endif // MSVC_ENV
 
-#define MSVC(cmd)                                                                                                                          \
-    do {                                                                                                                                   \
-        nob_cmd_append((cmd), "cmd", "/c");                                                                                                \
-        nob_cmd_append((cmd), MSVC_ENV);                                                                                                   \
-        nob_cmd_append((cmd), "&&");                                                                                                       \
+#define MSVC(cmd)                                                                                  \
+    do {                                                                                           \
+        nob_cmd_append((cmd), "cmd", "/c");                                                        \
+        nob_cmd_append((cmd), MSVC_ENV);                                                           \
+        nob_cmd_append((cmd), "&&");                                                               \
     } while (0)
 #else
 #define CC "cc"
@@ -73,28 +73,31 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 
 #define RAYLIB_A "./lib/libraylib.a"
 
-#define BUILD_DIR "build/"
-#define WASM_DIR "wasm/"
-#define BUILD_WASM_DIR BUILD_DIR WASM_DIR
-#define BIN_DIR "bin/"
-#define SRC_DIR "src/"
-#define LIB_DIR "lib/"
+#define BUILD_DIR  "build/"
+#define WASM_DIR   "wasm/"
+#define BIN_DIR    "bin/"
+#define SRC_DIR    "src/"
+#define LIB_DIR    "lib/"
 #define EXTERN_DIR "extern/"
-#define INC_DIR "include/"
+#define INC_DIR    "include/"
 
-#define INCLUDES "-I.", "-I" BUILD_DIR, "-I" INC_DIR, "-I" SRC_DIR, "-Istyles", "-I" EXTERN_DIR, "-ID:/Projetos/cimgui/imgui"
+#define BUILD_WASM_DIR BUILD_DIR WASM_DIR
+
+#define INCLUDES                                                                                   \
+    "-I.", "-I" BUILD_DIR, "-I" INC_DIR, "-I" SRC_DIR, "-Istyles", "-I" EXTERN_DIR,                \
+        "-ID:/Projetos/cimgui/imgui"
 
 #define PROGRAM_NAME "nesxd"
 
 #if defined(_WIN32)
-#define PY_EXEC "py"
+#define PY_EXEC  "py"
 #define EXE_NAME PROGRAM_NAME ".exe"
 #else
-#define PY_EXEC "python3"
+#define PY_EXEC  "python3"
 #define EXE_NAME PROGRAM_NAME
 #endif // defined(_WIN32)
 
-#define EXE_OUTPUT BIN_DIR EXE_NAME
+#define EXE_OUTPUT  BIN_DIR EXE_NAME
 #define WASM_OUTPUT WASM_DIR PROGRAM_NAME ".html"
 
 #define PCH_SUFFIX "_pch.h"

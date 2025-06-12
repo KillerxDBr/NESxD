@@ -64,7 +64,7 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_ADC_IM:
         oldValue = cpu->A;
-        value8 = cpu->mem[incrementPC(cpu)];
+        value8   = cpu->mem[incrementPC(cpu)];
         cpu->A += value8;
         ADC_FLAGS(cpu->A, oldValue, value8);
         incrementPC(cpu);
@@ -72,7 +72,7 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_ADC_Z:
         oldValue = cpu->A;
-        value8 = cpu->mem[cpu->mem[incrementPC(cpu)]];
+        value8   = cpu->mem[cpu->mem[incrementPC(cpu)]];
 
         VARLOG(value8, HEX8);
 
@@ -83,7 +83,7 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_ADC_ZX:
         oldValue = cpu->A;
-        value8 = cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->X];
+        value8   = cpu->mem[cpu->mem[incrementPC(cpu)] + cpu->X];
 
         VARLOG(value8, HEX8);
 
@@ -94,7 +94,7 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_ADC_A:
         oldValue = cpu->A;
-        value8 = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8)];
+        value8   = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8)];
 
         VARLOG(value8, HEX8);
 
@@ -246,7 +246,7 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_STA_INX:
-        value8 = (cpu->mem[incrementPC(cpu)] + cpu->X) % 256;
+        value8  = (cpu->mem[incrementPC(cpu)] + cpu->X) % 256;
         value16 = cpu->mem[value8] + (cpu->mem[(value8 + 1) % 256] << 8);
 
         VARLOG(cpu->A, HEX8);
@@ -259,7 +259,7 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_STA_INY:
-        value8 = cpu->mem[incrementPC(cpu)];
+        value8  = cpu->mem[incrementPC(cpu)];
         value16 = cpu->mem[value8] + (cpu->mem[(value8 + 1) % 256] << 8) + cpu->Y;
 
         VARLOG(cpu->A, HEX8);
@@ -401,7 +401,7 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_DEC_Z:
-        value8 = cpu->mem[incrementPC(cpu)];
+        value8  = cpu->mem[incrementPC(cpu)];
         value16 = cpu->mem[value8] + (cpu->mem[(value8 + 1) % 256] << 8);
         cpu->mem[value16]--;
         DEC_FLAGS(cpu->mem[value16]);
@@ -409,7 +409,7 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_DEC_ZX:
-        value8 = cpu->mem[incrementPC(cpu)] + cpu->X;
+        value8  = cpu->mem[incrementPC(cpu)] + cpu->X;
         value16 = cpu->mem[value8] + (cpu->mem[(value8 + 1) % 256] << 8);
         cpu->mem[value16]--;
         DEC_FLAGS(cpu->mem[value16]);
@@ -429,19 +429,20 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_JMP_A:
-        value8 = incrementPC(cpu);
+        value8  = incrementPC(cpu);
         cpu->PC = cpu->mem[value8] + (cpu->mem[(value8 + 1) % 256] << 8);
         break;
 
     case INS_JMP_I:
-        value8 = incrementPC(cpu);
+        value8  = incrementPC(cpu);
         value16 = (cpu->mem[value8] + (cpu->mem[(value8 + 1) % 256] << 8)) % 65536;
         cpu->PC = cpu->mem[value16] + (cpu->mem[(value16 + 1) % 65536] << 8);
         break;
 
     default:
 #ifdef KXD_DEBUG
-        LOG_ERR("Unhandled Instruction: mem[" HEX16 "] -> " HEX8 ", Skipping...", cpu->PC, cpu->mem[cpu->PC]);
+        LOG_ERR("Unhandled Instruction: mem[" HEX16 "] -> " HEX8 ", Skipping...", cpu->PC,
+                cpu->mem[cpu->PC]);
         incrementPC(cpu);
 #else
         assert(0 && "Unreachable!!!");
@@ -476,7 +477,6 @@ void debugCPU(cpu_t *cpu) {
     BOOLLOG(cpu->N);
     LOG_INF("Memory==================");
     VARLOG(cpu->mem[cpu->PC], "0x%02X");
-    LOG_INF("");
 }
 
 void pushToStack(cpu_t *cpu) {
@@ -492,11 +492,13 @@ void popFromStack(cpu_t *cpu) {
 bool initCPU(cpu_t *cpu) {
 
     // set Reset Vector
-    addToMem(cpu->mem, RESET_VECTOR, 0x1234);
+    // addToMem(cpu->mem, RESET_VECTOR, 0x1234);
+    writeWord(cpu, 0x1234, RESET_VECTOR);
 
     cpu->PC = cpu->mem[RESET_VECTOR] + (cpu->mem[RESET_VECTOR + 1] << 8);
     cpu->SP = 0xFF;
     debugCPU(cpu);
+    LOG_INF("========================");
     // exit(0);
     return true;
 }

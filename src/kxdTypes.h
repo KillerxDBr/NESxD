@@ -8,41 +8,73 @@
 #include "raylib.h"
 
 // resolution 256 x 224
-#define NES_W 256
-#define NES_H 224
+#define NES_W  256
+#define NES_H  224
 #define FACTOR 2
 
 #define NES_AR ((float)NES_W / (float)NES_H)
 
-#define NOP_CMD "-NOP"
+#define NOP_CMD  "-NOP"
 #define TEST_CMD "-T"
 
 #define MENU_BAR_SIZE 20
 
-#define MB(n) (n * 1048576)
-#define KB(n) (n * 1024)
+#define MB(n) ((size_t)(n * 1048576ULL))
+#define KB(n) ((size_t)(n * 1024ULL))
 // #define MEMSIZE (KB(2))
 #define MEMSIZE (KB(64))
 
-typedef struct IVector2 {
-    int x, y;
-} IVector2;
+typedef struct u8Vec2 {
+    uint8_t x, y;
+} u8Vec2;
 
-typedef struct DVector2 {
+typedef struct i8Vec2 {
+    int8_t x, y;
+} i8Vec2;
+
+typedef struct u16Vec2 {
+    uint16_t x, y;
+} u16Vec2;
+
+typedef struct i16Vec2 {
+    int16_t x, y;
+} i16Vec2;
+
+typedef struct u32Vec2 {
+    uint32_t x, y;
+} u32Vec2;
+
+typedef struct i32Vec2 {
+    int32_t x, y;
+} i32Vec2;
+
+typedef struct f32Vec2 {
+    float x, y;
+} f32Vec2;
+
+typedef struct f64Vec2 {
     double x, y;
-} DVector2;
+} f64Vec2;
 
 #ifndef V2
-#define V2(x, y) (CLITERAL(Vector2){ (float)(x), (float)(y) })
+#define V2(x, y) (CLITERAL(Vector2){(float)(x), (float)(y)})
 #endif /* V2 */
 
-#ifndef IV2
-#define IV2(x, y) (CLITERAL(IVector2){ (int)(x), (int)(y) })
-#endif /* IV2 */
+#ifndef f32V2
+#define f32V2(x, y) (CLITERAL(f32Vec2){(float)(x), (float)(y)})
+#endif /* f32V2 */
 
-#ifndef DV2
-#define DV2(x, y) (CLITERAL(DVector2){ (double)(x), (double)(y) })
-#endif /* IV2 */
+#ifndef I32V2
+#define I32V2(x, y) (CLITERAL(i32Vec2){(int32_t)(x), (int32_t)(y)})
+#endif /* I32V2 */
+
+#ifndef U32V2
+#define U32V2(x, y) (CLITERAL(u32Vec2){(uint32_t)(x), (uint32_t)(y)})
+#endif /* U32V2 */
+
+#ifndef f64V2
+#define f64V2(x, y) (CLITERAL(f64Vec2){(double)(x), (double)(y)})
+#endif /* f64V2 */
 
 typedef struct {
     uint16_t ButtonUp;
@@ -108,8 +140,10 @@ typedef struct {
 
 typedef struct {
     const char *base;
+
     char code[2];
     char country[2];
+
     const char *name;
     const char *author;
     const char *text_paused;
@@ -136,7 +170,7 @@ typedef struct {
 
 typedef struct {
     // Screen
-    size_t screenW, screenH;
+    uint16_t screenW, screenH;
     Rectangle sourceRec, destRec;
     RenderTexture2D screen;
 

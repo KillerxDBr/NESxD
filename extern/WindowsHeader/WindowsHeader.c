@@ -16,7 +16,9 @@ W32(int) SetConsoleOutputCP(uint32_t);
 bool WinH_SetConsoleOutputCP(uint32_t wCodePageID) { return SetConsoleOutputCP(wCodePageID) != 0; }
 
 bool nob_copy_file(const char *, const char *);
-bool WinH_CopyFile(const char *sourceFile, const char *destFile) { return nob_copy_file(sourceFile, destFile); }
+bool WinH_CopyFile(const char *sourceFile, const char *destFile) {
+    return nob_copy_file(sourceFile, destFile);
+}
 
 const char *WinH_win32_error_message(uint32_t err) { return nob_win32_error_message(err); }
 
@@ -30,7 +32,7 @@ W32(int) WideCharToMultiByte(uint32_t, uint32_t, wchar_t *, int, char *, int, ch
 
 bool WinH_GenerateCmdLineVector(int *argc, char ***argv_ptr) {
     wchar_t **wargv = CommandLineToArgvW(GetCommandLineW(), argc);
-    char **argv = nob_temp_alloc((*argc) * sizeof(char *));
+    char **argv     = nob_temp_alloc((*argc) * sizeof(char *));
     assert(argv != NULL);
 
     for (int i = 0; i < *argc; ++i) {
@@ -45,7 +47,8 @@ bool WinH_GenerateCmdLineVector(int *argc, char ***argv_ptr) {
         assert(argv[i] != NULL);
 
         if (WideCharToMultiByte(65001, 0, wargv[i], -1, argv[i], charCount, NULL, NULL) == 0) {
-            fprintf(stderr, "Could not convert Command line argument to C String: %s\n", WinH_win32_error_message(GetLastError()));
+            fprintf(stderr, "Could not convert Command line argument to C String: %s\n",
+                    WinH_win32_error_message(GetLastError()));
             return false;
         }
     }
@@ -79,33 +82,32 @@ RegGetValueW(
 
 typedef void *HKEY;
 
-#define HKEY_CLASSES_ROOT ((HKEY)(uintptr_t)((int32_t)0x80000000))
-#define HKEY_CURRENT_USER ((HKEY)(uintptr_t)((int32_t)0x80000001))
-#define HKEY_LOCAL_MACHINE ((HKEY)(uintptr_t)((int32_t)0x80000002))
-#define HKEY_USERS ((HKEY)(uintptr_t)((int32_t)0x80000003))
-#define HKEY_PERFORMANCE_DATA ((HKEY)(uintptr_t)((int32_t)0x80000004))
-#define HKEY_PERFORMANCE_TEXT ((HKEY)(uintptr_t)((int32_t)0x80000050))
-#define HKEY_PERFORMANCE_NLSTEXT ((HKEY)(uintptr_t)((int32_t)0x80000060))
-#define HKEY_CURRENT_CONFIG ((HKEY)(uintptr_t)((int32_t)0x80000005))
-#define HKEY_DYN_DATA ((HKEY)(uintptr_t)((int32_t)0x80000006))
+#define HKEY_CLASSES_ROOT                ((HKEY)(uintptr_t)((int32_t)0x80000000))
+#define HKEY_CURRENT_USER                ((HKEY)(uintptr_t)((int32_t)0x80000001))
+#define HKEY_LOCAL_MACHINE               ((HKEY)(uintptr_t)((int32_t)0x80000002))
+#define HKEY_USERS                       ((HKEY)(uintptr_t)((int32_t)0x80000003))
+#define HKEY_PERFORMANCE_DATA            ((HKEY)(uintptr_t)((int32_t)0x80000004))
+#define HKEY_PERFORMANCE_TEXT            ((HKEY)(uintptr_t)((int32_t)0x80000050))
+#define HKEY_PERFORMANCE_NLSTEXT         ((HKEY)(uintptr_t)((int32_t)0x80000060))
+#define HKEY_CURRENT_CONFIG              ((HKEY)(uintptr_t)((int32_t)0x80000005))
+#define HKEY_DYN_DATA                    ((HKEY)(uintptr_t)((int32_t)0x80000006))
 #define HKEY_CURRENT_USER_LOCAL_SETTINGS ((HKEY)(uintptr_t)((int32_t)0x80000007))
 
 static HKEY HKArr[] = {
-    HKEY_CLASSES_ROOT,                //
-    HKEY_CURRENT_USER,                //
-    HKEY_LOCAL_MACHINE,               //
-    HKEY_USERS,                       //
-    HKEY_PERFORMANCE_DATA,            //
-    HKEY_PERFORMANCE_TEXT,            //
-    HKEY_PERFORMANCE_NLSTEXT,         //
-    HKEY_CURRENT_CONFIG,              //
-    HKEY_DYN_DATA,                    //
-    HKEY_CURRENT_USER_LOCAL_SETTINGS, //
+    HKEY_CLASSES_ROOT,
+    HKEY_CURRENT_USER,
+    HKEY_LOCAL_MACHINE,
+    HKEY_USERS,
+    HKEY_PERFORMANCE_DATA,
+    HKEY_PERFORMANCE_TEXT,
+    HKEY_PERFORMANCE_NLSTEXT,
+    HKEY_CURRENT_CONFIG,
+    HKEY_DYN_DATA,
+    HKEY_CURRENT_USER_LOCAL_SETTINGS,
 };
-
+// clang-format off
 W32(int32_t) RegGetValueA(HKEY, const char *, const char *, uint32_t, uint32_t *, char *, uint32_t *);
-int32_t WinH_RegGetValueA(int hKey, const char *subKey, const char *value, uint32_t flags, uint32_t *valueType, char *regValue,
-                          uint32_t *regValueSize) {
+int32_t WinH_RegGetValueA(int hKey, const char *subKey, const char *value, uint32_t flags, uint32_t *valueType, char *regValue, uint32_t *regValueSize) {
     if (hKey < 0 || hKey > (int)(sizeof(HKArr) / sizeof(HKArr[0])))
         return -1;
 
@@ -113,13 +115,13 @@ int32_t WinH_RegGetValueA(int hKey, const char *subKey, const char *value, uint3
 }
 
 W32(int32_t) RegGetValueW(HKEY, const wchar_t *, const wchar_t *, uint32_t, uint32_t *, wchar_t *, uint32_t *);
-int32_t WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, uint32_t flags, uint32_t *valueType, wchar_t *regValue,
-                          uint32_t *regValueSize) {
+int32_t WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value, uint32_t flags, uint32_t *valueType, wchar_t *regValue, uint32_t *regValueSize) {
     if (hKey < 0 || hKey > (int)(sizeof(HKArr) / sizeof(HKArr[0])))
         return -1;
 
     return RegGetValueW(HKArr[hKey], subKey, value, flags, valueType, regValue, regValueSize);
 }
+// clang-format on
 
 #define SHARED_USER_DATA (uint8_t *)0x7FFE0000
 WinVer GetWinVer(void) {

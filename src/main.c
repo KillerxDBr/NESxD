@@ -1,13 +1,9 @@
 #include "main.h"
 
-#define C3_EXPORT
-
-#ifdef C3_EXPORT
-extern void c3_teste(lang_t *lang);
-#endif // C3_EXPORT
-
 #if defined(_WIN32)
 int main(void) {
+    SetErrorMode(SEM_FAILCRITICALERRORS);
+
     if (!WinH_SetConsoleOutputCP(CP_UTF8)) {
         LOG_ERR("Could not set console output to 'UTF-8'");
         return 1;
@@ -17,7 +13,8 @@ int main(void) {
     if (winVer >= WIN_10) {
         LOG_INF("Enabling buffer on console std outputs");
 
-        // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
+        // on Windows 10+ we need buffering or console will get 1 byte at a time
+        // (screwing up utf-8 encoding)
         if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
             LOG_ERR("Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
             return 1;
@@ -28,12 +25,6 @@ int main(void) {
             return 1;
         }
     }
-
-#ifdef _UCRT // ucrtbase.dll Windows
-    setlocale(LC_ALL, ".UTF-8");
-#else  // msvcrt.dll Windows
-    setlocale(LC_ALL, "C");
-#endif // _UCRT
 
     int argc;
     char **argv = NULL;
@@ -47,43 +38,39 @@ int main(void) {
     // }
     // return 0;
 
-#else // Non Windows
+#else  // Non Windows
 int main(int argc, char **argv) {
-#ifdef PLATFORM_WEB
-    setlocale(LC_ALL, ""); // Web version
-#else
-    setlocale(LC_ALL, "C.UTF-8");
-#endif // PLATFORM_WEB
-
 #endif // defined(_WIN32)
+
+    setlocale(LC_CTYPE, KXD_LOCALE);
 
     LOG_INF("Locale set to \"%s\"", setlocale(LC_ALL, NULL));
 
-    bool NOP = false;
-    bool TEST = false;
+    bool *NOP  = flag_bool("NOP", false, "NOP");
+    bool *TEST = flag_bool("TEST", false, "TEST");
+
+    if (!flag_parse(argc, argv)) {
+        // usage(stderr);
+        flag_print_error(stderr);
+        exit(1);
+    }
 
     app_t *app = callocWrapper(1, app_t);
-    app->program = nob_shift(argv, argc);
+    // app->program = nob_shift(argv, argc);
+    app->program = flag_program_name();
 
     initCPU(&app->nes.cpu);
 
-#ifndef PLATFORM_WEB
-    for (int i = 0; i < argc; i++) {
-        NOP = (strcmp(argv[i], NOP_CMD) == 0) || NOP;
-        TEST = (strcmp(argv[i], TEST_CMD) == 0) || TEST;
-        if (NOP && TEST)
-            break;
-    }
-#else
-    NOP = true;
+#ifdef PLATFORM_WEB
+    *NOP = true;
 #endif /* PLATFORM_WEB */
 
-    app->nes.isPaused = NOP;
+    app->nes.isPaused = *NOP;
 
 #ifndef PLATFORM_WEB
 
     app->config.fileName = callocWrapper(strlen(app->program) + sizeof(CONFIG_FILE), char);
-    strcpy(app->config.fileName, app->program);
+    memcpy(app->config.fileName, app->program, strlen(app->program));
 
     const char *exeName = nob_path_name(app->config.fileName);
 
@@ -93,13 +80,13 @@ int main(int argc, char **argv) {
 
     // slash++;
 
-    strcpy((char *)exeName, CONFIG_FILE);
+    memcpy((void *)exeName, CONFIG_FILE, sizeof(CONFIG_FILE));
     app->config.fileName = realloc(app->config.fileName, strlen(app->config.fileName) + 1);
 
-    LOG_INF("app->config.fileName: '%s'", app->config.fileName);
+    VARLOG(app->config.fileName, "'%s'");
 
     char *cwd = strdup(app->program);
-    strcpy(cwd + nameIndex - 1, "");
+    memset(cwd + nameIndex - 1, 0, 1);
 
     for (size_t i = 0; i < strlen(cwd); ++i) {
         if (cwd[i] == '\\') {
@@ -107,9 +94,11 @@ int main(int argc, char **argv) {
         }
     }
 
+    VARLOG(cwd, "'%s'");
     VARLOG(nob_path_name(cwd), "'%s'");
+
     if (DirectoryExists(TextFormat("%s/rom", cwd)) && strcmp(nob_path_name(cwd), "bin") == 0) {
-        strcpy(nob_path_name(cwd) - 1, "");
+        memset((void *)nob_path_name(cwd) - 1, 0, 1);
     }
 
     if (!ChangeDirectory(cwd)) {
@@ -117,7 +106,6 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    VARLOG(cwd, "'%s'");
     free(cwd);
 
 #endif
@@ -131,8 +119,8 @@ int main(int argc, char **argv) {
 
     app->screenW = GetRenderWidth();
     app->screenH = GetRenderHeight();
-    LOG_INF("Screen Width:  %zu", app->screenW);
-    LOG_INF("Screen Heigth: %zu", app->screenH);
+    LOG_INF("Screen Width:  %u", app->screenW);
+    LOG_INF("Screen Heigth: %u", app->screenH);
 
 #ifdef _WIN32
     KxD_Create_Tray(GetWindowHandle());
@@ -141,6 +129,11 @@ int main(int argc, char **argv) {
     // GuiLoadStyleDefault();
 
 #ifndef NOVID
+
+    puts("=================================");
+    TraceLog(LOG_WARNING, "SEED IS FIXED");
+    puts("=================================");
+
     SetRandomSeed(40028922U);
 
     int *seq = LoadRandomSequence(NES_W * NES_H, 0, 0xFFFFFF);
@@ -149,8 +142,10 @@ int main(int argc, char **argv) {
 
     app->screen = LoadRenderTexture(NES_W, NES_H);
 
-    app->sourceRec = CLITERAL(Rectangle){ 0.0f, 0.0f, (float)app->screen.texture.width, -(float)app->screen.texture.height };
-    app->destRec = CLITERAL(Rectangle){ 0.0f, MENU_BAR_SIZE, app->screenW, app->screenH - MENU_BAR_SIZE };
+    app->sourceRec = CLITERAL(Rectangle){0.0f, 0.0f, (float)app->screen.texture.width,
+                                         -(float)app->screen.texture.height};
+    app->destRec =
+        CLITERAL(Rectangle){0.0f, MENU_BAR_SIZE, app->screenW, app->screenH - MENU_BAR_SIZE};
 
     /*
     if (app->screenW >= app->screenH * NES_AR) {
@@ -186,12 +181,12 @@ int main(int argc, char **argv) {
     // VARLOG(screen.texture.height, "%d");
 
     for (int x = 0; x < app->screen.texture.width; x++) {
-        DrawPixel(x, app->screen.texture.height - 1, CLITERAL(Color){ 255, 0, 0, 255 });
-        DrawPixel(x, 0, CLITERAL(Color){ 0, 255, 0, 255 });
+        DrawPixel(x, app->screen.texture.height - 1, CLITERAL(Color){255, 0, 0, 255});
+        DrawPixel(x, 0, CLITERAL(Color){0, 255, 0, 255});
     }
     for (int y = 0; y < app->screen.texture.height; y++) {
-        DrawPixel(0, y, CLITERAL(Color){ 0, 0, 255, 255 });
-        DrawPixel(app->screen.texture.width - 1, y, CLITERAL(Color){ 255, 255, 0, 255 });
+        DrawPixel(0, y, CLITERAL(Color){0, 0, 255, 255});
+        DrawPixel(app->screen.texture.width - 1, y, CLITERAL(Color){255, 255, 0, 255});
     }
 
     EndTextureMode();
@@ -200,11 +195,11 @@ int main(int argc, char **argv) {
 #endif /* NOVID */
 
 #ifndef PLATFORM_WEB
-    cpu_t final = { 0 };
+    cpu_t final = {};
 #endif
 
 #if defined(KXD_DEBUG)
-    if (TEST) {
+    if (*TEST) {
 #if !defined(PLATFORM_WEB)
         // final = callocWrapper(1, cpu_t);
         app->nes.isPaused = false;
@@ -218,15 +213,14 @@ int main(int argc, char **argv) {
 
         const char *memBinPath = "./mem.bin";
 
-        if (!NOP) {
-            Nob_String_Builder memory = { 0 };
-
+        if (!*NOP) {
+            Nob_String_Builder memory = {};
             if (nob_read_entire_file(memBinPath, &memory)) {
                 LOG_INF("Reading %zu instructions from \"%s\"", memory.count, memBinPath);
                 addMultipleToMem(app->nes.cpu.mem, 0, (uint8_t *)memory.items, memory.count);
             } else {
                 LOG_INF("Operating with \"INS_NOP\" only");
-                NOP = true;
+                *NOP = true;
             }
 
             nob_sb_free(memory);
@@ -255,10 +249,6 @@ int main(int argc, char **argv) {
     ImGuiIO *io = igGetIO();
     // io->ConfigFlags
     io->IniFilename = NULL;
-
-#ifdef C3_EXPORT
-    c3_teste(&app->lang); // c3c.exe static-lib .\libc3teste.c3 --target mingw-x64
-#endif                    // C3_EXPORT
 
 #ifdef PLATFORM_WEB
     emscripten_set_main_loop_arg(mainLoop, app, 60, 1);
@@ -343,12 +333,12 @@ int main(int argc, char **argv) {
 }
 
 void loadRom(nes_t *nes, const char *fileName) {
-    Nob_String_Builder sb = { 0 };
+    Nob_String_Builder sb = {};
 
     if (!nob_read_entire_file(fileName, &sb))
         goto errorLoadRom;
 
-    nes->rom = (uint8_t *)sb.items;
+    nes->rom     = (uint8_t *)sb.items;
     nes->romSize = sb.count;
     LOG_INF("ROM Loaded with success");
 
@@ -435,10 +425,10 @@ void processRomHeader(nes_t *nes) {
 
     // Allocating
 
-    LOG_INF("Allocating %d bytes for PRG-ROM...", nes->PRGSize);
+    LOG_INF("Allocating %zu bytes for PRG-ROM...", nes->PRGSize);
     nes->PRG = callocWrapper(nes->PRGSize, uint8_t);
 
-    LOG_INF("Allocating %d bytes for CHR-ROM...", nes->CHRSize);
+    LOG_INF("Allocating %zu bytes for CHR-ROM...", nes->CHRSize);
     nes->CHR = callocWrapper(nes->CHRSize, uint8_t);
 }
 
@@ -454,7 +444,7 @@ void mainLoop(void *app_ptr) {
 
             app->screenW = GetRenderWidth();
             app->screenH = GetRenderHeight();
-            LOG_INF("New Size: " V2_CFMT("%zu"), app->screenW, app->screenH);
+            LOG_INF("New Size: " V2_CFMT("%u"), app->screenW, app->screenH);
             calcScreenPos(app);
             LOG_INF("app->destRec: " RECT_FMT, RECT_ARGS(app->destRec));
         }
@@ -481,29 +471,36 @@ void mainLoop(void *app_ptr) {
         DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);
         DrawLine((app->screenW / 2), 0, (app->screenW / 2), app->screenH, GREEN);
 
-        DrawRectangle(4, 4 + MENU_BAR_SIZE, 75, 20, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        DrawRectangle(4, 4 + MENU_BAR_SIZE, 75, 20,
+                      GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
         DrawFPS(5, 5 + MENU_BAR_SIZE);
 
         if (app->nes.isPaused) {
             const Font font = GuiGetFont();
-            const Vector2 pauseSize = MeasureTextEx(font, app->lang.text_paused, app->screenW * .1f, font.baseSize);
+            const Vector2 pauseSize =
+                MeasureTextEx(font, app->lang.text_paused, app->screenW * .1f, font.baseSize);
 
-            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f), (app->screenH * .5f) - (pauseSize.y * .6f),
+            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f),
+                          (app->screenH * .5f) - (pauseSize.y * .6f),
                           pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
                           GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-            DrawRectangleLinesEx(CLITERAL(Rectangle){ (app->screenW * .5f) - (pauseSize.x * .6f) - 1,
-                                                      (app->screenH * .5f) - (pauseSize.y * .6f), pauseSize.x + (pauseSize.x * .2f) + 1,
-                                                      pauseSize.y + (pauseSize.y * .2f) },
-                                 (pauseSize.y + (pauseSize.y * .2f) + 1) * .05f, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+            DrawRectangleLinesEx(CLITERAL(Rectangle){(app->screenW * .5f) - (pauseSize.x * .6f) - 1,
+                                                     (app->screenH * .5f) - (pauseSize.y * .6f),
+                                                     pauseSize.x + (pauseSize.x * .2f) + 1,
+                                                     pauseSize.y + (pauseSize.y * .2f)},
+                                 (pauseSize.y + (pauseSize.y * .2f) + 1) * .05f,
+                                 GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
-            // DrawText(app->lang.text_paused, (app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f),
-            // app->screenW * .1f,
+            // DrawText(app->lang.text_paused, (app->screenW * .5f) - (pauseSize.x * .5f),
+            // (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW * .1f,
             //          GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
             DrawTextPro(font, app->lang.text_paused,
-                        V2((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f)), Vector2Zero(), 0,
-                        app->screenW * .1f, font.baseSize, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+                        V2((app->screenW * .5f) - (pauseSize.x * .5f),
+                           (app->screenH * .5f) - (pauseSize.y * .5f)),
+                        Vector2Zero(), 0, app->screenW * .1f, font.baseSize,
+                        GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
         }
 
 #ifdef KXD_DEBUG
@@ -516,10 +513,11 @@ void mainLoop(void *app_ptr) {
             app->menu.openFile = IsKeyPressed(KEY_O);
 #ifndef PLATFORM_WEB
             if (app->menu.openFile) {
-                static char *selectedFile = NULL;
-                static const char *const filters[] = { "*.nes" };
+                static char *selectedFile          = NULL;
+                static const char *const filters[] = {"*.nes"};
 
-                selectedFile = tinyfd_openFileDialog("Open...", ".\\", NOB_ARRAY_LEN(filters), filters, "NES ROM File (*.nes)", false);
+                selectedFile = tinyfd_openFileDialog("Open...", ".\\", NOB_ARRAY_LEN(filters),
+                                                     filters, "NES ROM File (*.nes)", false);
 
                 if (selectedFile)
                     tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
@@ -556,14 +554,16 @@ void mainLoop(void *app_ptr) {
                 igShowDemoWindow(&show_demo_window);
 
             static bool show_another_window = true;
-            static float f = 0.0f;
-            static int counter = 0;
+            static float f                  = 0.0f;
+            static int counter              = 0;
 
             igBegin("Hello, world!", NULL, 0);
 
-            igSliderFloat("float", &f, 0.0f, 1.0f, NULL, 0); // Edit 1 float using a slider from 0.0f to 1.0f
+            // Edit 1 float using a slider from 0.0f to 1.0f
+            igSliderFloat("float", &f, 0.0f, 1.0f, NULL, 0);
 
-            if (igSmallButton("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
+            // Buttons return true when clicked (most widgets return true when edited/activated)
+            if (igSmallButton("Button"))
                 counter++;
 
             igSameLine(0, 5);
@@ -575,7 +575,8 @@ void mainLoop(void *app_ptr) {
             igEnd();
 
             if (show_another_window) {
-                // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+                // Pass a pointer to our bool variable
+                // (the window will have a closing button that will clear the bool when clicked)
                 igBegin("Another Window", &show_another_window, 0);
                 igText("Hello from another window!");
                 if (igSmallButton("Close Me"))
@@ -593,17 +594,17 @@ void mainLoop(void *app_ptr) {
 
 void calcScreenPos(app_t *app) {
     if (app->screenW >= ((app->screenH - MENU_BAR_SIZE) * NES_AR)) {
-        app->destRec.width = (app->screenH - MENU_BAR_SIZE) * NES_AR;
+        app->destRec.width  = (app->screenH - MENU_BAR_SIZE) * NES_AR;
         app->destRec.height = app->destRec.width * (1 / NES_AR);
-        app->destRec.x = (app->screenW * .5f) - (app->destRec.width * .5f);
-        app->destRec.y = MENU_BAR_SIZE;
+        app->destRec.x      = (app->screenW * .5f) - (app->destRec.width * .5f);
+        app->destRec.y      = MENU_BAR_SIZE;
         if (app->destRec.x < 0) {
             app->destRec.x = 0;
         }
     } else {
         app->destRec.height = app->screenW * (1 / NES_AR);
-        app->destRec.width = app->destRec.height * NES_AR;
-        app->destRec.x = 0;
+        app->destRec.width  = app->destRec.height * NES_AR;
+        app->destRec.x      = 0;
         app->destRec.y = (app->screenH * .5f) - (app->destRec.height * .5f) + (MENU_BAR_SIZE * .5f);
         if (app->destRec.y < 0) {
             app->destRec.y = 0;

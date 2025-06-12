@@ -1,8 +1,10 @@
+# Var Name    , String, Comment
 base          , en-us, Base Language
 code          , pt, Language Code: en, es, pt, etc...
 country       , br, Country Code: us, es, br, pt, etc...
 name          , Portugues (Brasil), Language Name in its native idiom
 name_en-us    , Brazilian Portuguese, Language name in other idioms
+en-us_name    , Ingles, Name of other language in this idiom
 author        , Killer_xD, Localization author
 text_paused   , Pausado...
 menu_file     , Arquivo

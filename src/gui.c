@@ -2,8 +2,7 @@
 
 // force loading dark theme for now
 void initGui(app_t *app) {
-    //
-    updateTheme(app);
+    updateTheme(app); //
 }
 
 void updateTheme(app_t *app) {
@@ -27,24 +26,26 @@ void updateTheme(app_t *app) {
 }
 
 void KxDGui(app_t *app) {
-    if (GuiButton(CLITERAL(Rectangle){ 10, 10 + MENU_BAR_SIZE, 100, 20 }, "Press Me!!!")) {
+    if (GuiButton(CLITERAL(Rectangle){10, 10 + MENU_BAR_SIZE, 100, 20}, "Press Me!!!")) {
         app->config.activeTheme = (app->config.activeTheme + 1) % KXD_ARRAY_LEN(themeNames);
-        LOG_INF("Theme changed to \"%s\" (%u)", themeNames[app->config.activeTheme], app->config.activeTheme + 1);
+        LOG_INF("Theme changed to \"%s\" (%u)", themeNames[app->config.activeTheme],
+                app->config.activeTheme + 1);
         updateTheme(app);
     }
 
     const Vector2 spacing = V2(app->screenW * .01f, app->screenH * .01f);
-    const Font font = GuiGetFont();
-    const float FontSize = font.baseSize;
+    const Font font       = GuiGetFont();
+    const float FontSize  = font.baseSize;
     const int textSpacing = GuiGetStyle(DEFAULT, TEXT_SPACING);
-    const char *themeText = TextFormat("Active Theme: %s (%u)", themeNames[app->config.activeTheme], app->config.activeTheme + 1);
+    const char *themeText = TextFormat("Active Theme: %s (%u)", themeNames[app->config.activeTheme],
+                                       app->config.activeTheme + 1);
 
     const Vector2 textSize = MeasureTextEx(font, themeText, FontSize, textSpacing);
 
     Rectangle rect = {
-        .x = (app->screenW * .6f) - spacing.x,
-        .y = (app->screenH * .85f) - spacing.y,
-        .width = textSize.x + (spacing.x * 2),
+        .x      = (app->screenW * .6f) - spacing.x,
+        .y      = (app->screenH * .85f) - spacing.y,
+        .width  = textSize.x + (spacing.x * 2),
         .height = textSize.y + (spacing.y * 2),
     };
 
@@ -59,5 +60,6 @@ void KxDGui(app_t *app) {
     const Color textColor = GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL));
     DrawRectangleLinesEx(rect, rect.height * .05f, textColor);
 
-    DrawTextPro(font, themeText, V2(rect.x + spacing.x, rect.y + spacing.y), Vector2Zero(), 0, FontSize, textSpacing, textColor);
+    DrawTextPro(font, themeText, V2(rect.x + spacing.x, rect.y + spacing.y), Vector2Zero(), 0,
+                FontSize, textSpacing, textColor);
 }

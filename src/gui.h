@@ -28,7 +28,8 @@
 #include "terminal/style_terminal.h"
 
 const char *themeNames[MAX_GUI_STYLES_AVAILABLE] = {
-    "Light", "Ashes", "Bluish", "Candy", "Cherry", "Cyber", "Dark", "Enefete", "Jungle", "Lavanda", "Sunny", "Terminal",
+    "Light", "Ashes",   "Bluish", "Candy",   "Cherry", "Cyber",
+    "Dark",  "Enefete", "Jungle", "Lavanda", "Sunny",  "Terminal",
 };
 
 #else

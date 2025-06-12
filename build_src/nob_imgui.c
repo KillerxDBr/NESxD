@@ -17,8 +17,12 @@
 #if 1
 
 const char *rli_files[] = {
-    "extern/cimgui/cimgui",           "extern/cimgui/imgui/imgui",        "extern/cimgui/imgui/imgui_demo",
-    "extern/cimgui/imgui/imgui_draw", "extern/cimgui/imgui/imgui_tables", "extern/cimgui/imgui/imgui_widgets",
+    "extern/cimgui/cimgui",
+    "extern/cimgui/imgui/imgui",
+    "extern/cimgui/imgui/imgui_demo",
+    "extern/cimgui/imgui/imgui_draw",
+    "extern/cimgui/imgui/imgui_tables",
+    "extern/cimgui/imgui/imgui_widgets",
     "extern/rlImGui/rlImGui",
 };
 
@@ -26,11 +30,12 @@ bool CompileRLImgui(bool isWeb) {
     bool result = true;
 
     const size_t cp = nob_temp_save();
-    Nob_Cmd cmd = { 0 };
-    Nob_Cmd webCmd = { 0 };
-    Nob_Procs procs = { 0 };
-    Nob_File_Paths deps = { 0 };
-    Nob_String_Builder cmdRender = { 0 };
+
+    Nob_Cmd cmd                  = {};
+    Nob_Cmd webCmd               = {};
+    Nob_Procs procs              = {};
+    Nob_File_Paths deps          = {};
+    Nob_String_Builder cmdRender = {};
 
     if (isWeb) {
         EMS(&cmd);
@@ -44,21 +49,31 @@ bool CompileRLImgui(bool isWeb) {
 
     const size_t cmdSize = cmd.count;
     for (size_t i = 0; i < NOB_ARRAY_LEN(rli_files); ++i) {
-        cmd.count = cmdSize;
-        deps.count = 0;
+        cmd.count       = cmdSize;
+        deps.count      = 0;
+        cmdRender.count = 0;
 
-        char *input = nob_temp_sprintf("%s%s", rli_files[i], ".cpp");
-        char *output = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, nob_path_name(rli_files[i]), ".o");
+        char *input   = nob_temp_sprintf("%s%s", rli_files[i], ".cpp");
+        char *output  = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR,
+                                         nob_path_name(rli_files[i]), ".o");
         char *depFile = nob_temp_sprintf("%s%s", output, ".d");
 
-        if (!ParseDependencyFile(&deps, depFile)) {
+        if (!ParseDependencyFile(&deps, &cmdRender, depFile)) {
             nob_da_append(&deps, input);
+            char *header = nob_temp_strdup(input);
+            char *SubStr = strstr(header, ".c");
+            if (SubStr && *SubStr) {
+                SubStr++;
+                *SubStr = 'h';
+                if (nob_file_exists(header) > 0)
+                    nob_da_append(&deps, header);
+            }
         }
 
         if (nob_needs_rebuild(output, deps.items, deps.count) != 0) {
             nob_log(NOB_INFO, "--- Generating %s ---", output);
             if (isWeb) {
-                webCmd.count = 0;
+                webCmd.count    = 0;
                 cmdRender.count = 0;
 
                 nob_cmd_append(&cmd, "-o", output, input);
@@ -94,19 +109,20 @@ bool CompileRLImgui(bool isWeb) {
 }
 #else
 bool CompileRLImgui(bool isWeb) {
-    bool result = true;
+    bool result          = true;
     const char *compiler = isWeb ? ("em++") : ("g++");
     const size_t temp_cp = nob_temp_save();
 
-    Nob_Cmd cmd = { 0 };
-    Nob_Cmd webCmd = { 0 };
-    Nob_String_Builder cmdRender = { 0 };
+    Nob_Cmd cmd                  = {};
+    Nob_Cmd webCmd               = {};
+    Nob_String_Builder cmdRender = {};
 
     char *output = isWeb ? strdup(BUILD_WASM_DIR "cimgui.o") : strdup(BUILD_DIR "cimgui.o");
     if (nob_needs_rebuild1(output, "extern/cimgui/cimgui.cpp") > 0) {
         if (isWeb)
             EMS(&cmd);
-        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG, "extern/cimgui/cimgui.cpp");
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG,
+                       "extern/cimgui/cimgui.cpp");
         if (isWeb) {
             nob_cmd_append(&cmd, IG_WFLAGS);
             cmdRender.count = 0;
@@ -131,7 +147,8 @@ bool CompileRLImgui(bool isWeb) {
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui.cpp") > 0) {
         if (isWeb)
             EMS(&cmd);
-        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG, "extern/cimgui/imgui/imgui.cpp", IG_CFLAGS);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG,
+                       "extern/cimgui/imgui/imgui.cpp", IG_CFLAGS);
         if (isWeb) {
             cmdRender.count = 0;
             nob_cmd_render(cmd, &cmdRender);
@@ -152,8 +169,8 @@ bool CompileRLImgui(bool isWeb) {
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui_demo.cpp") > 0) {
         if (isWeb)
             EMS(&cmd);
-        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG, "extern/cimgui/imgui/imgui_demo.cpp",
-                       IG_CFLAGS);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG,
+                       "extern/cimgui/imgui/imgui_demo.cpp", IG_CFLAGS);
         if (isWeb) {
             cmdRender.count = 0;
             nob_cmd_render(cmd, &cmdRender);
@@ -174,8 +191,8 @@ bool CompileRLImgui(bool isWeb) {
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui_draw.cpp") > 0) {
         if (isWeb)
             EMS(&cmd);
-        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG, "extern/cimgui/imgui/imgui_draw.cpp",
-                       IG_CFLAGS);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG,
+                       "extern/cimgui/imgui/imgui_draw.cpp", IG_CFLAGS);
         if (isWeb) {
             cmdRender.count = 0;
             nob_cmd_render(cmd, &cmdRender);
@@ -196,8 +213,8 @@ bool CompileRLImgui(bool isWeb) {
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui_tables.cpp") > 0) {
         if (isWeb)
             EMS(&cmd);
-        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG, "extern/cimgui/imgui/imgui_tables.cpp",
-                       IG_CFLAGS);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG,
+                       "extern/cimgui/imgui/imgui_tables.cpp", IG_CFLAGS);
         if (isWeb) {
             cmdRender.count = 0;
             nob_cmd_render(cmd, &cmdRender);
@@ -218,8 +235,8 @@ bool CompileRLImgui(bool isWeb) {
     if (nob_needs_rebuild1(output, "extern/cimgui/imgui/imgui_widgets.cpp") > 0) {
         if (isWeb)
             EMS(&cmd);
-        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG, "extern/cimgui/imgui/imgui_widgets.cpp",
-                       IG_CFLAGS);
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-o", output, NO_LINK_FLAG,
+                       "extern/cimgui/imgui/imgui_widgets.cpp", IG_CFLAGS);
         if (isWeb) {
             cmdRender.count = 0;
             nob_cmd_render(cmd, &cmdRender);
@@ -240,7 +257,8 @@ bool CompileRLImgui(bool isWeb) {
     if (nob_needs_rebuild1(output, "extern/rlImGui/rlImGui.cpp") > 0) {
         if (isWeb)
             EMS(&cmd);
-        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-Iinclude/", "-Iextern/cimgui/imgui/", "-o", output, NO_LINK_FLAG,
+        nob_cmd_append(&cmd, compiler, "-fdiagnostics-color=never", "-Iinclude/",
+                       "-Iextern/cimgui/imgui/", "-o", output, NO_LINK_FLAG,
                        "extern/rlImGui/rlImGui.cpp", IG_CFLAGS);
         if (isWeb) {
             cmdRender.count = 0;

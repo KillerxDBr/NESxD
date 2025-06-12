@@ -85,10 +85,11 @@ bool BuildRayLib(bool isWeb) {
     char *output;
     char *depFile;
 
-    Nob_Cmd cmd = { 0 };
-    Nob_Cmd webCmd = { 0 };
-    Nob_Procs procs = { 0 };
-    Nob_File_Paths deps = { 0 };
+    Nob_Cmd cmd           = {};
+    Nob_Cmd webCmd        = {};
+    Nob_Procs procs       = {};
+    Nob_File_Paths deps   = {};
+    Nob_String_Builder sb = {};
 
     if (isWeb) {
         EMS(&cmd);
@@ -114,17 +115,27 @@ bool BuildRayLib(bool isWeb) {
         if (isWeb && strcmp(rlFiles[i], "rglfw") == 0)
             continue;
 
-        cmd.count = cmdCount;
+        cmd.count    = cmdCount;
         webCmd.count = 0;
-        deps.count = 0;
+        deps.count   = 0;
+        sb.count     = 0;
 
-        input = nob_temp_sprintf("%s%s%s", RAYLIB_SRC_PATH, rlFiles[i], ".c");
+        input  = nob_temp_sprintf("%s%s%s", RAYLIB_SRC_PATH, rlFiles[i], ".c");
         output = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, rlFiles[i], ".o");
-        depFile = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, rlFiles[i], ".o.d");
+        depFile =
+            nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, rlFiles[i], ".o.d");
 
-        if (!ParseDependencyFile(&deps, depFile)) {
+        if (!ParseDependencyFile(&deps, &sb, depFile)) {
             nob_da_append(&deps, input);
             nob_da_append(&deps, RAYLIB_SRC_PATH "config.h");
+            char *header = nob_temp_strdup(input);
+            char *SubStr = strstr(header, ".c");
+            if (SubStr && *SubStr) {
+                SubStr++;
+                *SubStr = 'h';
+                if (nob_file_exists(header) > 0)
+                    nob_da_append(&deps, header);
+            }
         }
 
         if (nob_needs_rebuild(output, deps.items, deps.count) > 0) {
@@ -132,7 +143,7 @@ bool BuildRayLib(bool isWeb) {
             nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-o", output, NO_LINK_FLAG, input);
 
             if (isWeb) {
-                Nob_String_Builder cmdRender = { 0 };
+                Nob_String_Builder cmdRender = {};
                 nob_cmd_render(cmd, &cmdRender);
                 nob_sb_append_null(&cmdRender);
                 nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
@@ -152,25 +163,35 @@ bool BuildRayLib(bool isWeb) {
 
     // raygui.h ===========================================
     do {
-        cmd.count = cmdCount;
+        cmd.count    = cmdCount;
         webCmd.count = 0;
-        deps.count = 0;
+        deps.count   = 0;
+        sb.count     = 0;
 
-        input = nob_temp_sprintf("%s%s%s", INC_DIR, "raygui", ".h");
-        output = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, "raygui", ".o");
+        input   = nob_temp_sprintf("%s%s%s", INC_DIR, "raygui", ".h");
+        output  = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, "raygui", ".o");
         depFile = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, "raygui", ".o.d");
 
-        if (!ParseDependencyFile(&deps, depFile)) {
+        if (!ParseDependencyFile(&deps, &sb, depFile)) {
             nob_da_append(&deps, input);
             nob_da_append(&deps, RAYLIB_SRC_PATH "config.h");
+            char *header = nob_temp_strdup(input);
+            char *SubStr = strstr(header, ".c");
+            if (SubStr && *SubStr) {
+                SubStr++;
+                *SubStr = 'h';
+                if (nob_file_exists(header) > 0)
+                    nob_da_append(&deps, header);
+            }
         }
 
         if (nob_needs_rebuild(output, deps.items, deps.count) > 0) {
             nob_log(NOB_INFO, "--- Generating %s ---", output);
-            nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-xc", "-o", output, NO_LINK_FLAG, input, "-DRAYGUI_IMPLEMENTATION");
+            nob_cmd_append(&cmd, "-MMD", "-MF", depFile, "-xc", "-o", output, NO_LINK_FLAG, input,
+                           "-DRAYGUI_IMPLEMENTATION");
 
             if (isWeb) {
-                Nob_String_Builder cmdRender = { 0 };
+                Nob_String_Builder cmdRender = {};
                 nob_cmd_render(cmd, &cmdRender);
                 nob_sb_append_null(&cmdRender);
                 nob_cmd_append(&webCmd, "cmd.exe", "/c", nob_temp_strdup(cmdRender.items));
@@ -195,6 +216,7 @@ bool BuildRayLib(bool isWeb) {
     nob_da_free(webCmd);
     nob_da_free(deps);
     nob_da_free(procs);
+    nob_sb_free(sb);
 
     nob_temp_rewind(checkpoint);
 

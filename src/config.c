@@ -51,8 +51,9 @@ void loadConfig(app_t *app) {
 }
 
 void saveConfig(app_t *app) {
-    Nob_String_Builder sb = { 0 };
+    Nob_String_Builder sb = {};
 
+    // clang-format off
     nob_da_append(&sb, RINI_LINE_COMMENT_DELIMITER);
     nob_sb_append_cstr(&sb, " NESxD ================================================================\n");
     nob_da_append(&sb, RINI_LINE_COMMENT_DELIMITER);
@@ -64,6 +65,7 @@ void saveConfig(app_t *app) {
     nob_da_append(&sb, RINI_LINE_COMMENT_DELIMITER);
     nob_da_append(&sb, '\n');
     nob_sb_append_null(&sb);
+    // clang-format on
 
     // sprintf(header,header,RINI_LINE_COMMENT_DELIMITER,RINI_LINE_COMMENT_DELIMITER,RINI_LINE_COMMENT_DELIMITER,RINI_LINE_COMMENT_DELIMITER,RINI_LINE_COMMENT_DELIMITER);
 
@@ -97,7 +99,6 @@ void saveConfig(app_t *app) {
 }
 
 void configControllerDefault(app_t *app) {
-    // clang-format off
     app->nes.controller.ButtonUp    = KEY_W;
     app->nes.controller.ButtonDown  = KEY_S;
     app->nes.controller.ButtonLeft  = KEY_A;
@@ -108,32 +109,34 @@ void configControllerDefault(app_t *app) {
 
     app->nes.controller.ButtonStart  = KEY_E;
     app->nes.controller.ButtonSelect = KEY_Q;
-    // clang-format on
 }
 
 void loadDefaultConfigs(app_t *app) {
     configControllerDefault(app);
-    unsigned long size = 10;
-    char *result = callocWrapper(size, char);
+    uint32_t size = 10;
+    char *result  = callocWrapper(size, char);
 
-    bool darkTheme;
+    bool darkTheme = false;
 #if defined(_WIN32) && !defined(PLATFORM_WEB)
-    if (WinH_RegGetValueA(WIN_H_HKEY_CURRENT_USER, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-                          "SystemUsesLightTheme", WIN_H_REG_DWORD, NULL, result, &size) == 0) {
+    if (!WinH_RegGetValueA(
+            WIN_H_HKEY_CURRENT_USER,                                             // key
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", // subKey
+            "SystemUsesLightTheme",                                              // value
+            WIN_H_REG_DWORD,                                                     // flags
+            NULL,                                                                // valueType
+            result,                                                              // regValue
+            &size                                                                // regValueSize
+            )) {
         darkTheme = (result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0]) == 0;
-    } else {
-        darkTheme = false;
     }
 #else
     darkTheme = true; // Forcing Dark Theme for other platforms by now
 #endif /* defined(_WIN32) && !defined(PLATFORM_WEB) */
 
-    // clang-format off
     app->config.lang           = "en-us";
     app->config.activeTheme    = darkTheme ? 6 : 0;
     app->config.fastForwardKey = KEY_SPACE;
     app->config.pauseKey       = KEY_P;
-    // clang-format on
 
     free(result);
 }

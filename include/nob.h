@@ -1290,7 +1290,8 @@ bool nob_read_entire_dir(const char *parent, Nob_File_Paths *children)
     errno = 0;
     struct dirent *ent = readdir(dir);
     while (ent != NULL) {
-        nob_da_append(children, nob_temp_strdup(ent->d_name));
+        const char *s = nob_temp_strdup(ent->d_name);
+        nob_da_append(children, s);
         ent = readdir(dir);
     }
 

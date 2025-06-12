@@ -1,26 +1,18 @@
 #include "test.h"
 
 bool InstructionTest(app_t *app, cpu_t *final) {
-    bool result = true;
-    Nob_String_Builder sb = { 0 };
+    bool result           = true;
+    Nob_String_Builder sb = {};
 
     if (!nob_read_entire_file(TEST_BIN, &sb))
         nob_return_defer(false);
 
-    // LOG_INF("sb.count: %zu", sb.count);
+    LOG_INF("Bytes read from file \"" TEST_BIN "\": %zu", sb.count);
 
     assert(sb.count == (sizeof(cpu_t) * 2));
 
-#if defined(PLATFORM_WEB) || !defined(_WIN32)
     memcpy(&app->nes.cpu, sb.items, sizeof(cpu_t));
     memcpy(final, &sb.items[sizeof(cpu_t)], sizeof(cpu_t));
-#else
-    if (memcpy_s(&app->nes.cpu, sizeof(cpu_t), sb.items, sizeof(cpu_t)) != 0)
-        nob_return_defer(false);
-
-    if (memcpy_s(final, sizeof(cpu_t), &sb.items[sizeof(cpu_t)], sizeof(cpu_t)) != 0)
-        nob_return_defer(false);
-#endif /* defined(PLATFORM_WEB) || !defined(_WIN32) */
 
 #if 0
     LOG_INF("Inicial ------------------");
