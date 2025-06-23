@@ -26,6 +26,16 @@ typedef enum {
     INS_ADC_INX = 0x61,   // ADC (Indirect, X)
     INS_ADC_INY = 0x71,   // ADC (Indirect), Y
 
+    // AND Instructions
+    INS_AND_IM  = 0x29,   // Immediate
+    INS_AND_Z   = 0x25,   // Zero Page
+    INS_AND_ZX  = 0x35,   // Zero Page,X
+    INS_AND_A   = 0x2D,   // Absolute
+    INS_AND_AX  = 0x3D,   // Absolute,X
+    INS_AND_AY  = 0x39,   // Absolute,Y
+    INS_AND_INX = 0x21,   // (Indirect,X)
+    INS_AND_INY = 0x31,   // (Indirect),Y
+
     // LDA Instructions
     INS_LDA_IM  = 0xA9,   // LDA Immediate
     INS_LDA_Z   = 0xA5,   // LDA Zero Page
