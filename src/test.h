@@ -6,11 +6,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "nob.h"
-
 #include "InsFlags.h"
 #include "kxdDebug.h"
 #include "kxdTypes.h"
+
+#include "nob.h"
 
 #define TEST_BIN "test.bin"
 
