@@ -11,6 +11,7 @@ void *nob_temp_alloc(size_t size);
 size_t nob_temp_save(void);
 size_t nob_temp_capacity(void);
 const char *nob_win32_error_message(uint32_t);
+bool nob_win32_uft8_cmdline_args(int *argc, char ***argv_ptr);
 
 W32(int) SetConsoleOutputCP(uint32_t);
 bool WinH_SetConsoleOutputCP(uint32_t wCodePageID) { return SetConsoleOutputCP(wCodePageID) != 0; }
@@ -22,40 +23,8 @@ bool WinH_CopyFile(const char *sourceFile, const char *destFile) {
 
 const char *WinH_win32_error_message(uint32_t err) { return nob_win32_error_message(err); }
 
-W32(uint32_t) GetLastError(void);
-W32(void *) LocalFree(void *);
-W32(wchar_t *) GetCommandLineW(void);
-W32(wchar_t **) CommandLineToArgvW(wchar_t *, int *);
-W32(int) WideCharToMultiByte(uint32_t, uint32_t, wchar_t *, int, char *, int, char *, int *);
-
-#define ERROR_INSUFFICIENT_BUFFER 122l
-
-bool WinH_GenerateCmdLineVector(int *argc, char ***argv_ptr) {
-    wchar_t **wargv = CommandLineToArgvW(GetCommandLineW(), argc);
-    char **argv     = nob_temp_alloc((*argc) * sizeof(char *));
-    assert(argv != NULL);
-
-    for (int i = 0; i < *argc; ++i) {
-        int charCount = WideCharToMultiByte(65001, 0, wargv[i], -1, NULL, 0, NULL, NULL);
-        if (charCount == 0 || charCount > (int)nob_temp_capacity()) {
-            uint32_t err = GetLastError();
-            fprintf(stderr, "Could not convert Command line argument to C String: %s\n",
-                    WinH_win32_error_message(err ? err : ERROR_INSUFFICIENT_BUFFER));
-            return false;
-        }
-        argv[i] = nob_temp_alloc(charCount);
-        assert(argv[i] != NULL);
-
-        if (WideCharToMultiByte(65001, 0, wargv[i], -1, argv[i], charCount, NULL, NULL) == 0) {
-            fprintf(stderr, "Could not convert Command line argument to C String: %s\n",
-                    WinH_win32_error_message(GetLastError()));
-            return false;
-        }
-    }
-
-    *argv_ptr = argv;
-    LocalFree(wargv);
-    return true;
+bool WinH_win32_uft8_cmdline_args(int *argc, char ***argv_ptr) {
+    return nob_win32_uft8_cmdline_args(argc, argv_ptr);
 }
 
 /*

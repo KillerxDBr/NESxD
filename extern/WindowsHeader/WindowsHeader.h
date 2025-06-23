@@ -55,7 +55,6 @@ typedef enum {
 WVResp GetWindowsVersion(void);
 WinVer GetWinVer(void);
 
-bool WinH_GenerateCmdLineVector(int *argc, char ***argv_ptr);
 bool WinH_SetConsoleOutputCP(uint32_t wCodePageID);
 bool WinH_CopyFile(const char *sourceFile, const char *destFile);
 
@@ -66,4 +65,5 @@ int32_t WinH_RegGetValueW(int hKey, const wchar_t *subKey, const wchar_t *value,
                           uint32_t *valueType, wchar_t *regValue, uint32_t *regValueSize);
 
 const char *WinH_win32_error_message(uint32_t err);
+bool WinH_win32_uft8_cmdline_args(int *argc, char ***argv_ptr);
 #endif /* KXD_WIN_H_ISOLATION */
