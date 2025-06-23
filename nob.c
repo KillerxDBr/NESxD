@@ -1,14 +1,12 @@
-#ifdef UNICODE
-#undef UNICODE
-#endif
-
-#ifdef _UNICODE
-#undef _UNICODE
+#if defined(_WIN32)
+#define UNICODE
+#define _UNICODE
 #endif
 
 #include <locale.h>
 #include <signal.h>
 
+#define NOSHELLDLL
 #define NOB_IMPLEMENTATION
 #include "include/nob.h"
 
@@ -16,11 +14,6 @@
 #include "include/flag.h"
 
 #include "build_src/nob_shared.h"
-
-#if defined(_WIN32)
-#undef _WINCON_
-#include <wincon.h>
-#endif // defined(_WIN32)
 
 #if defined(_WIN32)
 const char *libs[] = {
@@ -93,7 +86,6 @@ bool PrecompileHeader(bool isWeb);
 bool TestCompiler(void);
 bool TestFile(void);
 bool WebServer(const char *pyExec);
-bool nob_win32_generate_args(int *argc, char ***argv_ptr);
 
 typedef struct WinVer {
     unsigned long major;
@@ -130,16 +122,24 @@ void PrintUsage(void) {
                        "bundler [dir], [c]lean>");
 }
 
+#if defined(_MSC_VER)
+#define strcasecmp _stricmp
+#endif
+
 #if defined(_WIN32)
-int main(void) {
-    int argc;
-    char **argv;
-    if (!nob_win32_generate_args(&argc, &argv)) {
-        nob_log(NOB_ERROR, "nob_win32_generate_args failed");
-        return 1;
-    }
-#else
+#define W32(T) __declspec(dllimport) T __stdcall
+W32(int) SetConsoleOutputCP(uint32_t);
+#endif // defined(_WIN32)
+
 int main(int argc, char **argv) {
+#if defined(_WIN32)
+    int argc_bkp    = argc;
+    char **argv_bkp = argv;
+    if (!nob_win32_uft8_cmdline_args(&argc, &argv)) {
+        nob_log(NOB_WARNING, "nob_win32_uft8_cmdline_args failed");
+        argc = argc_bkp;
+        argv = argv_bkp;
+    }
 #endif // defined(_WIN32)
 
     // Needs to be commented out to DEBUG
@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
                                "build_src/nob_imgui.c", "build_src/nob_raylib.c");
 
 #ifndef _WIN32 /* Non Windows */
-    setlocale(LC_ALL, "C.UTF-8");
+    setlocale(LC_CTYPE, "C.UTF-8");
 #else
     SetErrorMode(1);
 
@@ -171,9 +171,9 @@ int main(int argc, char **argv) {
                     strerror(errno));
         }
     }
-    setlocale(LC_ALL, "");
+    setlocale(LC_CTYPE, "");
 #endif /* _WIN32 */
-    // nob_log(NOB_INFO, "Locale set to \"%s\"", setlocale(LC_ALL, NULL));
+    nob_log(NOB_INFO, "CTYPE Locale set to \"%s\"", setlocale(LC_CTYPE, NULL));
 
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
@@ -187,13 +187,11 @@ int main(int argc, char **argv) {
 #ifdef USE_FLAGS
 #ifndef USE_FLAG_H_LIB
     // Flags
-    // clang-format off
     bool BuildMode   = false;
     bool BundlerMode = false;
     bool CleanMode   = false;
     bool TestMode    = false;
     bool WebMode     = false;
-    // clang-format on
 
     for (int i = 0; i < argc; ++i) {
         if (!BuildMode)
@@ -219,7 +217,7 @@ int main(int argc, char **argv) {
     BOOLLOG(WebMode);
 
     if (!BuildMode && !CleanMode && !WebMode && !BundlerMode && !TestMode) {
-        if (argc == 0) {
+        if (argc == 1) {
             BuildMode = true;
         } else {
             PrintUsage();
@@ -599,9 +597,7 @@ bool PrecompileHeader(bool isWeb) {
     for (size_t i = 0; i < NOB_ARRAY_LEN(files); i++) {
         size_t internalCheckpoint = nob_temp_save();
 
-        cmd.count          = command_size;
-        sb.count           = 0;
-        extraHeaders.count = 0;
+        cmd.count = command_size;
 
         char *input = nob_temp_sprintf("%s%s%s", SRC_DIR, files[i], ".h");
         char *output =
@@ -1724,11 +1720,14 @@ bool IsExeInPath(const char *exe) {
 }
 
 bool ParseDependencyFile(Nob_File_Paths *fp, Nob_String_Builder *sb, const char *depFile) {
+    sb->count = 0;
+    fp->count = 0;
+
+    if (!depFile && !(*depFile))
+        return false;
+
 #if !defined(__clang__) && defined(_MSC_VER) // Not implemented for MSVC
 #pragma message("[WARN] ParseDependencyFile not implemented for MSVC compiler")
-    NOB_UNUSED(fp);
-    NOB_UNUSED(sb);
-    NOB_UNUSED(depFile);
     return false;
 #else
     if (nob_file_exists(depFile) < 1)
@@ -1750,11 +1749,9 @@ bool ParseDependencyFile(Nob_File_Paths *fp, Nob_String_Builder *sb, const char 
 
     sv = nob_sv_trim(sv);
 
-    Nob_String_View sv2;
-    char *cstr = NULL;
     while (sv.count > 0) {
-        sv2  = nob_sv_chop_by_delim(&sv, ' ');
-        cstr = nob_temp_sprintf(SV_Fmt, SV_Arg(sv2));
+        Nob_String_View sv2  = nob_sv_chop_by_delim(&sv, ' ');
+        char *cstr = nob_temp_sprintf(SV_Fmt, SV_Arg(sv2));
 
         nob_da_append(fp, cstr);
         sv = nob_sv_trim(sv);
@@ -1763,33 +1760,3 @@ bool ParseDependencyFile(Nob_File_Paths *fp, Nob_String_Builder *sb, const char 
     return fp->count > 0;
 #endif
 }
-
-#ifdef _WIN32
-bool nob_win32_generate_args(int *argc, char ***argv_ptr) {
-    wchar_t **wargv = CommandLineToArgvW(GetCommandLineW(), argc);
-    char **argv     = nob_temp_alloc((*argc) * sizeof(char *));
-    assert(argv != NULL);
-
-    for (int i = 0; i < *argc; ++i) {
-        int charCount = WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, NULL, 0, NULL, NULL);
-        if (charCount == 0 || charCount > (int)nob_temp_capacity()) {
-            uint32_t err = GetLastError();
-            nob_log(NOB_ERROR, "Could not convert Command line argument to C String: %s\n",
-                    nob_win32_error_message(err ? err : ERROR_INSUFFICIENT_BUFFER));
-            return false;
-        }
-        argv[i] = nob_temp_alloc(charCount);
-        assert(argv[i] != NULL);
-
-        if (WideCharToMultiByte(CP_UTF8, 0, wargv[i], -1, argv[i], charCount, NULL, NULL) == 0) {
-            nob_log(NOB_ERROR, "Could not convert Command line argument to C String: %s\n",
-                    nob_win32_error_message(GetLastError()));
-            return false;
-        }
-    }
-
-    *argv_ptr = argv;
-    LocalFree(wargv);
-    return true;
-}
-#endif // _WIN32
