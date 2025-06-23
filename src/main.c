@@ -1,7 +1,7 @@
 #include "main.h"
 
+int main(int argc, char **argv) {
 #if defined(_WIN32)
-int main(void) {
     SetErrorMode(SEM_FAILCRITICALERRORS);
 
     if (!WinH_SetConsoleOutputCP(CP_UTF8)) {
@@ -26,25 +26,23 @@ int main(void) {
         }
     }
 
-    int argc;
-    char **argv = NULL;
-    if (!WinH_GenerateCmdLineVector(&argc, &argv)) {
-        LOG_ERR("WinH_GenerateCmdLineVector failed");
-        return 1;
+    int argc_bkp    = argc;
+    char **argv_bkp = argv;
+    if (!WinH_win32_uft8_cmdline_args(&argc, &argv)) {
+        nob_log(NOB_WARNING, "WinH_win32_uft8_cmdline_args failed");
+        argc = argc_bkp;
+        argv = argv_bkp;
     }
 
     // for(int i = 0; i < argc; ++i) {
     //     LOG_INF("%d: \"%s\"", i+1, argv[i]);
     // }
     // return 0;
-
-#else  // Non Windows
-int main(int argc, char **argv) {
 #endif // defined(_WIN32)
 
-    setlocale(LC_CTYPE, KXD_LOCALE);
+    setlocale(LC_CTYPE, "");
 
-    LOG_INF("Locale set to \"%s\"", setlocale(LC_ALL, NULL));
+    LOG_INF("CTYPE Locale set to \"%s\"", setlocale(LC_CTYPE, NULL));
 
     bool *NOP  = flag_bool("NOP", false, "NOP");
     bool *TEST = flag_bool("TEST", false, "TEST");

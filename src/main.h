@@ -71,16 +71,6 @@
 
 #define CHECK_ROM_HEADER(rom) assert(memcmp(rom, "NES\x1A", 4) == 0)
 
-#ifdef PLATFORM_DESKTOP
-#ifdef _WIN32
-#define KXD_LOCALE "" // Win32 version
-#else
-#define KXD_LOCALE "C.UTF-8" // Non Windows
-#endif                       // _WIN32
-#else
-#define KXD_LOCALE "" // Web version
-#endif                // PLATFORM_DESKTOP
-
 void loadRom(nes_t *nes, const char *fileName);
 void loadRomFromMem(nes_t *nes, const char *fileName);
 void unloadRom(nes_t *nes);
