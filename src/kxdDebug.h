@@ -30,11 +30,10 @@
 #if defined(__GNUC__) || defined(__clang__)
 // https://gcc.gnu.org/onlinedocs/gcc-4.7.2/gcc/Function-Attributes.html
 #ifdef __MINGW_PRINTF_FORMAT
-#define KXD_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)                                            \
+#define KXD_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)                                                                \
     __attribute__((format(__MINGW_PRINTF_FORMAT, STRING_INDEX, FIRST_TO_CHECK)))
 #else
-#define KXD_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)                                            \
-    __attribute__((format(printf, STRING_INDEX, FIRST_TO_CHECK)))
+#define KXD_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK) __attribute__((format(printf, STRING_INDEX, FIRST_TO_CHECK)))
 #endif
 #else
 // TODO: implement KXD_PRINTF_FORMAT for MSVC
@@ -60,11 +59,11 @@ void TraceLog(int logType, const char *text, ...) KXD_PRINTF_FORMAT(2, 3);
 #define VARLOG(v, fmt) TraceLog(LOG_SA_INFO, "%s: " fmt, (#v), (v))
 #define BOOLLOG(v)     TraceLog(LOG_SA_INFO, "%s: %s", #v, v ? "True" : "False")
 
-#define KXD_TODO(message)                                                                          \
-    do {                                                                                           \
-        fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message);                         \
-        fflush(stderr);                                                                            \
-        abort();                                                                                   \
+#define KXD_TODO(message)                                                                                              \
+    do {                                                                                                               \
+        fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message);                                             \
+        fflush(stderr);                                                                                                \
+        abort();                                                                                                       \
     } while (0)
 
 // clang-format off

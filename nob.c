@@ -386,8 +386,7 @@ int main(int argc, char **argv) {
         if (argc > 0) {
             command = nob_shift(argv, argc);
             // nob.exe build clean/cls
-            if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) ||
-                (strcmp(command, "c") == 0)) {
+            if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
                 nob_log(NOB_INFO, "    Forcing Rebuild of all files...");
                 CleanupFiles();
             } else if (strcmp(command, "web") == 0 || strcmp(command, "w") == 0) {
@@ -416,10 +415,8 @@ int main(int argc, char **argv) {
         }
 #endif
 
-        nob_log(NOB_INFO, "Testing Compiler: \"%s\", \"%s\", \"c3c\"", isWeb ? EMCC : CC,
-                isWeb ? EMXX : CXX);
-        if (!(ExeIsInPath(isWeb ? EMCC : CC) && ExeIsInPath(isWeb ? EMXX : CXX) &&
-              ExeIsInPath("c3c"))) {
+        nob_log(NOB_INFO, "Testing Compiler: \"%s\", \"%s\", \"c3c\"", isWeb ? EMCC : CC, isWeb ? EMXX : CXX);
+        if (!(ExeIsInPath(isWeb ? EMCC : CC) && ExeIsInPath(isWeb ? EMXX : CXX) && ExeIsInPath("c3c"))) {
             nob_return_defer(1);
         }
 
@@ -504,8 +501,7 @@ int main(int argc, char **argv) {
             command = PY_EXEC;
 
         nob_return_defer(!WebServer(command));
-    } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) ||
-               (strcmp(command, "c") == 0)) {
+    } else if ((strcmp(command, "clean") == 0) || (strcmp(command, "cls") == 0) || (strcmp(command, "c") == 0)) {
         nob_log(NOB_INFO, "--- Cleaning Files ---");
         nob_return_defer(!CleanupFiles());
 
@@ -599,9 +595,8 @@ bool PrecompileHeader(bool isWeb) {
 
         cmd.count = command_size;
 
-        char *input = nob_temp_sprintf("%s%s%s", SRC_DIR, files[i], ".h");
-        char *output =
-            nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, files[i], GCH_SUFFIX);
+        char *input  = nob_temp_sprintf("%s%s%s", SRC_DIR, files[i], ".h");
+        char *output = nob_temp_sprintf("%s%s%s", isWeb ? BUILD_WASM_DIR : BUILD_DIR, files[i], GCH_SUFFIX);
 
         char *depFile = nob_temp_sprintf("%s.d", output);
         if (!ParseDependencyFile(&extraHeaders, &sb, depFile)) {
@@ -1005,8 +1000,7 @@ bool CompileDependencies(bool isWeb) {
     const size_t command_size = cmd.count;
     for (size_t i = 0; i < NOB_ARRAY_LEN(dependencies); ++i) {
         if (isWeb) {
-            if (strcmp(dependencies[i], "tinyfiledialogs") == 0 ||
-                strcmp(dependencies[i], "WindowsHeader") == 0)
+            if (strcmp(dependencies[i], "tinyfiledialogs") == 0 || strcmp(dependencies[i], "WindowsHeader") == 0)
                 continue;
         }
 
@@ -1096,11 +1090,9 @@ bool CompileNobHeader(bool isWeb) {
         if (nob_needs_rebuild1(output, nob_header_dir) != 0) {
             nob_log(NOB_INFO, "Rebuilding: '%s'", output);
             EMS(&cmd);
-            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc", "-Os", "-Wall",
-                           "-Wextra", "-sFORCE_FILESYSTEM=1", "-sGL_ENABLE_GET_PROC_ADDRESS=1",
-                           "-sASSERTIONS=1");
-            nob_cmd_append(&cmd, "-o", output, NO_LINK_FLAG, nob_header_dir,
-                           "-DNOB_IMPLEMENTATION");
+            nob_cmd_append(&cmd, EMCC, "-fdiagnostics-color=never", "-xc", "-Os", "-Wall", "-Wextra",
+                           "-sFORCE_FILESYSTEM=1", "-sGL_ENABLE_GET_PROC_ADDRESS=1", "-sASSERTIONS=1");
+            nob_cmd_append(&cmd, "-o", output, NO_LINK_FLAG, nob_header_dir, "-DNOB_IMPLEMENTATION");
 
             Nob_String_Builder cmdRender = {};
 
@@ -1127,8 +1119,8 @@ bool CompileNobHeader(bool isWeb) {
             nob_log(NOB_INFO, "Rebuilding: '%s'", output);
             if (hasCCache)
                 nob_cmd_append(&cmd, CCACHE);
-            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc", "-o", output, NO_LINK_FLAG,
-                           nob_header_dir, "-DNOB_IMPLEMENTATION");
+            nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-xc", "-o", output, NO_LINK_FLAG, nob_header_dir,
+                           "-DNOB_IMPLEMENTATION");
 
             if (!nob_cmd_run_sync(cmd))
                 nob_return_defer(false);
@@ -1196,10 +1188,10 @@ defer:
     return result;
 }
 
-#define genf(out, ...)                                                                             \
-    do {                                                                                           \
-        fprintf((out), __VA_ARGS__);                                                               \
-        fprintf((out), " // %s:%d\n", __FILE__, __LINE__);                                         \
+#define genf(out, ...)                                                                                                 \
+    do {                                                                                                               \
+        fprintf((out), __VA_ARGS__);                                                                                   \
+        fprintf((out), " // %s:%d\n", __FILE__, __LINE__);                                                             \
     } while (0)
 
 bool generate_resource_bundle(void) {
@@ -1226,8 +1218,7 @@ bool generate_resource_bundle(void) {
     const char *bundle_h_path = "./src/bundle.h";
     out                       = fopen(bundle_h_path, "wb");
     if (out == NULL) {
-        nob_log(NOB_ERROR, "Could not open file %s for writing: %s", bundle_h_path,
-                strerror(errno));
+        nob_log(NOB_ERROR, "Could not open file %s for writing: %s", bundle_h_path, strerror(errno));
         nob_return_defer(false);
     }
 
@@ -1243,8 +1234,8 @@ bool generate_resource_bundle(void) {
     genf(out, "size_t resources_count = %zu;", resources.count);
     genf(out, "Resource resources[] = {");
     for (size_t i = 0; i < resources.count; ++i) {
-        genf(out, "    {.file_path = \"%s\", .offset = %zu, .size = %zu},",
-             resources.items[i].file_path, resources.items[i].offset, resources.items[i].size);
+        genf(out, "    {.file_path = \"%s\", .offset = %zu, .size = %zu},", resources.items[i].file_path,
+             resources.items[i].offset, resources.items[i].size);
     }
     genf(out, "};");
 
@@ -1339,11 +1330,9 @@ bool Bundler(char **path, size_t pathCount) {
         if (dir == NULL) {
 #ifdef _WIN32
             DWORD err = GetLastError();
-            nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%lX)", path[i],
-                    nob_win32_error_message(err), err);
+            nob_log(NOB_ERROR, "Could not open directory '%s': %s (0x%lX)", path[i], nob_win32_error_message(err), err);
 #else
-            nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path[i],
-                    strerror(errno), errno);
+            nob_log(NOB_ERROR, "Could not open directory \"%s\": %s (0x%X)", path[i], strerror(errno), errno);
 #endif // _WIN32
 
             // nob_log(NOB_ERROR, "Could not open directory '%s'", path[i]);
@@ -1452,8 +1441,7 @@ bool TestFile(void) {
         nob_return_defer(false);
 
     if (rebuild > 0) {
-        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-o", output, input, "-Wall",
-                       "-Wextra", "-Og", "-g");
+        nob_cmd_append(&cmd, CC, "-fdiagnostics-color=never", "-o", output, input, "-Wall", "-Wextra", "-Og", "-g");
 
         if (!nob_cmd_run_sync_and_reset(&cmd))
             nob_return_defer(false);
@@ -1485,8 +1473,8 @@ bool WebServer(const char *pyExec) {
     Nob_Cmd cmd = {};
     bool result = true;
 
-    if (nob_file_exists(WASM_DIR) != 1 && (nob_file_exists(WASM_DIR PROGRAM_NAME ".html") != 1 ||
-                                           nob_file_exists(WASM_DIR "index.html") != 1)) {
+    if (nob_file_exists(WASM_DIR) != 1 &&
+        (nob_file_exists(WASM_DIR PROGRAM_NAME ".html") != 1 || nob_file_exists(WASM_DIR "index.html") != 1)) {
         nob_log(NOB_ERROR, "Build wasm first");
         nob_return_defer(false);
     }
@@ -1513,8 +1501,7 @@ bool WebServer(const char *pyExec) {
     nob_log(NOB_INFO, "Closing Web Server...");
 
     if (!TerminateProcess(p, 0)) {
-        nob_log(NOB_ERROR, "Could not terminate process \"%s\": %s", pyExec,
-                nob_win32_error_message(GetLastError()));
+        nob_log(NOB_ERROR, "Could not terminate process \"%s\": %s", pyExec, nob_win32_error_message(GetLastError()));
         nob_return_defer(false);
     }
 
@@ -1557,8 +1544,8 @@ bool TestCompiler(void) {
 
 #if defined(_MSC_VER)
     if (nob_file_exists(MSVC_ENV) != 1) {
-        nob_log(NOB_ERROR, "Could not find MSVC env builder \"" MSVC_ENV
-                           "\", check if the path is correct and try again...");
+        nob_log(NOB_ERROR,
+                "Could not find MSVC env builder \"" MSVC_ENV "\", check if the path is correct and try again...");
         nob_return_defer(false);
     }
     MSVC(&cmd);
@@ -1750,8 +1737,8 @@ bool ParseDependencyFile(Nob_File_Paths *fp, Nob_String_Builder *sb, const char 
     sv = nob_sv_trim(sv);
 
     while (sv.count > 0) {
-        Nob_String_View sv2  = nob_sv_chop_by_delim(&sv, ' ');
-        char *cstr = nob_temp_sprintf(SV_Fmt, SV_Arg(sv2));
+        Nob_String_View sv2 = nob_sv_chop_by_delim(&sv, ' ');
+        char *cstr          = nob_temp_sprintf(SV_Fmt, SV_Arg(sv2));
 
         nob_da_append(fp, cstr);
         sv = nob_sv_trim(sv);

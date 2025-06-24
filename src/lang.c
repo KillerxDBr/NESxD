@@ -38,8 +38,7 @@ void loadAllLanguages(void) {
 
     LOG_INF("--------------------------------------------");
     for (size_t i = 0; i < fp.count; ++i) {
-        if (fp.items[i][0] == '.' &&
-            (fp.items[i][1] == 0 || (fp.items[i][1] == '.' && fp.items[i][2] == 0)))
+        if (fp.items[i][0] == '.' && (fp.items[i][1] == 0 || (fp.items[i][1] == '.' && fp.items[i][2] == 0)))
             continue;
         sb.count = 0;
         LOG_INF("Path %zu: %s", i - 1, fp.items[i]);

@@ -105,7 +105,7 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_ADC_AX:
         oldValue = cpu->A;
-        value8 = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->X];
+        value8   = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->X];
 
         VARLOG(value8, HEX8);
 
@@ -116,7 +116,7 @@ void processInstruction(cpu_t *cpu) {
 
     case INS_ADC_AY:
         oldValue = cpu->A;
-        value8 = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->Y];
+        value8   = cpu->mem[cpu->mem[incrementPC(cpu)] + (cpu->mem[incrementPC(cpu)] << 8) + cpu->Y];
 
         VARLOG(value8, HEX8);
 
@@ -441,8 +441,7 @@ void processInstruction(cpu_t *cpu) {
 
     default:
 #ifdef KXD_DEBUG
-        LOG_ERR("Unhandled Instruction: mem[" HEX16 "] -> " HEX8 ", Skipping...", cpu->PC,
-                cpu->mem[cpu->PC]);
+        LOG_ERR("Unhandled Instruction: mem[" HEX16 "] -> " HEX8 ", Skipping...", cpu->PC, cpu->mem[cpu->PC]);
         incrementPC(cpu);
 #else
         assert(0 && "Unreachable!!!");

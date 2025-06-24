@@ -118,15 +118,14 @@ void loadDefaultConfigs(app_t *app) {
 
     bool darkTheme = false;
 #if defined(_WIN32) && !defined(PLATFORM_WEB)
-    if (!WinH_RegGetValueA(
-            WIN_H_HKEY_CURRENT_USER,                                             // key
-            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", // subKey
-            "SystemUsesLightTheme",                                              // value
-            WIN_H_REG_DWORD,                                                     // flags
-            NULL,                                                                // valueType
-            result,                                                              // regValue
-            &size                                                                // regValueSize
-            )) {
+    if (!WinH_RegGetValueA(WIN_H_HKEY_CURRENT_USER,                                             // key
+                           "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", // subKey
+                           "SystemUsesLightTheme",                                              // value
+                           WIN_H_REG_DWORD,                                                     // flags
+                           NULL,                                                                // valueType
+                           result,                                                              // regValue
+                           &size                                                                // regValueSize
+                           )) {
         darkTheme = (result[3] << 24 | result[2] << 16 | result[1] << 8 | result[0]) == 0;
     }
 #else

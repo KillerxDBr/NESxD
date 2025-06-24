@@ -140,10 +140,9 @@ int main(int argc, char **argv) {
 
     app->screen = LoadRenderTexture(NES_W, NES_H);
 
-    app->sourceRec = CLITERAL(Rectangle){0.0f, 0.0f, (float)app->screen.texture.width,
-                                         -(float)app->screen.texture.height};
-    app->destRec =
-        CLITERAL(Rectangle){0.0f, MENU_BAR_SIZE, app->screenW, app->screenH - MENU_BAR_SIZE};
+    app->sourceRec =
+        CLITERAL(Rectangle){0.0f, 0.0f, (float)app->screen.texture.width, -(float)app->screen.texture.height};
+    app->destRec = CLITERAL(Rectangle){0.0f, MENU_BAR_SIZE, app->screenW, app->screenH - MENU_BAR_SIZE};
 
     /*
     if (app->screenW >= app->screenH * NES_AR) {
@@ -469,34 +468,29 @@ void mainLoop(void *app_ptr) {
         DrawLine(0, (app->screenH / 2), app->screenW, (app->screenH / 2), GREEN);
         DrawLine((app->screenW / 2), 0, (app->screenW / 2), app->screenH, GREEN);
 
-        DrawRectangle(4, 4 + MENU_BAR_SIZE, 75, 20,
-                      GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
+        DrawRectangle(4, 4 + MENU_BAR_SIZE, 75, 20, GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
         DrawFPS(5, 5 + MENU_BAR_SIZE);
 
         if (app->nes.isPaused) {
-            const Font font = GuiGetFont();
-            const Vector2 pauseSize =
-                MeasureTextEx(font, app->lang.text_paused, app->screenW * .1f, font.baseSize);
+            const Font font         = GuiGetFont();
+            const Vector2 pauseSize = MeasureTextEx(font, app->lang.text_paused, app->screenW * .1f, font.baseSize);
 
-            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f),
-                          (app->screenH * .5f) - (pauseSize.y * .6f),
+            DrawRectangle((app->screenW * .5f) - (pauseSize.x * .6f), (app->screenH * .5f) - (pauseSize.y * .6f),
                           pauseSize.x + (pauseSize.x * .2f), pauseSize.y + (pauseSize.y * .2f),
                           GetColor(GuiGetStyle(DEFAULT, BACKGROUND_COLOR)));
 
-            DrawRectangleLinesEx(CLITERAL(Rectangle){(app->screenW * .5f) - (pauseSize.x * .6f) - 1,
-                                                     (app->screenH * .5f) - (pauseSize.y * .6f),
-                                                     pauseSize.x + (pauseSize.x * .2f) + 1,
+            DrawRectangleLinesEx(
+                CLITERAL(Rectangle){(app->screenW * .5f) - (pauseSize.x * .6f) - 1,
+                                    (app->screenH * .5f) - (pauseSize.y * .6f), pauseSize.x + (pauseSize.x * .2f) + 1,
                                                      pauseSize.y + (pauseSize.y * .2f)},
-                                 (pauseSize.y + (pauseSize.y * .2f) + 1) * .05f,
-                                 GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
+                (pauseSize.y + (pauseSize.y * .2f) + 1) * .05f, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
             // DrawText(app->lang.text_paused, (app->screenW * .5f) - (pauseSize.x * .5f),
-            // (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW * .1f,
+            //          (app->screenH * .5f) - (pauseSize.y * .5f), app->screenW * .1f,
             //          GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
             DrawTextPro(font, app->lang.text_paused,
-                        V2((app->screenW * .5f) - (pauseSize.x * .5f),
-                           (app->screenH * .5f) - (pauseSize.y * .5f)),
+                        V2((app->screenW * .5f) - (pauseSize.x * .5f), (app->screenH * .5f) - (pauseSize.y * .5f)),
                         Vector2Zero(), 0, app->screenW * .1f, font.baseSize,
                         GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
         }
@@ -514,8 +508,8 @@ void mainLoop(void *app_ptr) {
                 static char *selectedFile          = NULL;
                 static const char *const filters[] = {"*.nes"};
 
-                selectedFile = tinyfd_openFileDialog("Open...", ".\\", NOB_ARRAY_LEN(filters),
-                                                     filters, "NES ROM File (*.nes)", false);
+                selectedFile = tinyfd_openFileDialog("Open...", ".\\", NOB_ARRAY_LEN(filters), filters,
+                                                     "NES ROM File (*.nes)", false);
 
                 if (selectedFile)
                     tinyfd_messageBox("Selected File...", selectedFile, "ok", "info", 0);
@@ -603,7 +597,7 @@ void calcScreenPos(app_t *app) {
         app->destRec.height = app->screenW * (1 / NES_AR);
         app->destRec.width  = app->destRec.height * NES_AR;
         app->destRec.x      = 0;
-        app->destRec.y = (app->screenH * .5f) - (app->destRec.height * .5f) + (MENU_BAR_SIZE * .5f);
+        app->destRec.y      = (app->screenH * .5f) - (app->destRec.height * .5f) + (MENU_BAR_SIZE * .5f);
         if (app->destRec.y < 0) {
             app->destRec.y = 0;
         }

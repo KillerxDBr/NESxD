@@ -46,12 +46,11 @@ void memDmp(cpu_t *cpu, size_t memSize) {
         log = stdout;
     }
 
-    fprintf(log, "Registers\nPC: 0x%04X | SP: 0x%02X | A: 0x%02X | X: 0x%02X | Y: 0x%02X\n",
-            cpu->PC, cpu->SP, cpu->A, cpu->X, cpu->Y);
+    fprintf(log, "Registers\nPC: 0x%04X | SP: 0x%02X | A: 0x%02X | X: 0x%02X | Y: 0x%02X\n", cpu->PC, cpu->SP, cpu->A,
+            cpu->X, cpu->Y);
     fprintf(log, "Status Registers:\n");
     fprintf(log, "    NV1B DIZC\n");
-    fprintf(log, "    %d%d%d%d %d%d%d%d\n", cpu->N, cpu->V, 1, cpu->B, cpu->D, cpu->I, cpu->Z,
-            cpu->C);
+    fprintf(log, "    %d%d%d%d %d%d%d%d\n", cpu->N, cpu->V, 1, cpu->B, cpu->D, cpu->I, cpu->Z, cpu->C);
 
     for (size_t i = 0; i < 85; i++) {
         fputc('_', log);
