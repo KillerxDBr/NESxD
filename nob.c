@@ -132,47 +132,45 @@ W32(int) SetConsoleOutputCP(uint32_t);
 #endif // defined(_WIN32)
 
 int main(int argc, char **argv) {
+    setlocale(LC_CTYPE, "");
 #if defined(_WIN32)
-    int argc_bkp    = argc;
-    char **argv_bkp = argv;
-    if (!nob_win32_uft8_cmdline_args(&argc, &argv)) {
-        nob_log(NOB_WARNING, "nob_win32_uft8_cmdline_args failed");
-        argc = argc_bkp;
-        argv = argv_bkp;
-    }
-#endif // defined(_WIN32)
-
-    // Needs to be commented out to DEBUG
-    NOB_GO_REBUILD_URSELF_PLUS(argc, argv, "include/nob.h", "build_src/nob_shared.h",
-                               "build_src/nob_imgui.c", "build_src/nob_raylib.c");
-
-#ifndef _WIN32 /* Non Windows */
-    setlocale(LC_CTYPE, "C.UTF-8");
-#else
-    SetErrorMode(1);
+    SetErrorMode(SEM_FAILCRITICALERRORS);
 
     if (!SetConsoleOutputCP(CP_UTF8)) {
-        nob_log(NOB_ERROR, "Could not set console output to 'UTF-8'");
+        nob_log(NOB_WARNING, "Could not set console output to 'UTF-8'");
     }
 
     const WVResp WinVer = GetWindowsVersion();
     if (WinVer >= WIN_10) {
         nob_log(NOB_INFO, "Enabling buffer on console std outputs (Win 10+)");
 
-        // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8
-        // encoding)
-        if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
-            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to 1024: %s", "stderr",
-                    strerror(errno));
+#define IOBUFFSZ 1024
+        // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
+        if (setvbuf(stderr, NULL, _IOFBF, IOBUFFSZ) != 0) {
+            nob_log(NOB_WARNING, "Could not set \"%s\" buffer to %d: %s", "stderr", IOBUFFSZ, strerror(errno));
         }
 
-        if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
-            nob_log(NOB_ERROR, "Could not set \"%s\" buffer to 1024: %s", "stdout",
-                    strerror(errno));
+        if (setvbuf(stdout, NULL, _IOFBF, IOBUFFSZ) != 0) {
+            nob_log(NOB_WARNING, "Could not set \"%s\" buffer to %d: %s", "stdout", IOBUFFSZ, strerror(errno));
         }
     }
-    setlocale(LC_CTYPE, "");
-#endif /* _WIN32 */
+
+    int argc_bkp    = argc;
+    char **argv_bkp = argv;
+    if (!nob_win32_uft8_cmdline_args(&argc, &argv)) {
+        nob_log(NOB_WARNING, "Could not generate Win32 UTF-8 Command Line Arguments, using default...");
+        argc = argc_bkp;
+        argv = argv_bkp;
+    }
+#endif // defined(_WIN32)
+
+    // Needs to be commented out to DEBUG
+    NOB_GO_REBUILD_URSELF_PLUS(argc, argv,                //
+                               "include/nob.h",           //
+                               "build_src/nob_shared.h",  //
+                               "build_src/nob_imgui.c",   //
+                               "build_src/nob_raylib.c"); //
+
     nob_log(NOB_INFO, "CTYPE Locale set to \"%s\"", setlocale(LC_CTYPE, NULL));
 
     assert(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));

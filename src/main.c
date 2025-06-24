@@ -1,35 +1,33 @@
 #include "main.h"
 
 int main(int argc, char **argv) {
+    setlocale(LC_CTYPE, "");
 #if defined(_WIN32)
     SetErrorMode(SEM_FAILCRITICALERRORS);
 
     if (!WinH_SetConsoleOutputCP(CP_UTF8)) {
-        LOG_ERR("Could not set console output to 'UTF-8'");
-        return 1;
+        TraceLog(LOG_WARNING, "Could not set console output to 'UTF-8'");
     }
 
     WVResp winVer = GetWindowsVersion();
     if (winVer >= WIN_10) {
         LOG_INF("Enabling buffer on console std outputs");
 
-        // on Windows 10+ we need buffering or console will get 1 byte at a time
-        // (screwing up utf-8 encoding)
-        if (setvbuf(stderr, NULL, _IOFBF, 1024) != 0) {
-            LOG_ERR("Could not set \"%s\" buffer to %d: %s", "stderr", 1024, strerror(errno));
-            return 1;
+#define IOBUFFSZ 1024
+        // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
+        if (setvbuf(stderr, NULL, _IOFBF, IOBUFFSZ) != 0) {
+            TraceLog(LOG_WARNING, "Could not set \"%s\" buffer to %d: %s", "stderr", IOBUFFSZ, strerror(errno));
         }
 
-        if (setvbuf(stdout, NULL, _IOFBF, 1024) != 0) {
-            LOG_ERR("Could not set \"%s\" buffer to %d: %s", "stdout", 1024, strerror(errno));
-            return 1;
+        if (setvbuf(stdout, NULL, _IOFBF, IOBUFFSZ) != 0) {
+            TraceLog(LOG_WARNING, "Could not set \"%s\" buffer to %d: %s", "stdout", IOBUFFSZ, strerror(errno));
         }
     }
 
     int argc_bkp    = argc;
     char **argv_bkp = argv;
     if (!WinH_win32_uft8_cmdline_args(&argc, &argv)) {
-        nob_log(NOB_WARNING, "WinH_win32_uft8_cmdline_args failed");
+        TraceLog(LOG_WARNING, "Could not generate Win32 UTF-8 Command Line Arguments, using default...");
         argc = argc_bkp;
         argv = argv_bkp;
     }
@@ -39,8 +37,6 @@ int main(int argc, char **argv) {
     // }
     // return 0;
 #endif // defined(_WIN32)
-
-    setlocale(LC_CTYPE, "");
 
     LOG_INF("CTYPE Locale set to \"%s\"", setlocale(LC_CTYPE, NULL));
 
@@ -482,7 +478,7 @@ void mainLoop(void *app_ptr) {
             DrawRectangleLinesEx(
                 CLITERAL(Rectangle){(app->screenW * .5f) - (pauseSize.x * .6f) - 1,
                                     (app->screenH * .5f) - (pauseSize.y * .6f), pauseSize.x + (pauseSize.x * .2f) + 1,
-                                                     pauseSize.y + (pauseSize.y * .2f)},
+                                    pauseSize.y + (pauseSize.y * .2f)},
                 (pauseSize.y + (pauseSize.y * .2f) + 1) * .05f, GetColor(GuiGetStyle(DEFAULT, TEXT_COLOR_NORMAL)));
 
             // DrawText(app->lang.text_paused, (app->screenW * .5f) - (pauseSize.x * .5f),
