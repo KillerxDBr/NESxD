@@ -743,10 +743,18 @@ struct dirent
 
 typedef struct DIR DIR;
 
+#ifndef MRDEF
+  #ifndef NRPUB
+    #define MRDEF static
+  #else
+    #define MRDEF
+  #endif
+#endif
+
 #ifdef NOB_IMPLEMENTATION
-static DIR *opendir(const char *dirpath);
-static struct dirent *readdir(DIR *dirp);
-static int closedir(DIR *dirp);
+MRDEF DIR *opendir(const char *dirpath);
+MRDEF struct dirent *readdir(DIR *dirp);
+MRDEF int closedir(DIR *dirp);
 #endif // NOB_IMPLEMENTATION
 
 #endif // _WIN32
