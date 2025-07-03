@@ -22,7 +22,7 @@ const char *skippingMsg = "    File '%s' already up to date, skipping...";
 #define CC  "gcc"
 #define CXX "g++"
 #elif defined(__clang__)
-#define C   "clang"
+#define CC  "clang"
 #define CXX "clang++"
 #elif defined(_MSC_VER)
 #error Cant Compile with MSVC yet...
