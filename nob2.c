@@ -14,11 +14,14 @@
 #include "include/flag.h"
 
 bool BuildRayLib(void);
-bool CompileNobHeader(void);
+bool CompileSingleHeaderLib(void);
+bool CompileSourceFiles(void);
+bool CompileDependencies(void);
+bool CompileExecutable(void);
+bool CompileImgui(void);
 
 bool Bundler(char **path, size_t pathCount);
 bool CleanupFiles(void);
-bool CompileDependencies(bool isWeb);
 bool CompileFiles(bool isWeb);
 bool CompileSHLibs(bool isWeb);
 bool IsExeInPath(const char *exe);
@@ -30,7 +33,7 @@ bool TestFile(void);
 bool WebServer(const char *pyExec);
 bool delete_dir_recusive(const char *path);
 
-#if defined(_WIN32)
+#if defined(_WIN32) && 0
 typedef struct WinVer {
     unsigned long major;
     unsigned long minor;
@@ -52,13 +55,13 @@ static WVResp GetWindowsVersion(void);
 static WinVer GetWinVer(void);
 #endif
 
-#if defined(_WIN32)
 const char *libs[] = {
-    "gdi32", "winmm", "comdlg32", "ole32", "shell32",
-};
+#if defined(_WIN32)
+    "gdi32", "winmm", "comdlg32", "ole32", "shell32", "opengl32", "user32", "advapi32",
 #else
-#define LIBS "-lm"
+    "m",
 #endif // defined(_WIN32)
+};
 
 const char *files[] = {
     "main", "6502", "config", "gui", "input", "kxdMem", "iconTray", "lang",
@@ -68,10 +71,10 @@ const char *files[] = {
 };
 
 const char *filesFlags[] = {
-    "-DKXD_MAIN_FILE",  "-DKXD_6502_FILE", "-DKXD_CONFIG_FILE",   "-DKXD_GUI_FILE",
-    "-DKXD_INPUT_FILE", "-DKXD_MEM_FILE",  "-DKXD_ICONTRAY_FILE", "-DKXD_LANG_FILE",
+    DEF_FLAG "KXD_MAIN_FILE",  DEF_FLAG "KXD_6502_FILE", DEF_FLAG "KXD_CONFIG_FILE",   DEF_FLAG "KXD_GUI_FILE",
+    DEF_FLAG "KXD_INPUT_FILE", DEF_FLAG "KXD_MEM_FILE",  DEF_FLAG "KXD_ICONTRAY_FILE", DEF_FLAG "KXD_LANG_FILE",
 #ifndef RELEASE
-    "-DKXD_TEST_FILE",
+    DEF_FLAG "KXD_TEST_FILE",
 #endif
 };
 
@@ -80,6 +83,17 @@ const char *dependencies[] = {
 #ifdef _WIN32
     "WindowsHeader",
 #endif /* _WIN32 */
+};
+
+typedef struct {
+    const char *path;
+    const char *fileName;
+    const char *implementation;
+} SHLibs;
+
+static const SHLibs shl[] = {
+    {INC_DIR, "nob",    "NOB_IMPLEMENTATION"   },
+    {INC_DIR, "raygui", "RAYGUI_IMPLEMENTATION"},
 };
 
 typedef struct {
@@ -116,7 +130,10 @@ void PrintUsage(void) {
             flag_program_name());
 }
 
+#if defined(_WIN32)
 W32(int) SetConsoleOutputCP(uint32_t);
+W32(int) PathResolve(wchar_t *pszPath, wchar_t **dirs, uint32_t fFlags);
+#endif
 
 const char *nob_header_path = "include/nob.h";
 int main(int argc, char **argv) {
@@ -188,10 +205,42 @@ int main(int argc, char **argv) {
             nob_return_defer(1);
         }
 
-        if (!CompileNobHeader()) {
-            nob_log(NOB_ERROR, "Could not compile nob.h header...");
+        if (!CompileSingleHeaderLib()) {
+            nob_log(NOB_ERROR, "Could not Compile Single Header Libraries...");
             nob_return_defer(1);
         }
+
+        if (!CompileSourceFiles()) {
+            nob_log(NOB_ERROR, "Could not compile Source Files...");
+            nob_return_defer(1);
+        }
+
+        if (!CompileDependencies()) {
+            nob_log(NOB_ERROR, "Could not compile Dependencies...");
+            nob_return_defer(1);
+        }
+
+        if (!CompileImgui()) {
+            nob_log(NOB_ERROR, "Could not compile Imgui...");
+            nob_return_defer(1);
+        }
+
+        if (!CompileExecutable()) {
+            nob_log(NOB_ERROR, "Could not Link Executable...");
+            nob_return_defer(1);
+        }
+    }
+
+    if (*WebMode) {
+        nob_log(NOB_WARNING, "%s Mode Not Implemented...", "WebMode");
+    }
+
+    if (*TestMode) {
+        nob_log(NOB_WARNING, "%s Mode Not Implemented...", "TestMode");
+    }
+
+    if (*BundlerMode) {
+        nob_log(NOB_WARNING, "%s Mode Not Implemented...", "BundlerMode");
     }
 
 defer:
@@ -211,7 +260,7 @@ defer:
     return result;
 }
 
-#if defined(_WIN32)
+#if defined(_WIN32) && 0
 #define SHARED_USER_DATA (BYTE *)0x7FFE0000
 static WinVer GetWinVer(void) {
     WinVer result = {
@@ -255,7 +304,6 @@ static WVResp GetWindowsVersion(void) {
     return ver.build >= 21996UL ? WIN_11 : WIN_10; // if build >= 21996 = Win 11 else Win 10
 }
 // clang-format on
-
 #endif // defined(_WIN32)
 
 #ifdef _WIN32
@@ -269,8 +317,10 @@ static WVResp GetWindowsVersion(void) {
 bool IsExeInPath(const char *exe) {
     Nob_Cmd_Redirect cr = {};
 
-    if (exe == NULL || *exe == '\0')
+    if (exe == NULL || *exe == '\0') {
+        nob_log(NOB_ERROR, "Path is invalid");
         return false;
+    }
 
     Nob_Fd nullOutput = nob_fd_open_for_write(NULL_OUTPUT);
     if (nullOutput == NOB_INVALID_FD) {
@@ -387,14 +437,12 @@ bool BuildRayLib(void) {
     Nob_String_Builder sb   = {};
     const size_t checkpoint = nob_temp_save();
 
-    const char *rlFiles[] = {
-        "rcore", "rshapes", "rtextures", "rtext", "utils", "rmodels", "raudio",
-    };
+    const char *rlFiles[] = {"rcore", "rglfw", "rshapes", "rtextures", "rtext", "utils", "rmodels", "raudio"};
 
     for (size_t i = 0; i < NOB_ARRAY_LEN(rlFiles); ++i) {
-        char *input   = nob_temp_sprintf("%s%s%s", RAYLIB_SRC_PATH, rlFiles[i], ".c");
-        char *output  = nob_temp_sprintf("%s%s%s", BLD_DIR, rlFiles[i], "_" CPL OBJ_EXT);
-        char *depFile = nob_temp_sprintf("%s%s%s", BLD_DIR, rlFiles[i], "_" CPL ".d");
+        const char *input   = nob_temp_sprintf("%s%s%s", RAYLIB_SRC_PATH, rlFiles[i], ".c");
+        const char *output  = nob_temp_sprintf("%s%s%s", BLD_DIR, rlFiles[i], "_" CPL OBJ_EXT);
+        const char *depFile = nob_temp_sprintf("%s%s%s", BLD_DIR, rlFiles[i], "_" CPL ".d");
 
         output = strdup(output);
         nob_da_append(&obj, output);
@@ -421,38 +469,36 @@ bool BuildRayLib(void) {
         }
 #endif
 
-        if (nob_needs_rebuild(output, fp.items, fp.count) > 0) {
+        if (nob_needs_rebuild(output, fp.items, fp.count) != 0) {
             nob_log(NOB_INFO, "--- Generating %s ---", output);
 
-            if (hasCCache) {
+            if (hasCCache)
                 nob_cmd_append(&cmd, CCACHE);
-            }
 
             nob_cc(&cmd);
 
             nob_cc_include(&cmd, "./");
             nob_cc_include(&cmd, INC_DIR);
             nob_cc_include(&cmd, RAYLIB_SRC_PATH "external/glfw/include");
+            nob_cmd_append(&cmd, NOLINK_FLAG);
+
+            nob_cc_obj(&cmd, output);
+            nob_cc_inputs(&cmd, input);
+            nob_cc_flags(&cmd);
 
 #ifdef _WIN32
             nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", //
                            DEF_FLAG "_CRT_SECURE_NO_WARNINGS", DEF_FLAG "USE_MINIRENT");
 #endif
 
-#if defined(_MSC_VER) && !defined(__clang__)
-            nob_cmd_append(&cmd, "/showIncludes");
-#else
             nob_cc_depfile(&cmd, depfile);
-            nob_cmd_append(&cmd, "-fno-strict-aliasing", "-Werror=implicit-function-declaration",
-                           "-Werror=pointer-arith");
+
+#if !defined(_MSC_VER) || defined(__clang__)
+            nob_cmd_append(&cmd, "-fno-strict-aliasing", "-Werror=implicit-function-declaration");
+            nob_cmd_append(&cmd, "-Werror=pointer-arith", "-Wno-unused-function", "-Wno-unused-parameter");
 #endif
-            nob_cmd_append(&cmd, NOLINK_FLAG);
+
             nob_cmd_append(&cmd, DEF_FLAG "GRAPHICS_API_OPENGL_33", DEF_FLAG "PLATFORM_DESKTOP");
-
-            nob_cc_obj(&cmd, output);
-            nob_cc_inputs(&cmd, input);
-
-            nob_cc_flags(&cmd);
 
             // sb.count = 0;
             // nob_cmd_render(cmd, &sb);
@@ -682,31 +728,290 @@ bool ParseDependencyFile(Nob_File_Paths *fp, Nob_String_Builder *sb, const char 
     // #endif
 }
 
-bool CompileNobHeader(void) {
-    bool result        = true;
-    const char *output = BLD_DIR "nob_" CPL ".o";
+bool CompileSingleHeaderLib(void) {
+    const size_t checkpoint = nob_temp_save();
+    bool result             = true;
 
-    output = strdup(output);
-    nob_da_append(&obj, output);
+    for (size_t i = 0; i < NOB_ARRAY_LEN(shl); ++i) {
+        const char *input  = nob_temp_sprintf("%s%s%s", shl[i].path, shl[i].fileName, ".h");
+        const char *output = nob_temp_sprintf("%s%s%s", BLD_DIR, shl[i].fileName, "_" CPL OBJ_EXT);
+        const char *impl   = nob_temp_sprintf("%s%s", DEF_FLAG, shl[i].implementation);
 
-    if (nob_needs_rebuild1(output, nob_header_path) > 0) {
+        output = strdup(output);
+        nob_da_append(&obj, output);
+
+        if (nob_needs_rebuild1(output, input) != 0) {
+            nob_log(NOB_INFO, "--- Generating %s ---", output);
+
+            if (hasCCache)
+                nob_cmd_append(&cmd, CCACHE);
+
+            nob_cc(&cmd);
+
+            nob_cc_output_obj(&cmd, output);
+
+            nob_cmd_append(&cmd, C_MODE);
+            nob_cc_inputs(&cmd, input);
+
+            nob_cc_flags(&cmd);
+
+#ifdef _WIN32
+            nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", DEF_FLAG "_CRT_SECURE_NO_WARNINGS");
+#endif
+
+            nob_cmd_append(&cmd, impl, DEF_FLAG "NRPUB", NOLINK_FLAG);
+
+            if (!nob_cmd_run_sync_and_reset(&cmd))
+                nob_return_defer(false);
+        }
+    }
+
+defer:
+    nob_temp_rewind(checkpoint);
+    return result;
+}
+
+bool CompileSourceFiles(void) {
+    const size_t checkpoint = nob_temp_save();
+    bool result             = true;
+
+    Nob_File_Paths fp     = {};
+    Nob_String_Builder sb = {};
+
+    for (size_t i = 0; i < NOB_ARRAY_LEN(files); ++i) {
+        const char *input   = nob_temp_sprintf("%s%s%s", SRC_DIR, files[i], ".c");
+        const char *output  = nob_temp_sprintf("%s%s%s", BLD_DIR, files[i], "_" CPL OBJ_EXT);
+        const char *depFile = nob_temp_sprintf("%s%s%s", BLD_DIR, files[i], "_" CPL ".d");
+
+        output = strdup(output);
+        nob_da_append(&obj, output);
+
+        if (!ParseDependencyFile(&fp, &sb, depFile)) {
+            nob_da_append(&fp, input);
+            char *header = nob_temp_strdup(input);
+            char *SubStr = strstr(header, ".c");
+            if (SubStr && *SubStr) {
+                SubStr++;
+                if (*SubStr == 'c') {
+                    *SubStr = 'h';
+                    if (nob_file_exists(header) > 0)
+                        nob_da_append(&fp, header);
+                }
+            }
+        }
+#if defined(_MSC_VER) && !defined(__clang__)
+        else {
+            // need to add input for MSVC cl.exe, since the dependencies are from input file (.c/.cpp file)
+            // when in GCC/Clang the dependencies are from object file (.o)
+            nob_da_append(&fp, input);
+        }
+#endif
+
+        if (nob_needs_rebuild(output, fp.items, fp.count) != 0) {
+            nob_log(NOB_INFO, "--- Generating %s ---", output);
+
+            if (hasCCache)
+                nob_cmd_append(&cmd, CCACHE);
+
+            nob_cc(&cmd);
+
+            nob_cc_include(&cmd, "./");
+            nob_cc_include(&cmd, INC_DIR);
+            nob_cc_include(&cmd, EXT_DIR);
+            nob_cc_include(&cmd, "./styles/");
+
+            nob_cc_depfile(&cmd, depfile);
+
+            nob_cc_output_obj(&cmd, output);
+            nob_cc_inputs(&cmd, input);
+            nob_cc_flags(&cmd);
+
+#ifdef _WIN32
+            nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", DEF_FLAG "_CRT_SECURE_NO_WARNINGS");
+#endif
+
+            nob_cmd_append(&cmd, filesFlags[i], NOLINK_FLAG);
+#if defined(_MSC_VER) && !defined(__clang__)
+            Nob_Fd outFile = nob_fd_open_for_write(depFile);
+            if (outFile != NOB_INVALID_FD) {
+
+                Nob_Cmd_Redirect red = {
+                    .fdin  = NULL,     //
+                    .fdout = &outFile, //
+                    .fderr = NULL,     //
+                };
+
+                if (!nob_cmd_run_sync_redirect_and_reset(&cmd, red))
+                    nob_return_defer(false);
+
+                sb.count = 0;
+                if (nob_read_entire_file(depFile, &sb)) {
+                    size_t buffSize = 0;
+                    char *buff      = nob_temp_alloc(sb.count);
+
+                    NOB_ASSERT(buff && "Increase NOB_TEMP_CAPACITY");
+
+                    Nob_String_View sv = nob_sv_trim(nob_sb_to_sv(sb));
+                    while (sv.count) {
+                        Nob_String_View sv2 = nob_sv_trim(nob_sv_chop_by_delim(&sv, '\n'));
+                        if (nob_sv_starts_with(sv2, msvc_prefix)) {
+                            memcpy(&buff[buffSize], sv2.data, sv2.count);
+                            buffSize += sv2.count;
+
+                            memset(&buff[buffSize], '\n', 1);
+                            buffSize++;
+                        } else {
+                            fprintf(stderr, SV_Fmt "\n", SV_Arg(sv2));
+                        }
+                    }
+                    fflush(stderr);
+                    nob_write_entire_file(depFile, buff, buffSize);
+                } else {
+                    nob_log(NOB_WARNING, "Could not print compiler output to console, check '%s' for the entire output",
+                            depFile);
+                }
+            } else {
+                nob_log(NOB_WARNING, "Could not redirect compiler output");
+                if (!nob_cmd_run_sync_and_reset(&cmd))
+                    nob_return_defer(false);
+            }
+#else
+            if (!nob_cmd_run_sync_and_reset(&cmd))
+                nob_return_defer(false);
+#endif
+        }
+    }
+
+defer:
+    nob_da_free(fp);
+    nob_sb_free(sb);
+
+    nob_temp_rewind(checkpoint);
+
+    return result;
+}
+
+bool CompileDependencies(void) {
+    bool result             = true;
+    const size_t checkpoint = nob_temp_save();
+
+    for (size_t i = 0; i < NOB_ARRAY_LEN(dependencies); ++i) {
+        const char *input  = nob_temp_sprintf(EXT_DIR "%s/%s%s", dependencies[i], dependencies[i], ".c");
+        const char *output = nob_temp_sprintf("%s%s%s", BLD_DIR, dependencies[i], "_" CPL OBJ_EXT);
+
+        output = strdup(output);
+        nob_da_append(&obj, output);
+
+        if (nob_needs_rebuild1(output, input) != 0) {
+            nob_log(NOB_INFO, "--- Generating %s ---", output);
+
+            if (hasCCache)
+                nob_cmd_append(&cmd, CCACHE);
+
+            nob_cc(&cmd);
+
+            nob_cc_include(&cmd, "./");
+            nob_cc_include(&cmd, INC_DIR);
+
+            nob_cc_output_obj(&cmd, output);
+            nob_cc_inputs(&cmd, input);
+
+            nob_cc_flags(&cmd);
+
+#ifdef _WIN32
+            nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", DEF_FLAG "_CRT_SECURE_NO_WARNINGS");
+#endif
+
+            nob_cmd_append(&cmd, NOLINK_FLAG);
+
+            if (!nob_cmd_run_sync_and_reset(&cmd))
+                nob_return_defer(false);
+        }
+    }
+
+defer:
+    nob_temp_rewind(checkpoint);
+    return result;
+}
+
+bool CompileImgui(void) {
+    bool result             = true;
+    const size_t checkpoint = nob_temp_save();
+
+    const char *imgui[] = {
+        "cimgui/cimgui",              //
+        "cimgui/imgui/imgui",         //
+        "cimgui/imgui/imgui_demo",    //
+        "cimgui/imgui/imgui_draw",    //
+        "cimgui/imgui/imgui_tables",  //
+        "cimgui/imgui/imgui_widgets", //
+        "rlImGui/rlImGui",            //
+    };
+
+    for (size_t i = 0; i < NOB_ARRAY_LEN(imgui); ++i) {
+        const char *input  = nob_temp_sprintf("%s%s%s", EXT_DIR, imgui[i], ".cpp");
+        const char *output = nob_temp_sprintf("%s%s%s", BLD_DIR, nob_path_name(imgui[i]), "_" CPL OBJ_EXT);
+
+        output = strdup(output);
+        nob_da_append(&obj, output);
+
+        if (nob_needs_rebuild1(output, input) != 0) {
+            nob_log(NOB_INFO, "--- Generating %s ---", output);
+
+            if (hasCCache)
+                nob_cmd_append(&cmd, CCACHE);
+
+            nob_cxx(&cmd);
+
+            nob_cc_include(&cmd, "./");
+            nob_cc_include(&cmd, INC_DIR);
+            nob_cc_include(&cmd, EXT_DIR "rlImGui/");
+            nob_cc_include(&cmd, EXT_DIR "cimgui/");
+            nob_cc_include(&cmd, EXT_DIR "cimgui/imgui/");
+
+            nob_cc_output_obj(&cmd, output);
+            nob_cc_inputs(&cmd, input);
+
+            nob_cc_flags(&cmd);
+
+#ifdef _WIN32
+            nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", DEF_FLAG "_CRT_SECURE_NO_WARNINGS");
+#endif
+
+            nob_cmd_append(&cmd, NOLINK_FLAG);
+
+            if (!nob_cmd_run_sync_and_reset(&cmd))
+                nob_return_defer(false);
+        }
+    }
+
+defer:
+    nob_temp_rewind(checkpoint);
+    return result;
+}
+
+bool CompileExecutable(void) {
+    bool result = true;
+
+    const char *output = BIN_DIR EXENAME;
+
+    if (nob_needs_rebuild(output, obj.items, obj.count) != 0) {
         nob_log(NOB_INFO, "--- Generating %s ---", output);
 
-        if (hasCCache) {
+        if (hasCCache)
             nob_cmd_append(&cmd, CCACHE);
-        }
 
         nob_cc(&cmd);
 
         nob_cc_output(&cmd, output);
-        nob_cc_inputs(&cmd, nob_header_path);
+        nob_da_append_many(&cmd, obj.items, obj.count);
 
-#ifdef _WIN32
-        nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", DEF_FLAG "_CRT_SECURE_NO_WARNINGS");
-#endif
-
-        nob_cmd_append(&cmd, DEF_FLAG "NOB_IMPLEMENTATION", NOLINK_FLAG);
         nob_cc_flags(&cmd);
+
+        for (size_t i = 0; i < NOB_ARRAY_LEN(libs); ++i) {
+            const char *lib = nob_lib(libs[i]);
+            nob_cmd_append(&cmd, lib);
+        }
 
         if (!nob_cmd_run_sync_and_reset(&cmd))
             nob_return_defer(false);

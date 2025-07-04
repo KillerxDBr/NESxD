@@ -47,8 +47,9 @@
 #define nob_cc_obj(cmd, obj)                nob_cmd_append(cmd, nob_temp_sprintf("/Fo:%s", (obj)))
 #define nob_cc_include(cmd, path)           nob_cmd_append(cmd, "/I", (path))
 #define nob_cc_output_obj(cmd, output_path) nob_cmd_append(cmd, nob_temp_sprintf("/Fo:%s", (output_path)))
-#define nob_cc_depfile(...)
-#define nob_cc_include(cmd, path) nob_cmd_append(cmd, "/I", (path))
+#define nob_cc_depfile(cmd, depfile)        nob_cmd_append(cmd, "/showIncludes")
+#define nob_cc_include(cmd, path)           nob_cmd_append(cmd, "/I", (path))
+#define nob_lib(lib)                        nob_temp_sprintf("%s.lib", lib)
 
 #pragma comment(lib, "shell32.lib") // CommandLineToArgvW in nob_win32_uft8_cmdline_args
 #pragma comment(lib, "Shlwapi.lib") // PathIsRelativeW in get_MSVC_default_paths
@@ -67,6 +68,7 @@
 #define nob_cc_output_obj(cmd, output_path) nob_cmd_append(cmd, "-o", (output_path))
 #define nob_cc_depfile(cmd, depfile)        nob_cmd_append(cmd, "-MMD", "-MF", (depFile));
 #define nob_cc_include(cmd, path)           nob_cmd_append(cmd, "-I", (path))
+#define nob_lib(lib)                        nob_temp_sprintf("-l%s", lib)
 
 #endif
 
@@ -87,3 +89,9 @@
 
 static const Nob_String_View msvc_prefix = SV_STATIC(MSVC_DEP_STRING);
 #endif // defined(_MSC_VER) && !defined(__clang__)
+
+#ifdef _WIN32
+#define EXENAME "NESxD.exe"
+#else
+#define EXENAME "NESxD"
+#endif

@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
     VARLOG(nob_path_name(cwd), "'%s'");
 
     if (DirectoryExists(TextFormat("%s/rom", cwd)) && strcmp(nob_path_name(cwd), "bin") == 0) {
-        memset((void *)nob_path_name(cwd) - 1, 0, 1);
+        memset((char *)nob_path_name(cwd) - 1, 0, 1);
     }
 
     if (!ChangeDirectory(cwd)) {
