@@ -1,8 +1,8 @@
 #include "main.h"
 
 int main(int argc, char **argv) {
-    setlocale(LC_CTYPE, "");
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(__EMSCRIPTEN__)
+    setlocale(LC_CTYPE, ".UTF8");
     SetErrorMode(SEM_FAILCRITICALERRORS);
 
     if (!WinH_SetConsoleOutputCP(CP_UTF8)) {
@@ -36,7 +36,9 @@ int main(int argc, char **argv) {
     //     LOG_INF("%d: \"%s\"", i+1, argv[i]);
     // }
     // return 0;
-#endif // defined(_WIN32)
+#else
+    setlocale(LC_CTYPE, "");
+#endif // defined(_WIN32) && !defined(__EMSCRIPTEN__)
 
     LOG_INF("CTYPE Locale set to \"%s\"", setlocale(LC_CTYPE, NULL));
 
