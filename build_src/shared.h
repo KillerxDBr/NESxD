@@ -9,27 +9,42 @@
 #define W32(T) __declspec(dllimport) T __stdcall
 #endif // defined(_WIN32)
 
-#if defined(__GNUC__)
-#define nob_cc(cmd)       nob_cmd_append(cmd, "gcc")
-#define nob_cxx(cmd)      nob_cmd_append(cmd, "g++")
+#if defined(__GNUC__) && !defined(__clang__)
+#define nob_cc(cmd)  nob_cmd_append(cmd, "gcc")
+#define nob_cxx(cmd) nob_cmd_append(cmd, "g++")
+#ifdef RELEASE
+#define nob_cc_flags(cmd) nob_cmd_append(cmd, "-O2", "-Wall", "-Wextra")
+#else
 #define nob_cc_flags(cmd) nob_cmd_append(cmd, "-O0", "-ggdb", "-Wall", "-Wextra")
-#define CPL               "gcc"
+#endif // RELEASE
+#define CPL                         "gcc"
+#define nob_res(cmd, input, output) nob_cmd_append(cmd, "windres", "-i", (input), "-o", (output))
 #elif defined(__clang__)
-#define nob_cc(cmd)       nob_cmd_append(cmd, "clang")
-#define nob_cxx(cmd)      nob_cmd_append(cmd, "clang++")
+#define nob_cc(cmd)  nob_cmd_append(cmd, "clang")
+#define nob_cxx(cmd) nob_cmd_append(cmd, "clang++")
+#ifdef RELEASE
+#define nob_cc_flags(cmd) nob_cmd_append(cmd, "-O2", "-Wall", "-Wextra")
+#else
 #define nob_cc_flags(cmd) nob_cmd_append(cmd, "-O0", "-ggdb", "-Wall", "-Wextra")
-#define CPL               "clang"
+#endif // RELEASE
+#define CPL                         "clang"
+#define nob_res(cmd, input, output) nob_cmd_append(cmd, "llvm-rc", (input), "/FO", (output))
 #elif defined(_MSC_VER)
-#define nob_cc(cmd)       nob_cmd_append(cmd, "cl")
-#define nob_cxx(cmd)      nob_cmd_append(cmd, "cl")
+#define nob_cc(cmd)  nob_cmd_append(cmd, "cl")
+#define nob_cxx(cmd) nob_cmd_append(cmd, "cl")
+#ifdef RELEASE
+#define nob_cc_flags(cmd) nob_cmd_append(cmd, "/W4", "/O2", "/nologo", "/utf-8")
+#else
 #define nob_cc_flags(cmd) nob_cmd_append(cmd, "/W4", "/Od", "/nologo", "/utf-8")
-#define CPL               "msvc"
+#endif // RELEASE
+#define CPL                         "msvc"
+#define nob_res(cmd, input, output) nob_cmd_append(cmd, "rc", (input), "/FO", (output), "/nologo")
 #else
 #define nob_cc(cmd)  nob_cmd_append(cmd, "cc")
 #define nob_cxx(cmd) nob_cmd_append(cmd, "c++")
 #define nob_cc_flags(...)
 #define CPL "cc"
-#endif // defined(__GNUC__)
+#endif // defined(__GNUC__) && !defined(__clang__)
 
 #define NOSHELLDLL
 #define NOB_IMPLEMENTATION
