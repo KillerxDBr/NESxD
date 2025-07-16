@@ -888,6 +888,28 @@ bool CompileSourceFiles(void) {
         }
     }
 
+#if defined(_WIN32)
+    const char *rc_input = "resource.rc";
+    const char *manifest = "manifest.xml";
+    if (nob_file_exists(rc_input) > 0 && nob_file_exists(manifest) > 0) {
+        const char *resource = BLD_DIR "resource.res";
+        const char *inputs[] = {rc_input, manifest};
+
+        if (nob_needs_rebuild(resource, inputs, 2) != 0) {
+            nob_log(NOB_INFO, "--- Building %s file", resource);
+            if (hasCCache)
+                nob_cmd_append(&cmd, CCACHE);
+
+            nob_res(&cmd, rc_input, resource);
+
+            if (!nob_cmd_run_sync_and_reset(&cmd))
+                nob_return_defer(false);
+        }
+        resource = strdup(resource);
+        nob_da_append(&obj, resource);
+    }
+#endif
+
 defer:
     nob_da_free(fp);
     nob_sb_free(sb);
