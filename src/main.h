@@ -38,6 +38,8 @@
 #include "kxdTypes.h"
 #include "lang.h"
 
+#include "icon.h"
+
 #ifdef KXD_DEBUG
 #include "test.h"
 #endif
@@ -45,7 +47,6 @@
 #define CIMGUI_USE_GLFW
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include "cimgui/cimgui.h"
-#include "cimgui/cimgui_impl.h"
 
 #include "rlImGui/rlImGui.h"
 
@@ -79,6 +80,7 @@ void unloadRom(nes_t *nes);
 void processRomHeader(nes_t *nes);
 void debugCPU(cpu_t *cpu);
 void calcScreenPos(app_t *app);
+void loadIconFile(void);
 
 #ifdef PLATFORM_WEB
 void mainLoop(void *app_ptr);

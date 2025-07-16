@@ -111,6 +111,7 @@ int main(int argc, char **argv) {
 #ifndef PLATFORM_WEB
     SetWindowMinSize(NES_W, NES_H + MENU_BAR_SIZE);
     SetTargetFPS(60);
+    loadIconFile();
 #endif /* PLATFORM_WEB */
 
     app->screenW = GetRenderWidth();
@@ -600,4 +601,15 @@ void calcScreenPos(app_t *app) {
             app->destRec.y = 0;
         }
     }
+}
+
+void loadIconFile(void) {
+    Image img = {};
+
+    img.data   = icoImg;
+    img.width  = icoWid;
+    img.height = icoHei;
+    img.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+
+    SetWindowIcon(img);
 }
