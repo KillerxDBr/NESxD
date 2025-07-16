@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
 #ifndef PLATFORM_WEB
 
     app->config.fileName = callocWrapper(strlen(app->program) + sizeof(CONFIG_FILE), char);
-    memcpy(app->config.fileName, app->program, strlen(app->program));
+    memcpy((void *)app->config.fileName, app->program, strlen(app->program));
 
     const char *exeName = nob_path_name(app->config.fileName);
 
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
     // slash++;
 
     memcpy((void *)exeName, CONFIG_FILE, sizeof(CONFIG_FILE));
-    app->config.fileName = realloc(app->config.fileName, strlen(app->config.fileName) + 1);
+    app->config.fileName = realloc((void *)app->config.fileName, strlen(app->config.fileName) + 1);
 
     VARLOG(app->config.fileName, "'%s'");
 
@@ -523,8 +523,8 @@ void mainLoop(void *app_ptr) {
 #endif // KXD_DEBUG
         rlImGuiBegin();
         {
-            static bool opt_open = true;
-            static bool opt_quit = false;
+            // static bool opt_open = true;
+            // static bool opt_quit = false;
 
             if (igBeginMainMenuBar()) {
                 if (igBeginMenu(app->lang.menu_file, true)) {
