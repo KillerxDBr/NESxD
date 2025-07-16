@@ -20,6 +20,8 @@
 #define RAYMATH_STATIC_INLINE
 #include "raymath.h"
 
+#include "w32_deprecated.h"
+
 #ifndef PLATFORM_WEB
 #include "WindowsHeader/WindowsHeader.h"
 #include "tinyfiledialogs/tinyfiledialogs.h"
