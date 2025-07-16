@@ -153,14 +153,14 @@ typedef struct {
 } lang_t;
 
 typedef struct {
-    char *fileName;
+    const char *fileName;
     bool hasConfig;
 
     int activeTheme;
 
     uint16_t fastForwardKey;
     uint16_t pauseKey;
-    char *lang;
+    const char *lang;
 } config_t;
 
 typedef struct {

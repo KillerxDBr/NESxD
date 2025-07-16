@@ -18,7 +18,7 @@ void memDmp(cpu_t *cpu, size_t memSize);
 static inline void *callocWrapperFunc(size_t n, size_t sz, const char *fileName, const int lineNum) {
     void *ptr = calloc(n, sz);
     if (ptr == NULL) {
-        LOG_ERR("%s:%d:  Could not allocate memory (%zu bytes), aborting...", fileName, lineNum, n * sz);
+        fprintf(stderr, "[ERROR] %s:%d:  Could not allocate memory (%zu bytes), aborting...", fileName, lineNum, n * sz);
         fflush(stdout);
         fflush(stderr);
         abort();

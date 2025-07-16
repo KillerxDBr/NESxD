@@ -61,7 +61,8 @@ void TraceLog(int logType, const char *text, ...) KXD_PRINTF_FORMAT(2, 3);
 
 #define KXD_TODO(message)                                                                                              \
     do {                                                                                                               \
-        fprintf(stderr, "%s:%d: TODO: %s\n", __FILE__, __LINE__, message);                                             \
+        fprintf(stderr, "[TODO] %s:%d: %s\n", __FILE__, __LINE__, message);                                            \
+        fflush(stdout);                                                                                                \
         fflush(stderr);                                                                                                \
         abort();                                                                                                       \
     } while (0)
