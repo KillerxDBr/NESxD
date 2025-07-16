@@ -3566,6 +3566,7 @@ int GuiColorPanel(Rectangle bounds, const char *text, Color *color)
 // NOTE: Returns alpha value normalized [0..1]
 int GuiColorBarAlpha(Rectangle bounds, const char *text, float *alpha)
 {
+    (void)text;
     #if !defined(RAYGUI_COLORBARALPHA_CHECKED_SIZE)
         #define RAYGUI_COLORBARALPHA_CHECKED_SIZE   10
     #endif
@@ -3656,6 +3657,7 @@ int GuiColorBarAlpha(Rectangle bounds, const char *text, float *alpha)
 //      float GuiColorBarLuminance() [BLACK->WHITE]
 int GuiColorBarHue(Rectangle bounds, const char *text, float *hue)
 {
+    (void)text;
     int result = 0;
     GuiState state = guiState;
     Rectangle selector = { (float)bounds.x - GuiGetStyle(COLORPICKER, HUEBAR_SELECTOR_OVERFLOW), (float)bounds.y + (*hue)/360.0f*bounds.height - GuiGetStyle(COLORPICKER, HUEBAR_SELECTOR_HEIGHT)/2, (float)bounds.width + GuiGetStyle(COLORPICKER, HUEBAR_SELECTOR_OVERFLOW)*2, (float)GuiGetStyle(COLORPICKER, HUEBAR_SELECTOR_HEIGHT) };
@@ -3747,6 +3749,7 @@ int GuiColorBarHue(Rectangle bounds, const char *text, float *hue)
 // NOTE: this picker converts RGB to HSV, which can cause the Hue control to jump. If you have this problem, consider using the HSV variant instead
 int GuiColorPicker(Rectangle bounds, const char *text, Color *color)
 {
+    (void)text;
     int result = 0;
 
     Color temp = { 200, 0, 0, 255 };
@@ -3779,6 +3782,7 @@ int GuiColorPicker(Rectangle bounds, const char *text, Color *color)
 // NOTE: bounds define GuiColorPanelHSV() size
 int GuiColorPickerHSV(Rectangle bounds, const char *text, Vector3 *colorHsv)
 {
+    (void)text;
     int result = 0;
 
     Vector3 tempHsv = { 0 };
@@ -3802,6 +3806,7 @@ int GuiColorPickerHSV(Rectangle bounds, const char *text, Vector3 *colorHsv)
 // Color Panel control - HSV variant
 int GuiColorPanelHSV(Rectangle bounds, const char *text, Vector3 *colorHsv)
 {
+    (void)text;
     int result = 0;
     GuiState state = guiState;
     Vector2 pickerSelector = { 0 };
@@ -4048,6 +4053,7 @@ int GuiTextInputBox(Rectangle bounds, const char *title, const char *message, co
 // https://stackoverflow.com/questions/4435450/2d-opengl-drawing-lines-that-dont-exactly-fit-pixel-raster
 int GuiGrid(Rectangle bounds, const char *text, float spacing, int subdivs, Vector2 *mouseCell)
 {
+    (void)text;
     // Grid lines alpha amount
     #if !defined(RAYGUI_GRID_ALPHA)
         #define RAYGUI_GRID_ALPHA    0.15f
@@ -4488,6 +4494,7 @@ void GuiSetIconScale(int scale)
 // WARNING: Binary files only
 static void GuiLoadStyleFromMemory(const unsigned char *fileData, int dataSize)
 {
+    (void)dataSize;
     unsigned char *fileDataPtr = (unsigned char *)fileData;
 
     char signature[5] = { 0 };
@@ -4844,7 +4851,7 @@ const char **GetTextLines(const char *text, int *count)
     int textSize = (int)strlen(text);
 
     lines[0] = text;
-    int len = 0;
+    // int len = 0;
     *count = 1;
     //int lineSize = 0;   // Stores current line size, not returned
 
@@ -4855,10 +4862,10 @@ const char **GetTextLines(const char *text, int *count)
             //lineSize = len;
             k++;
             lines[k] = &text[i + 1];     // WARNING: next value is valid?
-            len = 0;
+            // len = 0;
             *count += 1;
         }
-        else len++;
+        // else len++;
     }
 
     //lines[*count - 1].size = len;
