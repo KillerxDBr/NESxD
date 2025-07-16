@@ -836,7 +836,7 @@ bool CompileSourceFiles(void) {
             nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", DEF_FLAG "_CRT_SECURE_NO_WARNINGS");
 #endif
 
-            nob_cmd_append(&cmd, filesFlags[i], NOLINK_FLAG);
+            nob_cmd_append(&cmd, filesFlags[i], NOLINK_FLAG, DEF_FLAG "KXD_DEBUG");
 #if defined(_MSC_VER) && !defined(__clang__)
             Nob_Fd outFile = nob_fd_open_for_write(depFile);
             if (outFile != NOB_INVALID_FD) {
