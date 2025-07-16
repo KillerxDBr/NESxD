@@ -9,8 +9,6 @@
 
 #include "nob.h"
 
-#include "stb_ds.h"
-
 void loadDefaultLang(lang_t *lang);
 
 typedef struct {
