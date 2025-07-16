@@ -2,7 +2,7 @@
 
 #include "iconTray.h"
 
-NOTIFYICONDATAA nid = {};
+NOTIFYICONDATAW nid;
 
 void KxD_Handle_Tray(void) {
     MSG msg;
@@ -46,7 +46,9 @@ void KxD_Handle_Tray(void) {
 }
 
 void KxD_Create_Tray(void *hWnd) {
-    nid.cbSize = sizeof(NOTIFYICONDATAA);
+    SecureZeroMemory(&nid, sizeof(nid));
+
+    nid.cbSize = sizeof(nid);
 
     // 974e95f3-10f2-40da-aa6d-e90099f0d1f8
     const GUID myGuid = (GUID){
@@ -54,7 +56,8 @@ void KxD_Create_Tray(void *hWnd) {
     };
     nid.guidItem = myGuid;
 
-    nid.hIcon = LoadIconA(GetModuleHandleW(NULL), MAKEINTRESOURCEA(NESXDICO));
+    nid.hIcon = LoadIconW(GetModuleHandleW(NULL), MAKEINTRESOURCEW(NESXDICO));
+    assert(nid.hIcon != NULL);
 
     nid.hWnd             = hWnd;
     nid.uFlags           = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_GUID;
@@ -63,19 +66,25 @@ void KxD_Create_Tray(void *hWnd) {
 
     memcpy(nid.szTip, KXD_ICON_TEXT, sizeof(KXD_ICON_TEXT));
 
-    Shell_NotifyIconA(NIM_ADD, &nid);
-    Shell_NotifyIconA(NIM_SETVERSION, &nid);
+    if (!Shell_NotifyIconW(NIM_ADD, &nid)) {
+        LOG_ERR("Could not add Icon to tray: %s", WinH_win32_error_message(GetLastError()));
+    }
+
+    if (!Shell_NotifyIconW(NIM_SETVERSION, &nid)) {
+        LOG_ERR("Could not set version to Icon: %s", WinH_win32_error_message(GetLastError()));
+    }
 }
 
 void KxD_Destroy_Tray(void) {
-    DestroyIcon(nid.hIcon);
+    if (!Shell_NotifyIconW(NIM_DELETE, &nid)) {
+        LOG_ERR("Could not delete icon from tray: %s", WinH_win32_error_message(GetLastError()));
+    }
 
-    if (!Shell_NotifyIconA(NIM_DELETE, &nid)) {
-        LOG_ERR("Could not delete icon: %s", WinH_win32_error_message(GetLastError()));
+    if (!DestroyIcon(nid.hIcon)) {
+        LOG_ERR("Could not destroy icon resource: %s", WinH_win32_error_message(GetLastError()));
     }
 
     SecureZeroMemory(&nid, sizeof(nid));
-    // memset(&nid, 0, sizeof(nid));
 }
 #else
 void KxD_Create_Tray(void *hWnd) { (void)(hWnd); }

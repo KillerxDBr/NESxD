@@ -20,7 +20,7 @@ void KxD_Destroy_Tray(void);
 #define KXD_ICONTRAY_MSG  (uint32_t)(WM_APP + 1)
 #define KXD_ICONTRAY_MSG2 (uint32_t)(WM_USER + 1)
 
-#define KXD_ICON_TEXT "KxD trayIcon"
+#define KXD_ICON_TEXT L"KxD trayIcon"
 #endif // _WIN32
 
 #endif
