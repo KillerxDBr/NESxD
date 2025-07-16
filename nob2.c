@@ -57,7 +57,7 @@ static WinVer GetWinVer(void);
 
 const char *libs[] = {
 #if defined(_WIN32)
-    "gdi32", "winmm", "comdlg32", "ole32", "shell32", "opengl32", "user32", "advapi32",
+    "gdi32", "winmm", "comdlg32", "ole32", "advapi32",
 #else
     "m",
 #endif // defined(_WIN32)
@@ -484,7 +484,7 @@ bool BuildRayLib(void) {
 
             nob_cc_obj(&cmd, output);
             nob_cc_inputs(&cmd, input);
-            nob_cc_flags(&cmd);
+            // nob_cc_flags(&cmd);
 
 #ifdef _WIN32
             nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", //
@@ -567,7 +567,7 @@ W32(BOOL) PathIsRelativeW(_In_ LPCWSTR pszPath);
 bool get_MSVC_default_paths(void) {
     DWORD sz = GetEnvironmentVariableW(L"INCLUDE", NULL, 0);
     if (!sz) {
-        nob_log(NOB_ERROR, "Could not get Env Var size: %s", nob_win32_error_message(GetLastError()));
+        nob_log(NOB_ERROR, "Could not find Environment Variable: %s", nob_win32_error_message(GetLastError()));
         return false;
     }
 
@@ -577,7 +577,7 @@ bool get_MSVC_default_paths(void) {
     NOB_ASSERT(wEnv && wPath && path && "Increase NOB_TEMP_CAPACITY");
 
     if (!GetEnvironmentVariableW(L"INCLUDE", wEnv, sz)) {
-        nob_log(NOB_ERROR, "Could not get Env Var content: %s", nob_win32_error_message(GetLastError()));
+        nob_log(NOB_ERROR, "Could not find Environment Variable: %s", nob_win32_error_message(GetLastError()));
         return false;
     }
 
@@ -629,8 +629,14 @@ bool ParseDependencyFile(Nob_File_Paths *fp, Nob_String_Builder *sb, const char 
     Nob_String_View sv;
 
 #if !defined(__clang__) && defined(_MSC_VER)
-    if (!defPath.count)
-        get_MSVC_default_paths();
+    static bool populate = true;
+
+    if (!defPath.count && populate) {
+        if (!get_MSVC_default_paths()) {
+            nob_log(NOB_WARNING, "Could not find MSVC include paths, system headers will be checked for changes...");
+            populate = false;
+        }
+    }
 
     sv = nob_sv_trim(nob_sb_to_sv(*sb));
 
@@ -652,7 +658,7 @@ bool ParseDependencyFile(Nob_File_Paths *fp, Nob_String_Builder *sb, const char 
         int rst;
         rst = snprintf(path, MAX_PATH, SV_Fmt, SV_Arg(sv2));
         if (rst < 1 || rst >= MAX_PATH) {
-            nob_log(NOB_ERROR, "sprintf failed: %d", rst);
+            nob_log(NOB_ERROR, "snprintf failed: %s", strerror(errno ? errno : ENOBUFS));
             continue;
         }
 
@@ -702,7 +708,7 @@ bool ParseDependencyFile(Nob_File_Paths *fp, Nob_String_Builder *sb, const char 
 #else
     sv = nob_sv_trim(nob_sb_to_sv(*sb));
 
-    if (sv.count > 1 && isalpha(sv.data[0]) && sv.data[1] == ':') {
+    if (sv.count > 2 && isalpha(sv.data[0]) && sv.data[1] == ':' && sv.data[2] == '\\') {
         // remove ':' from C:\\ on win32, will give problems if
         // first file name is one letter only (dont know if its possible)
         nob_sv_chop_by_delim(&sv, ':');
@@ -972,13 +978,13 @@ bool CompileImgui(void) {
             nob_cc_output_obj(&cmd, output);
             nob_cc_inputs(&cmd, input);
 
-            nob_cc_flags(&cmd);
+            // nob_cc_flags(&cmd);
 
 #ifdef _WIN32
             nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", DEF_FLAG "_CRT_SECURE_NO_WARNINGS");
 #endif
 
-            nob_cmd_append(&cmd, NOLINK_FLAG);
+            nob_cmd_append(&cmd, DEF_FLAG "CIMGUI_NO_EXPORT", NOLINK_FLAG);
 
             if (!nob_cmd_run_sync_and_reset(&cmd))
                 nob_return_defer(false);
