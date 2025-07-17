@@ -901,6 +901,7 @@ bool CompileSourceFiles(void) {
                 nob_cmd_append(&cmd, CCACHE);
 
             nob_res(&cmd, rc_input, resource);
+            nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE");
 
             if (!nob_cmd_run_sync_and_reset(&cmd))
                 nob_return_defer(false);
