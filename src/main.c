@@ -1,6 +1,46 @@
 #include "main.h"
 
+// clang-format off
+void simple_logger(int logType, const char *text, va_list args) {
+    if (logType < GetTraceLogLevel()) return;
+
+#if defined(PLATFORM_ANDROID)
+    switch (logType)
+    {
+        case LOG_TRACE: __android_log_vprint(ANDROID_LOG_VERBOSE, "raylib", text, args); break;
+        case LOG_DEBUG: __android_log_vprint(ANDROID_LOG_DEBUG, "raylib", text, args); break;
+        case LOG_INFO: __android_log_vprint(ANDROID_LOG_INFO, "raylib", text, args); break;
+        case LOG_WARNING: __android_log_vprint(ANDROID_LOG_WARN, "raylib", text, args); break;
+        case LOG_ERROR: __android_log_vprint(ANDROID_LOG_ERROR, "raylib", text, args); break;
+        case LOG_FATAL: __android_log_vprint(ANDROID_LOG_FATAL, "raylib", text, args); break;
+        default: break;
+    }
+    return;
+#else
+    switch (logType)
+    {
+        case LOG_TRACE:   printf("TRACE: "  ); break;
+        case LOG_DEBUG:   printf("DEBUG: "  ); break;
+        case LOG_INFO:    printf("INFO: "   ); break;
+        case LOG_WARNING: printf("WARNING: "); break;
+        case LOG_ERROR:   printf("ERROR: "  ); break;
+        case LOG_FATAL:   printf("FATAL: "  ); break;
+        default: break;
+    }
+
+    vprintf(text, args);
+    putc('\n', stdout);
+    fflush(stdout);
+#endif
+
+    if (logType == LOG_FATAL) exit(EXIT_FAILURE);  // If fatal logging, exit program
+
+}
+// clang-format on
+
 int main(int argc, char **argv) {
+    SetTraceLogCallback(&simple_logger);
+
 #if defined(_WIN32) && !defined(__EMSCRIPTEN__)
     setlocale(LC_CTYPE, ".UTF8");
     SetErrorMode(SEM_FAILCRITICALERRORS);
