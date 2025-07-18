@@ -555,6 +555,24 @@ bool BuildRayLib(void) {
         }
     }
 
+    if (nob_needs_rebuild1(INC_DIR "raylib.h", RAYLIB_SRC_PATH "raylib.h") > 0) {
+        if (!nob_copy_file(RAYLIB_SRC_PATH "raylib.h", INC_DIR "raylib.h")) {
+            nob_return_defer(false);
+        }
+    }
+
+    if (nob_needs_rebuild1(INC_DIR "raymath.h", RAYLIB_SRC_PATH "raymath.h") > 0) {
+        if (!nob_copy_file(RAYLIB_SRC_PATH "raymath.h", INC_DIR "raymath.h")) {
+            nob_return_defer(false);
+        }
+    }
+
+    if (nob_needs_rebuild1(INC_DIR "rlgl.h", RAYLIB_SRC_PATH "rlgl.h") > 0) {
+        if (!nob_copy_file(RAYLIB_SRC_PATH "rlgl.h", INC_DIR "rlgl.h")) {
+            nob_return_defer(false);
+        }
+    }
+
 defer:
     nob_temp_rewind(checkpoint);
     return result;
@@ -892,7 +910,7 @@ bool CompileSourceFiles(void) {
     const char *rc_input = "resource.rc";
     const char *manifest = "manifest.xml";
     if (nob_file_exists(rc_input) > 0 && nob_file_exists(manifest) > 0) {
-        const char *resource = BLD_DIR "resource_"CPL".res";
+        const char *resource = BLD_DIR "resource_" CPL ".res";
         const char *inputs[] = {rc_input, manifest};
 
         if (nob_needs_rebuild(resource, inputs, 2) != 0) {
