@@ -30,20 +30,20 @@ void loadConfig(app_t *app) {
         app->nes.controller.ButtonStart  = rini_get_config_value_fallback(cfg, CTRL_BT_START,  app->nes.controller.ButtonStart);
         app->nes.controller.ButtonSelect = rini_get_config_value_fallback(cfg, CTRL_BT_SELECT, app->nes.controller.ButtonSelect);
 
-        VARLOG(app->config.activeTheme,    "%u");
-        VARLOG(app->config.fastForwardKey, "%u");
-        VARLOG(app->config.pauseKey,       "%u");
+        VARLOG(app->config.activeTheme,    "%" PRId32);
+        VARLOG(app->config.fastForwardKey, "%" PRIu16);
+        VARLOG(app->config.pauseKey,       "%" PRIu16);
 
-        VARLOG(app->nes.controller.ButtonUp,    "%u");
-        VARLOG(app->nes.controller.ButtonDown,  "%u");
-        VARLOG(app->nes.controller.ButtonLeft,  "%u");
-        VARLOG(app->nes.controller.ButtonRight, "%u");
+        VARLOG(app->nes.controller.ButtonUp,    "%" PRIu16);
+        VARLOG(app->nes.controller.ButtonDown,  "%" PRIu16);
+        VARLOG(app->nes.controller.ButtonLeft,  "%" PRIu16);
+        VARLOG(app->nes.controller.ButtonRight, "%" PRIu16);
 
-        VARLOG(app->nes.controller.ButtonA, "%u");
-        VARLOG(app->nes.controller.ButtonB, "%u");
+        VARLOG(app->nes.controller.ButtonA, "%" PRIu16);
+        VARLOG(app->nes.controller.ButtonB, "%" PRIu16);
 
-        VARLOG(app->nes.controller.ButtonStart,  "%u");
-        VARLOG(app->nes.controller.ButtonSelect, "%u");
+        VARLOG(app->nes.controller.ButtonStart,  "%" PRIu16);
+        VARLOG(app->nes.controller.ButtonSelect, "%" PRIu16);
         // clang-format on
 
         rini_unload_config(&cfg);

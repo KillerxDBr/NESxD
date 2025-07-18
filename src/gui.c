@@ -28,7 +28,8 @@ void updateTheme(app_t *app) {
 void KxDGui(app_t *app) {
     if (GuiButton(CLITERAL(Rectangle){10, 10 + MENU_BAR_SIZE, 100, 20}, "Press Me!!!")) {
         app->config.activeTheme = (app->config.activeTheme + 1) % KXD_ARRAY_LEN(themeNames);
-        LOG_INF("Theme changed to \"%s\" (%u)", themeNames[app->config.activeTheme], app->config.activeTheme + 1);
+        LOG_INF("Theme changed to \"%s\" (%" PRId32 ")", themeNames[app->config.activeTheme],
+                app->config.activeTheme + 1);
         updateTheme(app);
     }
 
@@ -37,7 +38,7 @@ void KxDGui(app_t *app) {
     const float FontSize  = font.baseSize;
     const int textSpacing = GuiGetStyle(DEFAULT, TEXT_SPACING);
     const char *themeText =
-        TextFormat("Active Theme: %s (%u)", themeNames[app->config.activeTheme], app->config.activeTheme + 1);
+        TextFormat("Active Theme: %s (%" PRId32 ")", themeNames[app->config.activeTheme], app->config.activeTheme + 1);
 
     const Vector2 textSize = MeasureTextEx(font, themeText, FontSize, textSpacing);
 

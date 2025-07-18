@@ -3,12 +3,13 @@
 #define KXD_DEBUG_H
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define HEX8  "0x%02X"
-#define HEX16 "0x%04X"
+#define HEX8  "0x%02" PRIX8
+#define HEX16 "0x%04" PRIX16
 
 #define XSTR(A) #A
 #define STR(A)  XSTR(A)

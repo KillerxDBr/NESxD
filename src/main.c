@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
 
     WVResp winVer = GetWindowsVersion();
     if (winVer >= WIN_10) {
-        LOG_INF("Enabling buffer on console std outputs");
+        TraceLog(LOG_INFO, "Enabling buffer on console std outputs");
 
 #define IOBUFFSZ 1024
         // on Windows 10+ we need buffering or console will get 1 byte at a time (screwing up utf-8 encoding)
@@ -116,8 +116,8 @@ int main(int argc, char **argv) {
 
     app->screenW = GetRenderWidth();
     app->screenH = GetRenderHeight();
-    LOG_INF("Screen Width:  %u", app->screenW);
-    LOG_INF("Screen Heigth: %u", app->screenH);
+    LOG_INF("Screen Width:  %" PRIu16, app->screenW);
+    LOG_INF("Screen Heigth: %" PRIu16, app->screenH);
 
 #ifdef _WIN32
     KxD_Create_Tray(GetWindowHandle());
@@ -141,7 +141,8 @@ int main(int argc, char **argv) {
 
     app->sourceRec =
         CLITERAL(Rectangle){0.0f, 0.0f, (float)app->screen.texture.width, -(float)app->screen.texture.height};
-    app->destRec = CLITERAL(Rectangle){0.0f, MENU_BAR_SIZE, app->screenW, app->screenH - MENU_BAR_SIZE};
+    app->destRec =
+        CLITERAL(Rectangle){0.0f, (float)MENU_BAR_SIZE, (float)app->screenW, (float)app->screenH - MENU_BAR_SIZE};
 
     /*
     if (app->screenW >= app->screenH * NES_AR) {
@@ -440,7 +441,7 @@ void mainLoop(void *app_ptr) {
 
             app->screenW = GetRenderWidth();
             app->screenH = GetRenderHeight();
-            LOG_INF("New Size: " V2_CFMT("%u"), app->screenW, app->screenH);
+            LOG_INF("New Size: " V2_CFMT("%" PRIu16), app->screenW, app->screenH);
             calcScreenPos(app);
             LOG_INF("app->destRec: " RECT_FMT, RECT_ARGS(app->destRec));
         }
@@ -606,7 +607,7 @@ void calcScreenPos(app_t *app) {
 void loadIconFile(void) {
     Image img = {};
 
-    img.data   = icoImg;
+    img.data   = (void *)icoImg;
     img.width  = icoWid;
     img.height = icoHei;
     img.format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;

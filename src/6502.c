@@ -4,7 +4,7 @@ void processInstruction(cpu_t *cpu) {
     uint16_t value16;
     uint8_t value8, oldValue;
 #ifdef KXD_DEBUG
-    uint16_t oldPC = cpu->PC;
+    const uint16_t oldPC = cpu->PC;
 #endif
     switch ((KxD_Instructions)cpu->mem[cpu->PC]) { // casting for "-Wswitch-enum" Warnings
     case INS_BRK:
@@ -429,12 +429,12 @@ void processInstruction(cpu_t *cpu) {
         break;
 
     case INS_JMP_A:
-        value8  = incrementPC(cpu);
+        value8  = incrementPC(cpu) & 0xFF;
         cpu->PC = cpu->mem[value8] + (cpu->mem[(value8 + 1) % 256] << 8);
         break;
 
     case INS_JMP_I:
-        value8  = incrementPC(cpu);
+        value8  = incrementPC(cpu) & 0xFF;
         value16 = (cpu->mem[value8] + (cpu->mem[(value8 + 1) % 256] << 8)) % 65536;
         cpu->PC = cpu->mem[value16] + (cpu->mem[(value16 + 1) % 65536] << 8);
         break;
@@ -450,13 +450,9 @@ void processInstruction(cpu_t *cpu) {
     }
 #ifdef KXD_DEBUG
     debugCPU(cpu);
-    LOG_INF("Cycles used in execution: %u", cpu->PC - oldPC);
+    LOG_INF("Cycles used in execution: %" PRIu16, cpu->PC - oldPC);
     LOG_INF("------------------------------------------------");
 #endif
-
-    (void)value16;
-    (void)value8;
-    (void)oldValue;
 }
 
 void debugCPU(cpu_t *cpu) {
@@ -475,7 +471,7 @@ void debugCPU(cpu_t *cpu) {
     BOOLLOG(cpu->V);
     BOOLLOG(cpu->N);
     LOG_INF("Memory==================");
-    VARLOG(cpu->mem[cpu->PC], "0x%02X");
+    VARLOG(cpu->mem[cpu->PC], HEX8);
 }
 
 void pushToStack(cpu_t *cpu) {
