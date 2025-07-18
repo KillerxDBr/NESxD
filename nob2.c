@@ -154,11 +154,7 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    NOB_GO_REBUILD_URSELF_PLUS(argc, argv,               //
-                               nob_header_path,          //
-                               "build_src/nob_imgui.c",  //
-                               "build_src/nob_raylib.c", //
-                               "build_src/shared.h");    //
+    NOB_GO_REBUILD_URSELF_PLUS(argc, argv, nob_header_path, "build_src/shared.h");
 
     NOB_ASSERT(NOB_ARRAY_LEN(files) == NOB_ARRAY_LEN(filesFlags));
 
