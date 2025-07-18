@@ -1101,13 +1101,27 @@ RLAPI void TakeScreenshot(const char *fileName);                  // Takes a scr
 RLAPI void SetConfigFlags(unsigned int flags);                    // Setup init configuration flags (view FLAGS)
 RLAPI void OpenURL(const char *url);                              // Open URL with default system browser (if available)
 
+#if defined(__GNUC__) || defined(__clang__)
+// https://gcc.gnu.org/onlinedocs/gcc-4.7.2/gcc/Function-Attributes.html
+#ifdef __MINGW_PRINTF_FORMAT
+#define KXD_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)                                                                \
+    __attribute__((format(__MINGW_PRINTF_FORMAT, STRING_INDEX, FIRST_TO_CHECK)))
+#else
+#define KXD_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK) __attribute__((format(printf, STRING_INDEX, FIRST_TO_CHECK)))
+#endif
+#else
+// TODO: implement KXD_PRINTF_FORMAT for MSVC
+#define KXD_PRINTF_FORMAT(...)
+#endif
+
 // NOTE: Following functions implemented in module [utils]
 //------------------------------------------------------------------
-RLAPI void TraceLog(int logLevel, const char *text, ...);         // Show trace log messages (LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR...)
-RLAPI void SetTraceLogLevel(int logLevel);                        // Set the current threshold (minimum) log level
-RLAPI void *MemAlloc(unsigned int size);                          // Internal memory allocator
-RLAPI void *MemRealloc(void *ptr, unsigned int size);             // Internal memory reallocator
-RLAPI void MemFree(void *ptr);                                    // Internal memory free
+RLAPI void TraceLog(int logLevel, const char *text, ...) KXD_PRINTF_FORMAT(2, 3);   // Show trace log messages (LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR...)
+RLAPI void SetTraceLogLevel(int logLevel);                                          // Set the current threshold (minimum) log level
+RLAPI int GetTraceLogLevel(void);
+RLAPI void *MemAlloc(unsigned int size);                                            // Internal memory allocator
+RLAPI void *MemRealloc(void *ptr, unsigned int size);                               // Internal memory reallocator
+RLAPI void MemFree(void *ptr);                                                      // Internal memory free
 
 // Set custom callbacks
 // WARNING: Callbacks setup is intended for advanced users
