@@ -892,7 +892,7 @@ bool CompileSourceFiles(void) {
     const char *rc_input = "resource.rc";
     const char *manifest = "manifest.xml";
     if (nob_file_exists(rc_input) > 0 && nob_file_exists(manifest) > 0) {
-        const char *resource = BLD_DIR "resource.res";
+        const char *resource = BLD_DIR "resource_"CPL".res";
         const char *inputs[] = {rc_input, manifest};
 
         if (nob_needs_rebuild(resource, inputs, 2) != 0) {
@@ -901,7 +901,6 @@ bool CompileSourceFiles(void) {
                 nob_cmd_append(&cmd, CCACHE);
 
             nob_res(&cmd, rc_input, resource);
-            nob_cmd_append(&cmd, DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE");
 
             if (!nob_cmd_run_sync_and_reset(&cmd))
                 nob_return_defer(false);

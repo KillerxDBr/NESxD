@@ -18,7 +18,7 @@
 #define nob_cc_flags(cmd) nob_cmd_append(cmd, "-O0", "-ggdb", "-Wall", "-Wextra")
 #endif // RELEASE
 #define CPL                         "gcc"
-#define nob_res(cmd, input, output) nob_cmd_append(cmd, "windres", "-i", (input), "-o", (output))
+#define nob_res(cmd, input, output) nob_cmd_append(cmd, "windres", "-i", (input), "-o", (output), DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE")
 #elif defined(__clang__)
 #define nob_cc(cmd)  nob_cmd_append(cmd, "clang")
 #define nob_cxx(cmd) nob_cmd_append(cmd, "clang++")
@@ -28,7 +28,7 @@
 #define nob_cc_flags(cmd) nob_cmd_append(cmd, "-O0", "-ggdb", "-Wall", "-Wextra")
 #endif // RELEASE
 #define CPL                         "clang"
-#define nob_res(cmd, input, output) nob_cmd_append(cmd, "llvm-rc", (input), "/FO", (output))
+#define nob_res(cmd, input, output) nob_cmd_append(cmd, "llvm-rc", "/FO", (output), DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE",  (input))
 #elif defined(_MSC_VER)
 #define nob_cc(cmd)  nob_cmd_append(cmd, "cl")
 #define nob_cxx(cmd) nob_cmd_append(cmd, "cl")
@@ -38,7 +38,7 @@
 #define nob_cc_flags(cmd) nob_cmd_append(cmd, "/W4", "/Od", "/nologo", "/utf-8")
 #endif // RELEASE
 #define CPL                         "msvc"
-#define nob_res(cmd, input, output) nob_cmd_append(cmd, "rc", (input), "/FO", (output), "/nologo")
+#define nob_res(cmd, input, output) nob_cmd_append(cmd, "rc", "/FO", (output), DEF_FLAG "UNICODE", DEF_FLAG "_UNICODE", "/nologo", (input))
 #else
 #define nob_cc(cmd)  nob_cmd_append(cmd, "cc")
 #define nob_cxx(cmd) nob_cmd_append(cmd, "c++")
